@@ -28,7 +28,7 @@ while true; do
         shift
         SETUP=true
         TARGET=$1
-        if [ -z "$TARGET" ]; then
+        if [ "$TARGET" != "mips" ] && [ "$TARGET" != "rpi" ]; then
           echo "ERROR: mips or rpi target must be specified"
           exit 1
         fi

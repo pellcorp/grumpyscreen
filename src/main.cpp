@@ -78,9 +78,11 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     spdlog::debug("resolution {} x {}", width, height);
 
     lv_disp_t * disp = lv_disp_drv_register(&disp_drv);
-    lv_theme_t * th = height <= 480
-          ? lv_theme_default_init(NULL, primary, secondary, true, &lv_font_montserrat_12)
-          : lv_theme_default_init(NULL, primary, secondary, true, &lv_font_montserrat_20);
+#ifdef GUPPY_SMALL_SCREEN
+    lv_theme_t * th = lv_theme_default_init(NULL, primary, secondary, true, &lv_font_montserrat_12);
+#else
+    lv_theme_t * th = lv_theme_default_init(NULL, primary, secondary, true, &lv_font_montserrat_20);
+#endif
     lv_disp_set_theme(disp, th);
 
     evdev_init();
