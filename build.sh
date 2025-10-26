@@ -14,9 +14,6 @@ function docker_make() {
     if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
         target_arg="GUPPY_SMALL_SCREEN=true GUPPY_CALIBRATE=true"
     fi
-    if [ "$TARGET" = "mips" ]; then
-        target_arg+=" GUPPY_FACTORY_RESET=true"
-    fi
 
     echo "Target Arguments: $target_arg"
     docker run -ti -v $PWD:$PWD pellcorp/guppydev /bin/bash -c "cd $PWD && GUPPYSCREEN_VERSION=$GIT_REVISION GUPPYSCREEN_BRANCH=$GIT_BRANCH $target_arg CROSS_COMPILE=$CROSS_COMPILE make $@"
@@ -104,7 +101,10 @@ else
           cp guppyscreen.json /tmp
           sed -i 's/"display_rotate": 3/"display_rotate": 0/g' /tmp/guppyscreen.json
           sed -i '/S58factoryreset/d' /tmp/guppyscreen.json
-          sed -i 's:/usr/data/printer_data/thumbnails:/home/pi/printer_data/thumbnails:g' /tmp/guppyscreen.json
+          # rpi does not have switch to stock
+          sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' /tmp/guppyscreen.json
+          # for now no support command for rpi either
+          sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/guppyscreen.json
           sshpass -p 'raspberry' scp /tmp/guppyscreen.json pi@$PRINTER_IP:/tmp/
           sshpass -p 'raspberry' ssh pi@$PRINTER_IP "mv /tmp/guppyscreen /home/pi/guppyscreen/"
           sshpass -p 'raspberry' ssh pi@$PRINTER_IP "mv /tmp/guppyscreen.json /home/pi/guppyscreen/"

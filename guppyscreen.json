@@ -95,6 +95,7 @@
     "moonraker_port": 7125,
     "prompt_emergency_stop": true,
     "switch_to_stock_cmd": "/usr/data/pellcorp/k1/switch-to-stock.sh",
+    "support_zip_cmd": "/usr/data/pellcorp/tools/support.sh",
     "theme": "blue",
     "wpa_supplicant": "/var/run/wpa_supplicant"
 }
