@@ -23,14 +23,11 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
   lv_obj_set_size(btn_cont, 150 * width_scale, LV_SIZE_CONTENT);
 
   lv_obj_clear_flag(btn_cont, LV_OBJ_FLAG_SCROLLABLE);
-  // lv_obj_add_style(btn_cont, &style, LV_PART_MAIN);
   lv_imgbtn_set_src(btn, LV_IMGBTN_STATE_RELEASED, NULL, btn_img, NULL);
   lv_obj_set_width(btn, LV_SIZE_CONTENT);
-  // lv_obj_align(btn, LV_ALIGN_CENTER, 0, 0);
   lv_obj_align(btn, LV_ALIGN_TOP_MID, 0, 0);
 
   lv_obj_add_flag(btn, LV_OBJ_FLAG_EVENT_BUBBLE);
-  // lv_obj_add_flag(btn_cont, LV_OBJ_FLAG_EVENT_BUBBLE);
 
   Config *conf = Config::get_instance();
   const bool prompt_emergency_stop = conf->get<bool>("/prompt_emergency_stop");
@@ -63,8 +60,6 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
   lv_obj_set_style_text_color(label, lv_palette_darken(LV_PALETTE_GREY, 1), LV_STATE_DISABLED);
 
   lv_obj_align_to(label, btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
-  // lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, 5);
-  // lv_obj_set_style_border_width(btn_cont, 2, 0);
 }
 
 ButtonContainer::~ButtonContainer() {
@@ -114,10 +109,10 @@ void ButtonContainer::handle_prompt() {
 
   lv_obj_t *mbox1 = lv_msgbox_create(NULL, NULL, prompt_text.c_str(), (force_prompt ? force_btns : btns), false);
   lv_obj_t *msg = ((lv_msgbox_t*)mbox1)->text;
-  lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, 0);  
+  lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_width(msg, LV_PCT(100));
   lv_obj_center(msg);
-  
+
   lv_obj_t *btnm = lv_msgbox_get_btns(mbox1);
   lv_btnmatrix_set_btn_ctrl(btnm, 0, LV_BTNMATRIX_CTRL_CHECKED);
   lv_btnmatrix_set_btn_ctrl(btnm, 1, LV_BTNMATRIX_CTRL_CHECKED);

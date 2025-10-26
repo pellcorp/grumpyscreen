@@ -5,6 +5,7 @@
 #include "spdlog/spdlog.h"
 #include "guppyscreen.h"
 #include "subprocess.hpp"
+#include "simple_dialog.h"
 
 #include <algorithm>
 #include <iterator>
@@ -240,8 +241,10 @@ void SysInfoPanel::handle_callback(lv_event_t *e) {
       auto support_zip_cmd = conf->get<std::string>("/support_zip_cmd");
       if (support_zip_cmd != "") {
         auto ret = sp::call(support_zip_cmd);
-        if (ret != 0) {
-          spdlog::warn("Failed to run support zip.");
+        if (ret == 0) {
+          create_simple_dialog(lv_scr_act(), "Support ZIP Success", "The support.zip can be found in the config directory!", true);
+        } else {
+          create_simple_dialog(lv_scr_act(), "Support ZIP Failed", "Failed to generate a support zip!", true);
         }
       }
     }

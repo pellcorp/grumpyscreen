@@ -2,6 +2,7 @@
 #include "config.h"
 #include "spdlog/spdlog.h"
 #include "subprocess.hpp"
+#include "simple_dialog.h"
 
 #include <experimental/filesystem>
 
@@ -33,20 +34,21 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
               Config *conf = Config::get_instance();
               auto switch_to_stock_cmd = conf->get<std::string>("/switch_to_stock_cmd");
               auto ret = sp::call(switch_to_stock_cmd);
-              if (ret != 0) {
-                spdlog::warn("Failed to initiate switch to stock.");
+              if (ret == 0) {
+                create_simple_dialog(lv_scr_act(), "Switch to Stock Initiated", "Please power cycle your printer!", false);
+              } else {
+                create_simple_dialog(lv_scr_act(), "Switch to Stock Failed", "Failed to initiate switch to stock!", true);
               }
             },
             true)
   , factory_reset_btn(cont, &emergency, "Factory\nReset", &SettingPanel::_handle_callback, this,
     		  "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to execute an emergency factory reset?\n\nThis will reset the printer to stock creality firmware!",
           [](){
-            spdlog::info("emergency factory reset pressed");
             Config *conf = Config::get_instance();
             auto factory_reset_cmd = conf->get<std::string>("/factory_reset_cmd");
             auto ret = sp::call(factory_reset_cmd);
             if (ret != 0) {
-              spdlog::warn("Failed to initiate factory reset.");
+              create_simple_dialog(lv_scr_act(), "Factory Reset Failed", "Failed to initiate factory reset.", true);
             }
           },
           true)
@@ -105,21 +107,21 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       spdlog::trace("wifi pressed");
       wifi_panel.foreground();
     } else if (btn == sysinfo_btn.get_container()) {
-      spdlog::trace("setting system info pressed");
+      spdlog::trace("system info pressed");
       sysinfo_panel.foreground();
     } else if (btn == restart_klipper_btn.get_container()) {
-      spdlog::trace("setting restart klipper pressed");
+      spdlog::trace("restart klipper pressed");
       ws.send_jsonrpc("printer.restart");
     } else if (btn == restart_firmware_btn.get_container()) {
-      spdlog::trace("setting restart klipper pressed");
+      spdlog::trace("restart klipper pressed");
       ws.send_jsonrpc("printer.firmware_restart");
     } else if (btn == guppy_restart_btn.get_container()) {
-      spdlog::trace("restart guppy pressed");
+      spdlog::trace("restart grumpy pressed");
       Config *conf = Config::get_instance();
       auto restart_command = conf->get<std::string>("/guppy_restart_cmd");
       auto ret = sp::call(restart_command);
       if (ret != 0) {
-        spdlog::warn("Failed to restart Grumpy Screen.");
+        create_simple_dialog(lv_scr_act(), "Restart GrumpyScreen Failed", "Failed to restart GrumpyScreen!", true);
       }
     } else if (btn == guppy_update_btn.get_container()) {
       spdlog::trace("update guppy pressed");
@@ -127,7 +129,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       auto update_script = conf->get<std::string>("/guppy_update_cmd");
       auto ret = sp::call(update_script);
       if (ret != 0) {
-        spdlog::warn("Failed to update Grumpy Screen.");
+        create_simple_dialog(lv_scr_act(), "Update GrumpyScreen Failed", "Failed to update GrumpyScreen!", true);
       }
     }
   }
