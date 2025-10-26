@@ -43,6 +43,7 @@ class SysInfoPanel {
   lv_obj_t *theme_dd;
   uint32_t theme;
 
+  ButtonContainer support_zip_btn;
   ButtonContainer back_btn;
 
   static std::vector<std::string> log_levels;

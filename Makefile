@@ -54,10 +54,6 @@ endif
 
 CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/$(ASSET_DIR)/*.c)
 
-ifdef GUPPY_FACTORY_RESET
-DEFINES			+= -D GUPPY_FACTORY_RESET="\"true\""
-endif
-
 ifdef GUPPYSCREEN_VERSION
 DEFINES			+= -D GUPPYSCREEN_VERSION="\"${GUPPYSCREEN_VERSION}\""
 else

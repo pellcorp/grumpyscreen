@@ -28,5 +28,7 @@ elif [ "$ASSET_NAME" = "guppyscreen-rpi" ]; then
   sed -i 's:/etc/init.d/S58factoryreset::g' $RELEASES_DIR/guppyscreen.json
   # rpi does not have switch to stock
   sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' $RELEASES_DIR/guppyscreen.json
+  # for now no support command for rpi either
+  sed -i 's:/usr/data/pellcorp/tools/support.sh::g' $RELEASES_DIR/guppyscreen.json
 fi
 tar czf $ASSET_NAME.tar.gz -C releases .

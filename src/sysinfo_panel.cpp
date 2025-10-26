@@ -4,6 +4,7 @@
 #include "theme.h"
 #include "spdlog/spdlog.h"
 #include "guppyscreen.h"
+#include "subprocess.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -12,8 +13,10 @@
 #include <experimental/filesystem>
 
 namespace fs = std::experimental::filesystem;
+namespace sp = subprocess;
 
 LV_IMG_DECLARE(back);
+LV_IMG_DECLARE(emergency);
 
 std::vector<std::string> SysInfoPanel::log_levels = {
   "trace",
@@ -76,6 +79,7 @@ SysInfoPanel::SysInfoPanel()
   , theme_dd(lv_dropdown_create(theme_cont))
   , theme(0)
 
+  , support_zip_btn(cont, &emergency, "Support ZIP", &SysInfoPanel::_handle_callback, this)
   , back_btn(cont, &back, "Back", &SysInfoPanel::_handle_callback, this)
 {
   lv_obj_move_background(cont);
@@ -191,6 +195,13 @@ SysInfoPanel::SysInfoPanel()
   }
 
   lv_obj_add_event_cb(theme_dd, &SysInfoPanel::_handle_callback, LV_EVENT_VALUE_CHANGED, this);
+
+  lv_obj_add_flag(support_zip_btn.get_container(), LV_OBJ_FLAG_FLOATING);
+  lv_obj_align(support_zip_btn.get_container(), LV_ALIGN_BOTTOM_LEFT, 0, 0);
+  auto support_zip_cmd = conf->get<std::string>("/support_zip_cmd");
+  if (support_zip_cmd == "") {
+    support_zip_btn.disable();
+  }
   lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);
   lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, 0);
 }
@@ -224,6 +235,15 @@ void SysInfoPanel::handle_callback(lv_event_t *e) {
 
     if (btn == back_btn.get_container()) {
       lv_obj_move_background(cont);
+    } else if (btn == support_zip_btn.get_container()) {
+      Config *conf = Config::get_instance();
+      auto support_zip_cmd = conf->get<std::string>("/support_zip_cmd");
+      if (support_zip_cmd != "") {
+        auto ret = sp::call(support_zip_cmd);
+        if (ret != 0) {
+          spdlog::warn("Failed to run support zip.");
+        }
+      }
     }
   } else if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
     lv_obj_t *obj = lv_event_get_target(e);
