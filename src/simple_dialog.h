@@ -62,7 +62,7 @@ static inline lv_obj_t * create_simple_dialog(lv_obj_t * parent, const char * ti
     if (closable) {
         lv_obj_set_size(mbox, LV_PCT(95), LV_PCT(50));
     } else {
-        lv_obj_set_size(mbox, LV_PCT(95), LV_PCT(25));
+        lv_obj_set_size(mbox, LV_PCT(95), LV_PCT(35));
     }
     lv_obj_set_style_text_font(mbox, &lv_font_montserrat_16, LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(title_label, &lv_font_montserrat_18, 0);

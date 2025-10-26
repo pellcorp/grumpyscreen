@@ -47,7 +47,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
             Config *conf = Config::get_instance();
             auto factory_reset_cmd = conf->get<std::string>("/factory_reset_cmd");
             auto ret = sp::call(factory_reset_cmd);
-            if (ret != 0) {
+            if (ret == 0) {
+              create_simple_dialog(lv_scr_act(), "Factory Reset Initiated", "Your printer will restart shortly!\nPlease wait for the stock screen to appear!", false);
+            } else {
               create_simple_dialog(lv_scr_act(), "Factory Reset Failed", "Failed to initiate factory reset.", true);
             }
           },
