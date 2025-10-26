@@ -16,7 +16,7 @@ namespace fs = std::experimental::filesystem;
 namespace sp = subprocess;
 
 LV_IMG_DECLARE(back);
-LV_IMG_DECLARE(emergency);
+LV_IMG_DECLARE(sd_img);
 
 std::vector<std::string> SysInfoPanel::log_levels = {
   "trace",
@@ -79,7 +79,7 @@ SysInfoPanel::SysInfoPanel()
   , theme_dd(lv_dropdown_create(theme_cont))
   , theme(0)
 
-  , support_zip_btn(cont, &emergency, "Support ZIP", &SysInfoPanel::_handle_callback, this)
+  , support_zip_btn(cont, &sd_img, "Support ZIP", &SysInfoPanel::_handle_callback, this)
   , back_btn(cont, &back, "Back", &SysInfoPanel::_handle_callback, this)
 {
   lv_obj_move_background(cont);
