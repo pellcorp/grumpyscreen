@@ -29,7 +29,10 @@ int main(void) {
     Config *conf = Config::get_instance();
     auto config_path = fs::canonical("/proc/self/exe").parent_path() / "guppyscreen.json";
     if (fs::exists(config_path)) {
-      conf->init(config_path.string());
+      if (!conf->load(config_path.string())) {
+          LOG_ERROR("Failed to load {}", config_path.string());
+          return 1;
+      }
     } else {
       LOG_ERROR("Config file {} not found", config_path.string());
       return 1;
