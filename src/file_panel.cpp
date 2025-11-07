@@ -2,7 +2,7 @@
 #include "config.h"
 #include "state.h"
 #include "utils.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <ctime>
 #include <iomanip>

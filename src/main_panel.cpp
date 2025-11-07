@@ -1,7 +1,7 @@
 #include "main_panel.h"
 #include "state.h"
 #include "lvgl/lvgl.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <string>
 
@@ -52,7 +52,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , emergency_btn(main_cont, &emergency, "Stop", &MainPanel::_handle_emergency_cb, this,
   		  "Do you want to emergency stop?",
   		  [&websocket]() {
-  		    spdlog::debug("emergency stop pressed");
+  		    LOG_DEBUG("emergency stop pressed");
   		    websocket.send_jsonrpc("printer.emergency_stop");
   		  })
 {
@@ -75,7 +75,7 @@ MainPanel::~MainPanel() {
 }
 
 void MainPanel::subscribe() {
-  spdlog::trace("main panel subscribing");
+  LOG_TRACE("main panel subscribing");
   print_panel.subscribe();
 }
 
@@ -155,42 +155,42 @@ void MainPanel::create_panel() {
 
 void MainPanel::handle_homing_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-    spdlog::trace("clicked homing");
+    LOG_TRACE("clicked homing");
     homing_panel.foreground();
   }
 }
 
 void MainPanel::handle_extrude_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-    spdlog::trace("clicked extruder");
+    LOG_TRACE("clicked extruder");
     extruder_panel.foreground();
   }
 }
 
 void MainPanel::handle_fanpanel_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-    spdlog::trace("clicked fan panel");
+    LOG_TRACE("clicked fan panel");
     fan_panel.foreground();
   }
 }
 
 void MainPanel::handle_ledpanel_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-    spdlog::trace("clicked led panel");
+    LOG_TRACE("clicked led panel");
     led_panel.foreground();
   }
 }
 
 void MainPanel::handle_print_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-    spdlog::trace("clicked print");
+    LOG_TRACE("clicked print");
     print_panel.foreground();
   }
 }
 
 void MainPanel::handle_emergency_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-    spdlog::trace("clicked emergency");
+    LOG_TRACE("clicked emergency");
   }
 }
 

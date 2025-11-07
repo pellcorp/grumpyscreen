@@ -2,7 +2,7 @@
 #include "utils.h"
 #include "state.h"
 #include "config.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -34,7 +34,7 @@ InitPanel::~InitPanel() {
 }
 
 void InitPanel::connected(KWebSocketClient &ws) {
-  spdlog::debug("init panel connected");
+  LOG_DEBUG("init panel connected");
   State *state = State::get_instance();
   state->reset();
 
@@ -52,7 +52,7 @@ void InitPanel::connected(KWebSocketClient &ws) {
 
     // spoolman
     ws.send_jsonrpc("server.info", [this](json &j) {
-      spdlog::debug("server_info {}", j.dump());
+      LOG_DEBUG("server_info {}", j.dump());
       State::get_instance()->set_data("server_info", j, "/result");
 
       auto &components = j["/result/components"_json_pointer];
@@ -85,11 +85,11 @@ void InitPanel::connected(KWebSocketClient &ws) {
       }
 
       json subs = {{ "objects", sub_objs }};
-      spdlog::debug("subscribing to {}", subs.dump());
+      LOG_DEBUG("subscribing to {}", subs.dump());
       ws.send_jsonrpc("printer.objects.subscribe", subs, [this](json &data) {
         State::get_instance()->set_data("printer_state", data, "/result/status");
         this->main_panel.init(data);
-        spdlog::debug("done init");
+        LOG_DEBUG("done init");
         std::lock_guard<std::mutex> lock(this->lv_lock);
         lv_obj_add_flag(this->cont, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_background(this->cont);
@@ -99,7 +99,7 @@ void InitPanel::connected(KWebSocketClient &ws) {
 }
 
 void InitPanel::disconnected(KWebSocketClient &ws) {
-  spdlog::debug("init panel disconnected");
+  LOG_DEBUG("init panel disconnected");
   set_message(LV_SYMBOL_WARNING " Waiting for printer to initialise...");
   std::lock_guard<std::mutex> lock(lv_lock);
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);

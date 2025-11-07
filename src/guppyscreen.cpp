@@ -3,9 +3,7 @@
 #include "config.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
-#include "spdlog/sinks/rotating_file_sink.h"
-#include "spdlog/sinks/stdout_sinks.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "state.h"
 #include "theme.h"
 #ifdef GUPPY_CALIBRATE
@@ -48,7 +46,8 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
   // config
   Config *conf = Config::get_instance();
-  auto ll = spdlog::level::from_str(conf->get<std::string>("/log_level"));
+  auto ll = conf->get<std::string>("/log_level");
+  set_log_level(ll);
 
   const std::string selected_theme = conf->get<std::string>("/theme");
   auto theme_config = fs::canonical(conf->get_path()).parent_path() / "themes" / (selected_theme + ".json");
@@ -58,19 +57,9 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   auto primary_color = lv_color_hex(std::stoul(theme_conf->get<std::string>("/primary_color"), nullptr, 16));
   auto secondary_color = lv_color_hex(std::stoul(theme_conf->get<std::string>("/secondary_color"), nullptr, 16));
 
-  auto console_sink = std::make_shared<spdlog::sinks::stdout_sink_mt>();
-  spdlog::sinks_init_list log_sinks{console_sink};
+  LOG_INFO("GrumpyScreen Version: {}-{}", GUPPYSCREEN_BRANCH, GUPPYSCREEN_VERSION);
 
-  auto klogger = std::make_shared<spdlog::logger>("grumpyscreen", log_sinks);
-  spdlog::register_logger(klogger);
-
-  spdlog::set_level(ll);
-  spdlog::set_default_logger(klogger);
-  klogger->flush_on(ll);
-
-  spdlog::info("GrumpyScreen Version: {}-{}", GUPPYSCREEN_BRANCH, GUPPYSCREEN_VERSION);
-
-  spdlog::info("DPI: {}", LV_DPI_DEF);
+  LOG_INFO("DPI: {}", LV_DPI_DEF);
   /*LittlevGL init*/
   lv_init();
 
@@ -113,7 +102,7 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
                                    conf->get<std::string>("/moonraker_host"),
                                    conf->get<uint32_t>("/moonraker_port"));
 
-  spdlog::info("connecting to printer at {}", ws_url);
+  LOG_INFO("connecting to printer at {}", ws_url);
   gs->connect_ws(ws_url);
 
   screen_saver = lv_obj_create(lv_scr_act());
@@ -131,12 +120,12 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
     lv_disp_load_scr(touch_calibrate_scr);
     lv_tc_screen_start(touch_calibrate_scr);
     lv_obj_add_event_cb(touch_calibrate_scr, &GuppyScreen::handle_calibrated, LV_EVENT_READY, main_screen);
-    spdlog::info("running touch calibration");
+    LOG_INFO("running touch calibration");
   } else {
     // load calibration data
     lv_tc_coeff_t coeff = {true, c[0], c[1], c[2], c[3], c[4], c[5]};
     lv_tc_set_coeff(coeff, false);
-    spdlog::info("loaded calibration coefficients");
+    LOG_INFO("loaded calibration coefficients");
   }
 #endif
   return gs;
@@ -156,15 +145,15 @@ void GuppyScreen::loop() {
     if (display_sleep != -1) {
       if (lv_disp_get_inactive_time(NULL) > display_sleep) {
         if (!is_sleeping.load()) {
-          spdlog::debug("putting display to sleeping");
+          LOG_DEBUG("putting display to sleeping");
           fbdev_blank();
           lv_obj_move_foreground(screen_saver);
-          // spdlog::debug("screen saver foreground");
+          // LOG_DEBUG("screen saver foreground");
           is_sleeping = true;
         }
       } else {
         if (is_sleeping.load()) {
-          spdlog::debug("waking up display");
+          LOG_DEBUG("waking up display");
           fbdev_unblank();
           lv_obj_move_background(screen_saver);
           is_sleeping = false;
@@ -202,7 +191,7 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
 
 #ifdef GUPPY_CALIBRATE
 void GuppyScreen::handle_calibrated(lv_event_t *event) {
-  spdlog::info("finished calibration");
+  LOG_INFO("finished calibration");
   lv_obj_t *main_screen = (lv_obj_t *)event->user_data;
   lv_disp_load_scr(main_screen);
 }

@@ -1,6 +1,6 @@
 #include "finetune_panel.h"
 #include "state.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "config.h"
 
 #include <algorithm>
@@ -175,7 +175,7 @@ void FineTunePanel::consume(json &j) {
 }
 
 void FineTunePanel::handle_callback(lv_event_t *e) {
-  spdlog::trace("fine tune btn callback");
+  LOG_TRACE("fine tune btn callback");
   if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
     lv_obj_t *selector = lv_event_get_target(e);
     uint32_t idx = lv_btnmatrix_get_selected_btn(selector);
@@ -202,12 +202,12 @@ void FineTunePanel::handle_zoffset(lv_event_t *e) {
     lv_obj_t *btn = lv_event_get_current_target(e);
 
     if (btn == zreset_btn.get_container()) {
-      spdlog::trace("clicked zoffset reset");
+      LOG_TRACE("clicked zoffset reset");
       ws.gcode_script("SET_GCODE_OFFSET Z=0 MOVE=1");
     } else {
       const char * step = lv_btnmatrix_get_btn_text(zoffset_selector.get_selector(),
 						    zoffset_selector.get_selected_idx());
-      spdlog::trace("clicked z {}", step);
+      LOG_TRACE("clicked z {}", step);
       ws.gcode_script(fmt::format("SET_GCODE_OFFSET Z_ADJUST={}{} MOVE=1",
 				  btn == zup_btn.get_container() ? "+" : "-",
 				  step));
@@ -220,7 +220,7 @@ void FineTunePanel::handle_pa(lv_event_t *e) {
     lv_obj_t *btn = lv_event_get_current_target(e);
 
     if (btn == pareset_btn.get_container()) {
-      spdlog::trace("clicked pa reset");
+      LOG_TRACE("clicked pa reset");
       auto v = State::get_instance()->get_data(
 		     "/printer_state/configfile/settings/extruder/pressure_advance"_json_pointer);
       if (!v.is_null()) {
@@ -243,7 +243,7 @@ void FineTunePanel::handle_speed(lv_event_t *e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
     lv_obj_t *btn = lv_event_get_current_target(e);
     if (btn == speed_reset_btn.get_container()) {
-      spdlog::trace("speed reset");
+      LOG_TRACE("speed reset");
       ws.gcode_script("M220 S100");
     } else {
       auto spd_factor = State::get_instance()->get_data("/printer_state/gcode_move/speed_factor"_json_pointer);
@@ -254,7 +254,7 @@ void FineTunePanel::handle_speed(lv_event_t *e) {
         int32_t direction = btn == speed_up_btn.get_container() ? std::stoi(step) : -std::stoi(step);
         int32_t new_speed = static_cast<int32_t>(spd_factor.template get<double>() * 100 + direction);
         new_speed = std::max(new_speed, 1);
-        spdlog::trace("speed step {}, {}", direction, new_speed);
+        LOG_TRACE("speed step {}, {}", direction, new_speed);
         ws.gcode_script(fmt::format("M220 S{}", new_speed));
       }
     }
@@ -265,7 +265,7 @@ void FineTunePanel::handle_flow(lv_event_t *e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
     lv_obj_t *btn = lv_event_get_current_target(e);
     if (btn == flow_reset_btn.get_container()) {
-      spdlog::trace("flow reset");
+      LOG_TRACE("flow reset");
       ws.gcode_script("M221 S100");
     } else {
       auto extrude_factor = State::get_instance()->get_data("/printer_state/gcode_move/extrude_factor"_json_pointer);
@@ -276,7 +276,7 @@ void FineTunePanel::handle_flow(lv_event_t *e) {
         int32_t direction = btn == flow_up_btn.get_container() ? std::stoi(step) : -std::stoi(step);
         int32_t new_flow = static_cast<int32_t>(extrude_factor.template get<double>() * 100 + direction);
         new_flow = std::max(new_flow, 1);
-        spdlog::trace("flow step {}, {}", direction, new_flow);
+        LOG_TRACE("flow step {}, {}", direction, new_flow);
         ws.gcode_script(fmt::format("M221 S{}", new_flow));
       }
     }

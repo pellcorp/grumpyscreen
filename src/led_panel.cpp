@@ -1,7 +1,7 @@
 #include "led_panel.h"
 #include "state.h"
 #include "utils.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 LV_IMG_DECLARE(cancel);
 LV_IMG_DECLARE(light_img);
@@ -67,7 +67,7 @@ void LedPanel::init(json &l) {
   leds.clear();
   for (auto &led : l) {
     std::string key = led["id"].template get<std::string>();
-    spdlog::debug("create led {}, {}", l.dump(), led.dump());
+    LOG_DEBUG("create led {}, {}", l.dump(), led.dump());
     std::string display_name = led["display_name"].template get<std::string>();
     bool pwm = led["pwm"].is_null() ? true : led["pwm"].template get<bool>();
 
@@ -131,7 +131,7 @@ void LedPanel::handle_callback(lv_event_t *event) {
     lv_obj_move_background(ledpanel_cont);
   }
   else {
-    spdlog::debug("Unknown action button pressed");
+    LOG_DEBUG("Unknown action button pressed");
   }
 }
 
@@ -141,12 +141,13 @@ void LedPanel::handle_led_update(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_RELEASED) {
     double pct = (double)lv_slider_get_value(obj) / 100.0;
 
-    spdlog::debug("updating led brightness to {}", pct);
+    LOG_DEBUG("updating led brightness to {}", pct);
 
     for (auto &l : leds) {
       if (obj == l.second->get_slider()) {
 	      std::string led_name = KUtils::get_obj_name(l.first);
-      	spdlog::debug("update led {}", led_name);
+      	LOG_DEBUG("update led {}", led_name);
+      	// TODO - I think this double fmt:format is intentional
         ws.gcode_script(fmt::format(fmt::format("SET_PIN PIN={} VALUE={}", led_name, pct)));
         break;
       }
@@ -157,13 +158,13 @@ void LedPanel::handle_led_update(lv_event_t *event) {
     for (auto &l : leds) {
       if (obj == l.second->get_off()) {
 	      std::string led_name = KUtils::get_obj_name(l.first);
-      	spdlog::debug("turning off led {}", led_name);
+      	LOG_DEBUG("turning off led {}", led_name);
         ws.gcode_script(fmt::format("SET_PIN PIN={} VALUE=0", led_name));
         l.second->update_value(0);
         break;
       } else if (obj == l.second->get_max()) {
         std::string led_name = KUtils::get_obj_name(l.first);
-        spdlog::debug("turning led to max {}", led_name);
+        LOG_DEBUG("turning led to max {}", led_name);
         ws.gcode_script(fmt::format("SET_PIN PIN={} VALUE=1", led_name));
         l.second->update_value(100);
         break;
@@ -178,12 +179,13 @@ void LedPanel::handle_led_update_generic(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_RELEASED) {
     double pct = (double)lv_slider_get_value(obj) / 100.0;
 
-    spdlog::debug("updating led brightness to {}", pct);
+    LOG_DEBUG("updating led brightness to {}", pct);
 
     for (auto &l : leds) {
       if (obj == l.second->get_slider()) {
 	      std::string led_name = KUtils::get_obj_name(l.first);
-      	spdlog::debug("update led {}", led_name);
+      	LOG_DEBUG("update led {}", led_name);
+      	// TODO - I think this double fmt:format is intentional
         ws.gcode_script(fmt::format(fmt::format("SET_LED LED={} WHITE={}", led_name, pct)));
         break;
       }
@@ -194,13 +196,13 @@ void LedPanel::handle_led_update_generic(lv_event_t *event) {
     for (auto &l : leds) {
       if (obj == l.second->get_off()) {
 	      std::string led_name = KUtils::get_obj_name(l.first);
-      	spdlog::debug("turning off led {}", led_name);
+      	LOG_DEBUG("turning off led {}", led_name);
         ws.gcode_script(fmt::format("SET_LED LED={} WHITE=0", led_name));
         l.second->update_value(0);
         break;
       } else if (obj == l.second->get_max()) {
         std::string led_name = KUtils::get_obj_name(l.first);
-        spdlog::debug("turning led to max {}", led_name);
+        LOG_DEBUG("turning led to max {}", led_name);
         ws.gcode_script(fmt::format("SET_LED LED={} WHITE=1", led_name));
         l.second->update_value(100);
         break;

@@ -1,6 +1,6 @@
 #include "homing_panel.h"
 #include "state.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "config.h"
 
 static const float distances[] = {0.1, 0.5, 1, 5, 10, 25, 50};
@@ -31,7 +31,7 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , emergency_btn(homing_cont, &emergency, "Stop", &HomingPanel::_handle_callback, this,
 		  "Do you want to emergency stop?",
 		  [&websocket_client]() {
-		    spdlog::debug("emergency stop pressed");
+		    LOG_DEBUG("emergency stop pressed");
 		    websocket_client.send_jsonrpc("printer.emergency_stop");
 		  })
   , motoroff_btn(homing_cont, &motor_off_img, "Motors Off", &HomingPanel::_handle_callback, this)
@@ -180,39 +180,39 @@ void HomingPanel::handle_callback(lv_event_t *event) {
   std::string move_op;
 
   if (btn == home_all_btn.get_container()) {
-    spdlog::debug("home all pressed");
+    LOG_DEBUG("home all pressed");
     ws.gcode_script("G28");
   } else if (btn == home_xy_btn.get_container()) {
-    spdlog::debug("home xy pressed");
+    LOG_DEBUG("home xy pressed");
     ws.gcode_script("G28 X Y");
   } else if (btn == y_up_btn.get_container()) {
-    spdlog::debug("y up pressed");
+    LOG_DEBUG("y up pressed");
     move_op = fmt::format("G0 Y+{} F1200", distance);
   } else if (btn == y_down_btn.get_container()) {
-    spdlog::debug("y down pressed");
+    LOG_DEBUG("y down pressed");
     move_op = fmt::format("G0 Y-{} F1200", distance);
   } else if (btn == x_up_btn.get_container()) {
-    spdlog::debug("x up pressed");
+    LOG_DEBUG("x up pressed");
     move_op = fmt::format("G0 X+{} F1200", distance);
   } else if (btn == x_down_btn.get_container()) {
-    spdlog::debug("x down pressed");
+    LOG_DEBUG("x down pressed");
     move_op = fmt::format("G0 X-{} F1200", distance);
   } else if (btn == z_up_btn.get_container()) {
-    spdlog::debug("z up pressed");
+    LOG_DEBUG("z up pressed");
     move_op = fmt::format("G0 Z+{} F1200", distance);
   } else if (btn == z_down_btn.get_container()) {
-    spdlog::debug("z down pressed");
+    LOG_DEBUG("z down pressed");
     move_op = fmt::format("G0 Z-{} F1200", distance);
   } else if (btn == emergency_btn.get_container()) {
-    spdlog::debug("emergency stop pressed");
+    LOG_DEBUG("emergency stop pressed");
     ws.send_jsonrpc("printer.emergency_stop");
   } else if (btn == motoroff_btn.get_container()) {
-    spdlog::debug("motor off pressed");
+    LOG_DEBUG("motor off pressed");
     ws.gcode_script("M84");
   } else if (btn == back_btn.get_container()) {
     lv_obj_move_background(homing_cont);
   } else {
-    spdlog::debug("Unknown action button pressed");
+    LOG_DEBUG("Unknown action button pressed");
   }
 
   if (move_op.size() > 0) {
@@ -225,5 +225,5 @@ void HomingPanel::handle_selector_cb(lv_event_t *event) {
   lv_obj_t * obj = lv_event_get_target(event);
   uint32_t idx = lv_btnmatrix_get_selected_btn(obj);
   distance_selector.set_selected_idx(idx);
-  spdlog::debug("selector move distance index {}", idx);
+  LOG_DEBUG("selector move distance index {}", idx);
 }

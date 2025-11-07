@@ -1,7 +1,7 @@
 #include "state.h"
 #include "config.h"
 #include "utils.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "lvgl/lvgl.h"
 
 const uint32_t GUPPY_COLOR_SIZE = 19;
@@ -184,7 +184,7 @@ json State::get_display_sensors() {
   auto extruders = get_extruders();
   for (auto &e : extruders) {
     if (sensors_by_id.contains(e)) {
-      spdlog::debug("found user configured extruder {}", e);
+      LOG_DEBUG("found user configured extruder {}", e);
       display_sensors[e] = sensors_by_id[e];
     }
   }
@@ -192,7 +192,7 @@ json State::get_display_sensors() {
   auto heaters = get_heaters();
   for (auto &e : heaters) {
     if (sensors_by_id.contains(e)) {
-      spdlog::debug("found user configured heater {}", e);
+      LOG_DEBUG("found user configured heater {}", e);
       display_sensors[e] = sensors_by_id[e];
     }
   }
@@ -200,7 +200,7 @@ json State::get_display_sensors() {
   auto sensors = get_sensors();
   for (auto &e : sensors) {
     if (sensors_by_id.contains(e)) {
-      spdlog::debug("found user configured sensor {}", e);
+      LOG_DEBUG("found user configured sensor {}", e);
       display_sensors[e] = sensors_by_id[e];
     }
   }
@@ -221,7 +221,7 @@ json State::get_display_fans() {
   auto fans = get_fans();
   for (auto &e : fans) {
     if (fans_by_id.contains(e)) {
-      spdlog::debug("found user configured fan {}", e);
+      LOG_DEBUG("found user configured fan {}", e);
       display_fans[e] = fans_by_id[e];
     }
   }
@@ -229,7 +229,7 @@ json State::get_display_fans() {
   auto output_pins = get_output_pins();
   for (auto &e : output_pins) {
     if (fans_by_id.contains(e)) {
-      spdlog::debug("found user configured output_pin fan {}", e);
+      LOG_DEBUG("found user configured output_pin fan {}", e);
       display_fans[e] = fans_by_id[e];
     }
   }
@@ -251,7 +251,7 @@ json State::get_display_leds() {
   auto leds = get_leds();
   for (auto &e : leds) {
     if (std::find(user_led_ids.begin(), user_led_ids.end(), e) != user_led_ids.end()) {
-      spdlog::debug("found user configured led {}", e);
+      LOG_DEBUG("found user configured led {}", e);
       system_led_ids.push_back(e);
     }
   }
@@ -259,7 +259,7 @@ json State::get_display_leds() {
   auto output_pins = get_output_pins();
   for (auto &e : output_pins) {
     if (std::find(user_led_ids.begin(), user_led_ids.end(), e) != user_led_ids.end()) {
-      spdlog::debug("found user configured output_pin leds {}", e);
+      LOG_DEBUG("found user configured output_pin leds {}", e);
       system_led_ids.push_back(e);
     }
   }

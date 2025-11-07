@@ -2,7 +2,7 @@
 #define SIMPLE_DIALOG_H
 
 #include "lvgl.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include <string.h> // strcmp
 
 static inline void simple_dialog_event_cb(lv_event_t * e) {

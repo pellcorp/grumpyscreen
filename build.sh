@@ -71,14 +71,12 @@ else
 fi
 
 if [ "$SETUP" = "true" ]; then
-    docker_make spdlogclean || exit $?
     docker_make libhvclean || exit $?
     docker_make wpaclean || exit $?
     docker_make clean || exit $?
 
     docker_make libhv.a || exit $?
     docker_make wpaclient || exit $?
-    docker_make libspdlog.a || exit $?
 else
     docker_make $1 || exit $?
 

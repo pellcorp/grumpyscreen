@@ -1,6 +1,6 @@
 #include "setting_panel.h"
 #include "config.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "subprocess.hpp"
 #include "simple_dialog.h"
 
@@ -30,7 +30,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , switch_to_stock_btn(cont, &emergency, "Switch to\nStock", &SettingPanel::_handle_callback, this,
     "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!",
             [](){
-              spdlog::info("switch to stock pressed");
+              LOG_INFO("switch to stock pressed");
               Config *conf = Config::get_instance();
               auto switch_to_stock_cmd = conf->get<std::string>("/switch_to_stock_cmd");
               auto ret = sp::call(switch_to_stock_cmd);
@@ -104,19 +104,19 @@ void SettingPanel::handle_callback(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
     lv_obj_t *btn = lv_event_get_current_target(event);
     if (btn == wifi_btn.get_container()) {
-      spdlog::trace("wifi pressed");
+      LOG_TRACE("wifi pressed");
       wifi_panel.foreground();
     } else if (btn == sysinfo_btn.get_container()) {
-      spdlog::trace("system info pressed");
+      LOG_TRACE("system info pressed");
       sysinfo_panel.foreground();
     } else if (btn == restart_klipper_btn.get_container()) {
-      spdlog::trace("restart klipper pressed");
+      LOG_TRACE("restart klipper pressed");
       ws.send_jsonrpc("printer.restart");
     } else if (btn == restart_firmware_btn.get_container()) {
-      spdlog::trace("restart klipper pressed");
+      LOG_TRACE("restart klipper pressed");
       ws.send_jsonrpc("printer.firmware_restart");
     } else if (btn == guppy_restart_btn.get_container()) {
-      spdlog::trace("restart grumpy pressed");
+      LOG_TRACE("restart grumpy pressed");
       Config *conf = Config::get_instance();
       auto restart_command = conf->get<std::string>("/guppy_restart_cmd");
       auto ret = sp::call(restart_command);
@@ -124,7 +124,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
         create_simple_dialog(lv_scr_act(), "Restart GrumpyScreen Failed", "Failed to restart GrumpyScreen!", true);
       }
     } else if (btn == guppy_update_btn.get_container()) {
-      spdlog::trace("update guppy pressed");
+      LOG_TRACE("update guppy pressed");
       Config *conf = Config::get_instance();
       auto update_script = conf->get<std::string>("/guppy_update_cmd");
       auto ret = sp::call(update_script);

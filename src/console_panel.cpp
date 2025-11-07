@@ -1,6 +1,6 @@
 #include "console_panel.h"
 #include "state.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "klipper_temp_filter.h"
 
 #include <algorithm>
@@ -87,7 +87,7 @@ void ta_add_text_limit_lines(lv_obj_t * ta, const std::string &line)
 }
 
 void ConsolePanel::handle_macro_response(json &j) {
-  spdlog::trace("console macro response {}", j.dump());
+  LOG_TRACE("console macro response {}", j.dump());
 
   if (j.contains("params")) {
     std::lock_guard<std::mutex> lock(lv_lock);

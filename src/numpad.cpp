@@ -1,5 +1,5 @@
 #include "numpad.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <string>
 
@@ -9,7 +9,7 @@ Numpad::Numpad(lv_obj_t *parent)
   , kb(lv_keyboard_create(edit_cont))
   , ready_cb([](double v){})
 {
-  spdlog::trace("creating numpad on main_cont");
+  LOG_TRACE("creating numpad on main_cont");
   lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_CLICKABLE);
 
@@ -75,7 +75,7 @@ void Numpad::handle_input(lv_event_t *e) {
 }
 
 void Numpad::foreground_reset() {
-  spdlog::trace("resetting foreground");
+  LOG_TRACE("resetting foreground");
   lv_textarea_set_text(input, "");
   lv_obj_clear_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(edit_cont);

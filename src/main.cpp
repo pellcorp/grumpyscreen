@@ -31,7 +31,7 @@ int main(void) {
     if (fs::exists(config_path)) {
       conf->init(config_path.string());
     } else {
-      spdlog::error(fmt::format("Config file {} not found", config_path.string()));
+      LOG_ERROR("Config file {} not found", config_path.string());
       return 1;
     }
     GuppyScreen::init(hal_init);

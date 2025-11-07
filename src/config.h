@@ -2,7 +2,7 @@
 #define __K_CONFIG_H__
 
 #include "hv/json.hpp"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <string>
 

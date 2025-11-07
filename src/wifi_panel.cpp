@@ -1,7 +1,7 @@
 #include "wifi_panel.h"
 #include "utils.h"
 #include "config.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <sstream>
 #include <iostream>
@@ -120,7 +120,7 @@ WifiPanel::~WifiPanel() {
 }
 
 void WifiPanel::foreground() {
-  spdlog::trace("wifi panel fg");
+  LOG_TRACE("wifi panel fg");
   lv_obj_move_foreground(cont);
   lv_obj_clear_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   wpa_event.send_command("SCAN");
@@ -129,7 +129,7 @@ void WifiPanel::foreground() {
 void WifiPanel::handle_back_btn(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
   if(code == LV_EVENT_CLICKED) {
-    spdlog::trace("wifi panel bg");
+    LOG_TRACE("wifi panel bg");
     lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_background(cont);
@@ -139,7 +139,7 @@ void WifiPanel::handle_back_btn(lv_event_t *e) {
 void WifiPanel::handle_refresh_btn(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
   if(code == LV_EVENT_CLICKED) {
-    spdlog::info("Refreshing");
+    LOG_INFO("Refreshing");
     foreground();
   }
 }
@@ -150,7 +150,7 @@ void WifiPanel::remove_network(lv_event_t *e) {
   lv_msgbox_close(obj);
 
   if (action == "OK") {
-    spdlog::info("Removing network {}", selected_network);
+    LOG_INFO("Removing network {}", selected_network);
     auto nid = list_networks.find(selected_network)->second;
     wpa_event.send_command(fmt::format("REMOVE_NETWORK {}", nid));
     wpa_event.send_command("SAVE_CONFIG");
@@ -173,7 +173,7 @@ void WifiPanel::handle_callback(lv_event_t *e) {
   if (code == LV_EVENT_VALUE_CHANGED) {
     // we need to reload the current network so we have the right state to compare
     if (find_current_network()) {
-      spdlog::trace("handle callback - current network {}", cur_network);
+      LOG_TRACE("handle callback - current network {}", cur_network);
     }
 
     if (cur_network.length() > 0 && cur_network == selected_network) {
@@ -211,14 +211,14 @@ void WifiPanel::handle_callback(lv_event_t *e) {
 
 void WifiPanel::handle_wpa_event(const std::string &event) {
   if (event.rfind("<3>CTRL-EVENT-SCAN-RESULTS", 0) == 0) {
-    spdlog::trace("got scan result event");
+    LOG_TRACE("got scan result event");
     std::istringstream f(wpa_event.send_command("SCAN_RESULTS"));
     std::string line;
     wifi_name_db.clear();
     uint32_t index = 0;
 
     if (find_current_network()) {
-      spdlog::trace("handle wpa event scan results - current network {}", cur_network);
+      LOG_TRACE("handle wpa event scan results - current network {}", cur_network);
     } else {
       lv_label_set_text(wifi_label, "");
     }
@@ -230,7 +230,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       }
 
       auto wifi_parts = KUtils::split(line, '\t');
-      spdlog::trace("wifi parts {}", fmt::join(wifi_parts, ", "));
+      LOG_TRACE("wifi parts {}", join(wifi_parts, ", "));
       if (wifi_parts.size() == 5) {
         auto inserted = wifi_name_db.insert({wifi_parts[4], std::stoi(wifi_parts[2])});
         if (inserted.second) {
@@ -260,7 +260,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   } else if (event.rfind("<3>CTRL-EVENT-CONNECTED", 0) == 0) {
     if (find_current_network()) {
-      spdlog::trace("handle wpa event connected - current network {}", cur_network);
+      LOG_TRACE("handle wpa event connected - current network {}", cur_network);
       std::vector<std::pair<std::string, int>> pairs;
       for (auto it = wifi_name_db.begin(); it != wifi_name_db.end(); ++it) {
 	      pairs.push_back(*it);
@@ -336,7 +336,7 @@ void WifiPanel::handle_kb_input(lv_event_t *e) {
 
 void WifiPanel::connect(const char *password) {
   std::string nid = wpa_event.send_command("ADD_NETWORK");
-  spdlog::trace("add_nework {}", nid);
+  LOG_TRACE("add_nework {}", nid);
   if (nid.length() > 0) {
     wpa_event.send_command(fmt::format("SET_NETWORK {} ssid {:?}", nid, selected_network));
     wpa_event.send_command(fmt::format("SET_NETWORK {} psk {:?}", nid, password));
@@ -349,7 +349,7 @@ void WifiPanel::connect(const char *password) {
 bool WifiPanel::find_current_network() {
   list_networks.clear();
   std::string nets = wpa_event.send_command("LIST_NETWORKS");
-  spdlog::trace("nets = {}", nets);
+  LOG_TRACE("nets = {}", nets);
   std::istringstream f(nets);
   std::string line;
   cur_network = ""; // reset it to nothing in case we deleted the network

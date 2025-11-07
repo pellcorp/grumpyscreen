@@ -1,6 +1,6 @@
 #include "button_container.h"
 #include "config.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_22);
 ButtonContainer::ButtonContainer(lv_obj_t *parent,

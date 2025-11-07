@@ -1,7 +1,7 @@
 #include "wpa_event.h"
 #include "wpa_ctrl.h"
 #include "config.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <memory>
 #include <experimental/filesystem>
@@ -15,7 +15,7 @@ WpaEvent::WpaEvent()
 }
 
 WpaEvent::~WpaEvent() {
-  spdlog::trace("wpa event stopped");
+  LOG_TRACE("wpa event stopped");
   stop();
 }
 
@@ -31,7 +31,7 @@ void WpaEvent::start() {
 }
 
 void WpaEvent::stop() {
-  spdlog::trace("wpa event stopped1");  
+  LOG_TRACE("wpa event stopped1");
   hv::EventLoopThread::stop(true);
 }
 
@@ -52,7 +52,7 @@ void WpaEvent::init_wpa() {
   if (fs::is_directory(fs::status(wpa_socket))) {
     for (const auto &e : fs::directory_iterator(wpa_socket)) {
       if (fs::is_socket(e.path()) && e.path().string().find("p2p") == std::string::npos) {
-        spdlog::debug("found wpa supplicant socket {}", e.path().string());
+        LOG_DEBUG("found wpa supplicant socket {}", e.path().string());
         wpa_socket = e.path().string();
         break;
       }
@@ -62,7 +62,7 @@ void WpaEvent::init_wpa() {
   if (conn == NULL) {
     conn = wpa_ctrl_open(wpa_socket.c_str());
     if (conn == NULL) {
-      spdlog::trace("failed to open wpa control");
+      LOG_TRACE("failed to open wpa control");
       return;
     }
   }
@@ -71,29 +71,29 @@ void WpaEvent::init_wpa() {
 
   if (mon_conn != NULL) {
     if (wpa_ctrl_attach(mon_conn) == 0) {
-      spdlog::trace("attached to wpa supplicant");
+      LOG_TRACE("attached to wpa supplicant");
     }
   } else {
-    spdlog::trace("failed to attached to wpa supplicant");
+    LOG_TRACE("failed to attached to wpa supplicant");
     return;
   }
 
   int monfd = wpa_ctrl_get_fd(mon_conn);
   hio_t* io = hio_get(loop()->loop(), monfd);
-  spdlog::trace("set io fd {}", monfd);
+  LOG_TRACE("set io fd {}", monfd);
   
   if (io == NULL) {
-    spdlog::trace("failed to poll wpa supplicant monitor socket");
+    LOG_TRACE("failed to poll wpa supplicant monitor socket");
   }
   hio_set_context(io, this);
   hio_setcb_read(io, WpaEvent::_handle_wpa_events);
   hio_read_start(io);
-  spdlog::trace("registered io read callback");
+  LOG_TRACE("registered io read callback");
 }
 
 void WpaEvent::handle_wpa_events(void *data, int len) {
   std::string event = std::string((char*)data, len);
-  spdlog::trace("handling wpa event {}", event);
+  LOG_TRACE("handling wpa event {}", event);
   for (const auto &entry : callbacks) {
     entry.second(event);
   }
@@ -103,11 +103,11 @@ std::string WpaEvent::send_command(const std::string &cmd) {
   char resp[4096];
   size_t len = sizeof(resp) -1;
   if (conn != NULL) {
-    spdlog::trace("sending cmd {}", cmd);
+    LOG_TRACE("sending cmd {}", cmd);
     if (wpa_ctrl_request(conn, cmd.c_str(), cmd.length(), resp, &len, NULL) == 0) {
       return std::string(resp, len);
     }
-    spdlog::trace("failed to send cmd {} to wpa supplicant", cmd);
+    LOG_TRACE("failed to send cmd {} to wpa supplicant", cmd);
   }
 
   return "";

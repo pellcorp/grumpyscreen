@@ -11,7 +11,7 @@
  */
 
 #include "websocket_client.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <algorithm>
 
@@ -30,11 +30,11 @@ KWebSocketClient::~KWebSocketClient() {
 int KWebSocketClient::connect(const char* url,
 			      std::function<void()> connected,
 			      std::function<void()> disconnected) {
-  spdlog::debug("websocket connecting");
+  LOG_DEBUG("websocket connecting");
   // set callbacks
   onopen = [this, connected]() {
     const HttpResponsePtr& resp = getHttpResponse();
-    spdlog::debug("onopen {}", resp->body.c_str());
+    LOG_DEBUG("onopen {}", resp->body.c_str());
     connected();
   };
   onmessage = [this, connected, disconnected](const std::string &msg) {
@@ -62,13 +62,13 @@ int KWebSocketClient::connect(const char* url,
           entry->consume(j);
         }
       } else if ("notify_klippy_disconnected" == method) {
-        spdlog::debug("klippy disconnected");
+        LOG_DEBUG("klippy disconnected");
         disconnected();
       } else if ("notify_klippy_shutdown" == method) {
-        spdlog::debug("klippy shutdown");
+        LOG_DEBUG("klippy shutdown");
         disconnected();
       } else if ("notify_klippy_ready" == method) {
-        spdlog::debug("klippy connected");
+        LOG_DEBUG("klippy connected");
         connected();
       }
 
@@ -83,7 +83,7 @@ int KWebSocketClient::connect(const char* url,
   };
 
   onclose = [disconnected]() {
-    spdlog::debug("onclose");
+    LOG_DEBUG("onclose");
     disconnected();
   };
 
@@ -106,12 +106,12 @@ int KWebSocketClient::send_jsonrpc(const std::string &method,
 				   std::function<void(json&)> cb) {
   const auto &entry = callbacks.find(id);
   if (entry == callbacks.end()) {
-    // spdlog::debug("registering consume %d, %x\n", id, consumer);
+    // LOG_DEBUG("registering consume %d, %x\n", id, consumer);
     callbacks.insert({id, cb});
     // XXX: check success, remove consumer if send is unsuccessfull
     return send_jsonrpc(method, params);
   } else {
-    // spdlog::debug("WARN: id %d is already register with a consumer\n", id);
+    // LOG_DEBUG("WARN: id %d is already register with a consumer\n", id);
   }
 
   return 0;
@@ -120,12 +120,12 @@ int KWebSocketClient::send_jsonrpc(const std::string &method,
 int KWebSocketClient::send_jsonrpc(const std::string &method, std::function<void(json&)> cb) {
   const auto &entry = callbacks.find(id);
   if (entry == callbacks.end()) {
-    // spdlog::debug("registering consume %d, %x\n", id, consumer);
+    // LOG_DEBUG("registering consume %d, %x\n", id, consumer);
     callbacks.insert({id, cb});
     // XXX: check success, remove consumer if send is unsuccessfull
     return send_jsonrpc(method);
   } else {
-    // spdlog::debug("WARN: id %d is already register with a consumer\n", id);
+    // LOG_DEBUG("WARN: id %d is already register with a consumer\n", id);
   }
   return 0;
 }
@@ -160,7 +160,7 @@ int KWebSocketClient::send_jsonrpc(const std::string &method, const json &params
   rpc["params"] = params;
   rpc["id"] = id++;
 
-  spdlog::debug("send_jsonrpc: {}", rpc.dump());
+  LOG_DEBUG("send_jsonrpc: {}", rpc.dump());
   return send(rpc.dump());
 }
 
@@ -170,13 +170,13 @@ int KWebSocketClient::send_jsonrpc(const std::string &method) {
   rpc["method"] = method;
   rpc["id"] = id++;
 
-  spdlog::debug("send_jsonrpc: {}", rpc.dump());
+  LOG_DEBUG("send_jsonrpc: {}", rpc.dump());
   return send(rpc.dump());
 }
 
 int KWebSocketClient::gcode_script(const std::string &gcode) {
   json cmd = {{ "script", gcode }};
-  spdlog::trace("{}", gcode);
+  LOG_TRACE("{}", gcode);
   return send_jsonrpc("printer.gcode.script", cmd);
 }
 
@@ -185,12 +185,12 @@ void KWebSocketClient::register_method_callback(std::string resp_method,
 						std::function<void(json&)> cb) {
   const auto &entry = method_resp_cbs.find(resp_method);
   if (entry == method_resp_cbs.end()) {
-    spdlog::debug("registering new method {}, handler {}", resp_method, handler_name);
+    LOG_DEBUG("registering new method {}, handler {}", resp_method, handler_name);
     std::map<std::string, std::function<void(json&)>> handler_map;
     handler_map.insert({handler_name, cb});
     method_resp_cbs.insert({resp_method, handler_map});
   } else {
-    spdlog::debug("found existing resp_method {} with handlers, updating handler callback {}",
+    LOG_DEBUG("found existing resp_method {} with handlers, updating handler callback {}",
 		  resp_method, handler_name);
     entry->second.insert({handler_name, cb});
   }

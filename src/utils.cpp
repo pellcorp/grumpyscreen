@@ -2,7 +2,7 @@
 #include "hv/hurl.h"
 #include "config.h"
 #include "state.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "platform.h"
 
 #include <cmath>
@@ -29,7 +29,7 @@ namespace KUtils {
 		   return item.contains("name") && item["name"] == root_name;
 		 });
 
-    spdlog::trace("roots {}, filtered {}", roots.dump(), filtered.dump());
+    LOG_TRACE("roots {}, filtered {}", roots.dump(), filtered.dump());
     if (!filtered.empty()) {
       return filtered["/0/path"_json_pointer];
     }
@@ -42,7 +42,7 @@ namespace KUtils {
     if (!thumbs.is_null() && !thumbs.empty()) {
       // assume square, look for closest to 300x300
       auto scaled_width = scale * 300;
-      spdlog::debug("using thumb at scaled width {}", scaled_width);
+      LOG_DEBUG("using thumb at scaled width {}", scaled_width);
       uint32_t closest_index = 0;
       size_t thumb_width = 0;
       auto width = thumbs.at(0)["width"].is_number()
@@ -62,7 +62,7 @@ namespace KUtils {
       }
 
       auto &thumb = thumbs.at(closest_index);
-      spdlog::debug("using thumb at index {}, {}", closest_index, thumbs.dump());
+      LOG_DEBUG("using thumb at index {}, {}", closest_index, thumbs.dump());
 
       // metadata thumbnail paths are relative to the current gcode file directory
       std::string relative_path = thumb["relative_path"].template get<std::string>();

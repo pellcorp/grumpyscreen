@@ -7,6 +7,19 @@
 #include <functional>
 #include <algorithm>
 #include <utility>
+#include <sstream>
+
+template <typename Range>
+std::string join(const Range& r, const std::string& sep) {
+    std::ostringstream oss;
+    bool first = true;
+    for (const auto& v : r) {
+        if (!first) oss << sep;
+        first = false;
+        oss << v;
+    }
+    return oss.str();
+}
 
 using json = nlohmann::json;
 

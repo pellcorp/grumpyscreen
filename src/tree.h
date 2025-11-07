@@ -6,7 +6,7 @@
 #include <iterator>
 
 #include "file_panel.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 struct Tree {
 Tree(const std::string &filename, const std::string &path, uint32_t modified)
@@ -15,7 +15,6 @@ Tree(const std::string &filename, const std::string &path, uint32_t modified)
     , date_modified(modified)
     , has_metadata(false)
     , parent(this) {
-    // spdlog::debug("creating new node {}, {}", name, path);
   }
 
   ~Tree() {
@@ -84,7 +83,6 @@ Tree(const std::string &filename, const std::string &path, uint32_t modified)
   Tree *get_child(const std::string child) {
     const auto &e = children.find(child);
     if (e != children.cend()) {
-      // spdlog::debug("get_child {}, result = {}", child, e->second.name);
       return &e->second;
     }
     
@@ -96,7 +94,6 @@ Tree(const std::string &filename, const std::string &path, uint32_t modified)
   }
 
   void traverse() const {
-    // spdlog::debug("%s%s", name, is_leaf() ? " *": "");
     if (!is_leaf()) {
       for (auto e = children.cbegin(); e != children.cend(); ++e) {
 	      e->second.traverse();

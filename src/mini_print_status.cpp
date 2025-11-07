@@ -1,5 +1,5 @@
 #include "mini_print_status.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 MiniPrintStatus::MiniPrintStatus(lv_obj_t *parent,
 				 lv_event_cb_t cb,
