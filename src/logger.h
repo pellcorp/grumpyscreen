@@ -54,6 +54,8 @@ inline void log_line(LogLevel lvl, const std::string& msg){
 
 template <typename... Args>
 inline void log_fmt(LogLevel lvl, fmt::format_string<Args...> fmt_str, Args&&... args) {
+  const LogLevel cur = get_log_level();
+  if (lvl < cur) return;
   log_line(lvl, fmt::format(fmt_str, std::forward<Args>(args)...));
 }
 
