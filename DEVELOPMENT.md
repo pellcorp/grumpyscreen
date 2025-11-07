@@ -1,22 +1,10 @@
-## Development
+# Development
 
 This repository contains the Guppy Screen source code and all its external dependencies.
 
-Dependencies:
- - [lvgl](https://github.com/lvgl/lvgl)
-   An embedded graphics library
- - [libhv](https://github.com/ithewei/libhv)
-   A network library
- - [spdlog](https://github.com/gabime/spdlog)
-   A logging library
- - [wpa_supplicant](https://w1.fi/wpa_supplicant/)
-   Handles wireless connections
+## Build Environment
 
-### Build Environment
-
-#### Install Docker
-
-##### Ubuntu and Debian
+### Install Docker
 
 You can follow the instructions to get docker on Ubuntu:
 https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
@@ -29,16 +17,22 @@ https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
 4. `sudo apt-get update`
 5. `sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin`
 
-### The Code
+## Building
 
 Clone the guppyscreen repo (and submodules) and apply a couple of patches locally.
 
 1. `git clone --recursive https://github.com/pellcorp/guppyscreen grumpyscreen && cd grumpyscreen`
 
-### Mipsel (Ingenic X2000E) - specific to the K1 SoC
-Building for the K1/Max
+### Build for Creality OS (K1, K1M, Ender 3 V3 KE, etc) 
 
-1. `./build.sh --setup [mips|arm] [--small]`
+1. `./build.sh --setup mips [--small]`
 2. `./build.sh --printer IP_ADDRESS_OF_PRINTER`
 
 This will directly deploy it to your printer or dev box!
+
+### Build for RPI
+
+1. `./build.sh --setup rpi [--small]`
+2. `./build.sh --printer IP_ADDRESS_OF_PRINTER`
+
+This will directly deploy it to your rpi based printer or dev box!
