@@ -131,7 +131,6 @@ SysInfoPanel::SysInfoPanel()
 
   lv_dropdown_set_options(loglevel_dd, fmt::format("{}", fmt::join(log_levels, "\n")).c_str());
 
-  json j_null;
   const std::string log_level = conf->get<std::string>("/log_level");
   auto ll_idx = std::find(log_levels.begin(), log_levels.end(), log_level);
   if (ll_idx != std::end(log_levels)) {
