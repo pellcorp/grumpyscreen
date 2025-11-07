@@ -34,13 +34,11 @@ https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
 Clone the guppyscreen repo (and submodules) and apply a couple of patches locally.
 
 1. `git clone --recursive https://github.com/pellcorp/guppyscreen grumpyscreen && cd grumpyscreen`
-2. `(cd lv_drivers/ && git apply ../patches/0001-lv_driver_fb_ioctls.patch)`
-4. `(cd lvgl/ && git apply ../patches/0003-lvgl-dpi-text-scale.patch)`
 
 ### Mipsel (Ingenic X2000E) - specific to the K1 SoC
 Building for the K1/Max
 
-1. `./build.sh --setup`
+1. `./build.sh --setup [mips|arm] [--small]`
 2. `./build.sh --printer IP_ADDRESS_OF_PRINTER`
 
 This will directly deploy it to your printer or dev box!
