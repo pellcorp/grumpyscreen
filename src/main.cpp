@@ -63,16 +63,11 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     disp_drv.ver_res    = height;
 
     Config *conf = Config::get_instance();
-    auto rotate = conf->get_json("/display_rotate");
-    if (!rotate.is_null()) {
-      auto rotate_value = rotate.template get<uint32_t>();
-      if (rotate_value > 0 && rotate_value < 4) {
-        disp_drv.sw_rotate = 1;
-        disp_drv.rotated = rotate_value;
-      }
+    auto rotate_value = conf->get<std::uint32_t>("/display_rotate");
+    if (rotate_value > 0 && rotate_value < 4) {
+      disp_drv.sw_rotate = 1;
+      disp_drv.rotated = rotate_value;
     }
-
-    spdlog::debug("resolution {} x {}", width, height);
 
     lv_disp_t * disp = lv_disp_drv_register(&disp_drv);
 #ifdef GUPPY_SMALL_SCREEN
@@ -89,7 +84,6 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     indev_drv_1.type = LV_INDEV_TYPE_POINTER;
 
 #ifdef GUPPY_CALIBRATE
-    spdlog::info("using touch calibration");
     lv_tc_indev_drv_init(&indev_drv_1, evdev_read);
 #endif
     lv_indev_drv_register(&indev_drv_1);
