@@ -1,9 +1,11 @@
 [submodule "lvgl"]
 	path = lvgl
-	url = https://github.com/lvgl/lvgl.git
+	url = https://github.com/pellcorp/lvgl.git
+	branch = g8.3.11
 [submodule "lv_drivers"]
 	path = lv_drivers
-	url = https://github.com/littlevgl/lv_drivers.git
+	url = https://github.com/pellcorp/lv_drivers.git
+        branch = g8.3.0
 [submodule "libhv"]
 	path = libhv
 	url = https://github.com/ithewei/libhv.git

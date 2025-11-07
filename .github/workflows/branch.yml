@@ -59,16 +59,6 @@ jobs:
       run: |
         echo "GUPPY_CALIBRATE=${{ matrix.calibrate }}" >> $GITHUB_ENV
 
-    - name: patch lv_drivers
-      run: |
-        git apply ../patches/0001-lv_driver_fb_ioctls.patch
-      working-directory: ./lv_drivers
-
-    - name: patch dpi text scale in lvgl
-      run: |
-        git apply ../patches/0003-lvgl-dpi-text-scale.patch
-      working-directory: ./lvgl
-
     - name: make wpaclient
       run: make wpaclient
 
