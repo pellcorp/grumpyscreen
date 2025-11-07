@@ -25,14 +25,6 @@ public:
     return data[json::json_pointer(json_ptr)].template get<T>();
   };
 
-  template<typename T> T set(const std::string &json_ptr, T v) {
-    return data[json::json_pointer(json_ptr)] = v;
-  };
-
-  json &get_json(const std::string &json_path);
-
-  void save();
-
   static ThemeConfig *get_instance();
 
 };
