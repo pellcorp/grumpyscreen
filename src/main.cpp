@@ -26,9 +26,6 @@ using namespace hv;
 #define DISP_BUF_SIZE (128 * 1024)
 
 int main(void) {
-    // config
-    spdlog::debug("current path {}", std::string(fs::canonical("/proc/self/exe").parent_path()));
-
     Config *conf = Config::get_instance();
     auto config_path = fs::canonical("/proc/self/exe").parent_path() / "guppyscreen.json";
     if (fs::exists(config_path)) {

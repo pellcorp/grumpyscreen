@@ -8,6 +8,9 @@
 #include "spdlog/spdlog.h"
 #include "state.h"
 #include "theme.h"
+#ifdef GUPPY_CALIBRATE
+#include <fstream>
+#endif
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 
@@ -121,8 +124,8 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
 #ifdef GUPPY_CALIBRATE
   lv_obj_t *main_screen = lv_disp_get_scr_act(NULL);
-  auto calibration_coeff = conf->get_json("/touch_calibration_coeff");
-  if (calibration_coeff.is_null()) {
+  std::vector<float> c = GuppyScreen::load_calibration_coeff();
+  if (c.empty()) {
     lv_tc_register_coeff_save_cb(&GuppyScreen::save_calibration_coeff);
     lv_obj_t *touch_calibrate_scr = lv_tc_screen_create();
     lv_disp_load_scr(touch_calibrate_scr);
@@ -131,7 +134,6 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
     spdlog::info("running touch calibration");
   } else {
     // load calibration data
-    auto c = calibration_coeff.template get<std::vector<float>>();
     lv_tc_coeff_t coeff = {true, c[0], c[1], c[2], c[3], c[4], c[5]};
     lv_tc_set_coeff(coeff, false);
     spdlog::info("loaded calibration coefficients");
@@ -205,11 +207,32 @@ void GuppyScreen::handle_calibrated(lv_event_t *event) {
   lv_disp_load_scr(main_screen);
 }
 
+std::vector<float> GuppyScreen::load_calibration_coeff() {
+  std::string config_path = fs::canonical("/proc/self/exe").parent_path() / "calibration.json";
+  std::ifstream f(config_path);
+  if (!f.is_open()) {
+    return {};
+  }
+
+  json j;
+  f >> j;
+  if (!j.is_array()) {
+    return {};
+  }
+
+  std::vector<float> coeffs;
+  coeffs.reserve(j.size());
+  for (const auto& v : j) {
+    coeffs.push_back(v.get<float>());
+  }
+  return coeffs;
+}
+
 void GuppyScreen::save_calibration_coeff(lv_tc_coeff_t coeff) {
-  Config *conf = Config::get_instance();
-  conf->set<std::vector<float>>("/touch_calibration_coeff",
-                                {coeff.a, coeff.b, coeff.c, coeff.d, coeff.e, coeff.f});
-  conf->save();
+  auto config_path = fs::canonical("/proc/self/exe").parent_path() / "calibration.json";
+  json j = {coeff.a, coeff.b, coeff.c, coeff.d, coeff.e, coeff.f};
+  std::ofstream f(config_path, std::ios::trunc);
+  f << j.dump(2);
 }
 #endif
 

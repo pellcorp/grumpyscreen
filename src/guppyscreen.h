@@ -7,6 +7,7 @@
 #ifdef GUPPY_CALIBRATE
 #include "lv_tc.h"
 #include "lv_tc_screen.h"
+#include "hv/json.hpp"
 #endif
 #include "lvgl/lvgl.h"
 
@@ -27,7 +28,6 @@ class GuppyScreen {
   static lv_obj_t *screen_saver;
   static std::mutex lv_lock;
   static KWebSocketClient ws;
-
   SpoolmanPanel spoolman_panel;
   MainPanel main_panel;
   InitPanel init_panel;
@@ -46,6 +46,7 @@ class GuppyScreen {
   static void new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj);
 #ifdef GUPPY_CALIBRATE
   static void handle_calibrated(lv_event_t *event);
+  static std::vector<float> load_calibration_coeff();
   static void save_calibration_coeff(lv_tc_coeff_t coeff);
 #endif
   static void refresh_theme();
