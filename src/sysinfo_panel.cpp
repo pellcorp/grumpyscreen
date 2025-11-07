@@ -2,7 +2,7 @@
 #include "utils.h"
 #include "config.h"
 #include "theme.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "guppyscreen.h"
 #include "subprocess.hpp"
 #include "simple_dialog.h"
@@ -129,7 +129,7 @@ SysInfoPanel::SysInfoPanel()
   lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
   lv_obj_align(loglevel_dd, LV_ALIGN_RIGHT_MID, 0, 0);
 
-  lv_dropdown_set_options(loglevel_dd, fmt::format("{}", fmt::join(log_levels, "\n")).c_str());
+  lv_dropdown_set_options(loglevel_dd, fmt::format("{}", join(log_levels, "\n")).c_str());
 
   const std::string log_level = conf->get<std::string>("/log_level");
   auto ll_idx = std::find(log_levels.begin(), log_levels.end(), log_level);
@@ -185,7 +185,7 @@ SysInfoPanel::SysInfoPanel()
   lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
   lv_obj_align(theme_dd, LV_ALIGN_RIGHT_MID, 0, 0);
 
-  lv_dropdown_set_options(theme_dd, fmt::format("{}", fmt::join(themes, "\n")).c_str());
+  lv_dropdown_set_options(theme_dd, fmt::format("{}", join(themes, "\n")).c_str());
 
   const std::string theme_id = conf->get<std::string>("/theme");
   auto theme_idx = std::find(themes.begin(), themes.end(), theme_id);
@@ -225,7 +225,7 @@ void SysInfoPanel::foreground() {
       network_detail.push_back(fmt::format("\t{}: {}", iface, ip));
     }
   }
-  lv_label_set_text(network_label, fmt::format("{}\n\nGrumpyScreen\n\tBranch: {}\n\tRevision: {}", fmt::join(network_detail, "\n"),
+  lv_label_set_text(network_label, fmt::format("{}\n\nGrumpyScreen\n\tBranch: {}\n\tRevision: {}", join(network_detail, "\n"),
           GUPPYSCREEN_BRANCH, GUPPYSCREEN_VERSION).c_str());
 }
 
@@ -255,11 +255,8 @@ void SysInfoPanel::handle_callback(lv_event_t *e) {
       if (idx != loglevel) {
         if (loglevel < log_levels.size()) {
           loglevel = idx;
-          auto ll = spdlog::level::from_str(log_levels[loglevel]);
-
-          spdlog::set_level(ll);
-          spdlog::flush_on(ll);
-          spdlog::debug("setting log_level to {}", log_levels[loglevel]);
+          set_log_level(log_levels[loglevel]);
+          LOG_DEBUG("setting log_level to {}", log_levels[loglevel]);
           conf->set<std::string>("/log_level", log_levels[loglevel]);
           conf->save();
         }

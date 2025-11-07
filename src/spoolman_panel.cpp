@@ -1,6 +1,6 @@
 #include "spoolman_panel.h"
 #include "utils.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 LV_IMG_DECLARE(back);
 LV_IMG_DECLARE(refresh_img);
@@ -113,7 +113,7 @@ void SpoolmanPanel::init() {
   });
 
   ws.send_jsonrpc("server.spoolman.get_spool_id", [this](json &d) {
-    spdlog::trace("got spool active id {}", d.dump());
+    LOG_TRACE("got spool active id {}", d.dump());
     auto &v = d["/result/spool_id"_json_pointer];
     if (!v.is_null()) {
       this->active_id = v.template get<int>();
@@ -147,7 +147,7 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
 
     size_t row_idx = 1;
     for (auto &el : sorted_spools) {
-      spdlog::trace("spool {}", el.dump());
+      LOG_TRACE("spool {}", el.dump());
       bool is_archived = el["archived"].template get<bool>();
       if (skip_archive && is_archived) {
 	      continue;
@@ -210,7 +210,7 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
 }
 
 void SpoolmanPanel::handle_active_id_update(json &j) {
-  spdlog::trace("active spool id update {}", j.dump());
+  LOG_TRACE("active spool id update {}", j.dump());
   auto &v = j["/params/0/spool_id"_json_pointer];
   if (!v.is_null()) {
     active_id = v.template get<int>();
@@ -229,10 +229,10 @@ void SpoolmanPanel::handle_active_id_update(json &j) {
 void SpoolmanPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
   if (btn == back_btn.get_container()) {
-    spdlog::trace("spoolman back button pressed");
+    LOG_TRACE("spoolman back button pressed");
     lv_obj_move_background(cont);
   } else if (btn == reload_btn.get_container()) {
-    spdlog::trace("spoolman reload button pressed");
+    LOG_TRACE("spoolman reload button pressed");
     init();
   }
 }
@@ -336,12 +336,12 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
     
     const char *selected = lv_table_get_cell_value(spool_table, row, col);
     const char *spool_id = lv_table_get_cell_value(spool_table, row, 0);
-    spdlog::trace("selected {}, {}, value {}", row, col, spool_id);
+    LOG_TRACE("selected {}, {}, value {}", row, col, spool_id);
     if (row != 0) {
       if (col == 6 && selected != NULL && strlen(selected) != 0 && std::memcmp(LV_SYMBOL_PLAY, selected, 3) == 0) {
         // set active spool
         int id = std::stoi(spool_id);
-        spdlog::trace("set active spool id {}", id);
+        LOG_TRACE("set active spool id {}", id);
         json param = {
           {"spool_id", id}
         };

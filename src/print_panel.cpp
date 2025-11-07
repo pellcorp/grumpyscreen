@@ -2,7 +2,7 @@
 #include "file_panel.h"
 #include "state.h"
 #include "utils.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <map>
 #include <sstream>
@@ -30,7 +30,7 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
   , print_status(ps)
   , sorted_by(SORTED_BY_MODIFIED)
 {
-  spdlog::trace("building print panel");
+  LOG_TRACE("building print panel");
   lv_obj_move_background(files_cont);
 
   lv_obj_set_size(files_cont, LV_PCT(100), LV_PCT(100));
@@ -86,7 +86,7 @@ void PrintPanel::populate_files(json &j) {
 }
 
 void PrintPanel::handle_file_list_change(json &j) {
-  spdlog::trace("file list change response {}", j.dump());
+  LOG_TRACE("file list change response {}", j.dump());
   subscribe();
 }
 
@@ -128,7 +128,7 @@ void PrintPanel::subscribe() {
 
 void PrintPanel::foreground() {
   json &pstat_state = State::get_instance()->get_data("/printer_state/print_stats/state"_json_pointer);
-  spdlog::debug("print panel print stats {}", pstat_state.is_null() ? "nil" : pstat_state.template get<std::string>());
+  LOG_DEBUG("print panel print stats {}", pstat_state.is_null() ? "nil" : pstat_state.template get<std::string>());
 
   if (!pstat_state.is_null()
       && pstat_state.template get<std::string>() != "printing"
@@ -240,7 +240,7 @@ void PrintPanel::show_file_detail(Tree *f) {
     if (f->contains_metadata()) {
       file_panel.refresh_view(f->metadata, f->full_path);
     } else {
-      spdlog::trace("getting metadata for {}", f->name);
+      LOG_TRACE("getting metadata for {}", f->name);
       ws.send_jsonrpc("server.files.metadata",
 		      json::parse(R"({"filename":")" + f->full_path + R"("})"),
 		      [f, this](json &d) { this->handle_metadata(f, d); });
@@ -249,7 +249,7 @@ void PrintPanel::show_file_detail(Tree *f) {
 }
 
 void PrintPanel::handle_metadata(Tree *f, json &j) {
-  spdlog::trace("handling metadata callback");  
+  LOG_TRACE("handling metadata callback");
   if (f->is_leaf()) {
     if (j.contains("result")) {
       std::lock_guard<std::mutex> lock(lv_lock);
@@ -271,12 +271,12 @@ void PrintPanel::handle_print_callback(lv_event_t *event) {
   lv_event_code_t code = lv_event_get_code(event);
   if (code == LV_EVENT_CLICKED && cur_file != NULL) {
     json &pstat_state = State::get_instance()->get_data("/printer_state/print_stats/state"_json_pointer);
-    spdlog::debug("print panel print stats {}", pstat_state.is_null() ? "nil" : pstat_state.template get<std::string>());
+    LOG_DEBUG("print panel print stats {}", pstat_state.is_null() ? "nil" : pstat_state.template get<std::string>());
     
     if (!pstat_state.is_null()
           && pstat_state.template get<std::string>() != "printing"
           && pstat_state.template get<std::string>() != "paused") {
-      spdlog::debug("printer ready to print. print file {}", cur_file->full_path);
+      LOG_DEBUG("printer ready to print. print file {}", cur_file->full_path);
 
       json fname_input = {{"filename", cur_file->full_path }};
       ws.send_jsonrpc("printer.print.start", fname_input);
@@ -288,7 +288,7 @@ void PrintPanel::handle_print_callback(lv_event_t *event) {
 void PrintPanel::handle_status_btn(lv_event_t *event) {
   lv_event_code_t code = lv_event_get_code(event);
   if (code == LV_EVENT_CLICKED && cur_file != NULL) {
-    spdlog::trace("status button clicked");
+    LOG_TRACE("status button clicked");
     print_status.foreground();
   }
 }

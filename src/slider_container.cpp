@@ -1,5 +1,5 @@
 #include "slider_container.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 SliderContainer::SliderContainer(lv_obj_t *parent,
 				 const char *label_text,

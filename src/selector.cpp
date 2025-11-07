@@ -1,5 +1,5 @@
 #include "selector.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <limits>
 

@@ -2,7 +2,7 @@
 #include "finetune_panel.h"
 #include "state.h"
 #include "utils.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 
 LV_IMG_DECLARE(extruder);
@@ -40,13 +40,13 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , cancel_btn(buttons_cont, &cancel, "Cancel", &PrintStatusPanel::_handle_callback, this,
 	       "Do you want to cancel the print?",
 	       [&websocket_client]() {
-		 spdlog::debug("cancel print prompt");
+		 LOG_DEBUG("cancel print prompt");
 		 websocket_client.send_jsonrpc("printer.print.cancel");
 	       })
   , emergency_btn(buttons_cont, &emergency, "Stop", &PrintStatusPanel::_handle_callback, this,
 		  "Do you want to emergency stop?",
 		  [&websocket_client]() {
-		    spdlog::debug("emergency stop pressed");
+		    LOG_DEBUG("emergency stop pressed");
 		    websocket_client.send_jsonrpc("printer.emergency_stop");
 		  })
   , back_btn(buttons_cont, &back, "Back", &PrintStatusPanel::_handle_callback, this)
@@ -203,7 +203,7 @@ void PrintStatusPanel::init(json &fan_cfgs) {
     }
   }
 
-  fans.update_label(fmt::format("{}", fmt::join(values, ", ")).c_str());
+  fans.update_label(fmt::format("{}", join(values, ", ")).c_str());
 
   reset();
   populate();
@@ -267,12 +267,12 @@ void PrintStatusPanel::handle_metadata(const std::string &gcode_file, json &j) {
   auto eta = j["/result/estimated_time"_json_pointer];
   if (!eta.is_null()) {
     estimated_time_s = static_cast<uint32_t>(eta.template get<float>());
-    spdlog::trace("updated eta {}", estimated_time_s);        
+    LOG_TRACE("updated eta {}", estimated_time_s);
 
     json &v = State::get_instance()->get_data("/printer_state/print_stats/print_duration"_json_pointer);
     if (!v.is_null()) {
       uint32_t passed = static_cast<uint32_t>(v.template get<float>());
-      spdlog::trace("updated time progress in handle metadata, passed {}", passed);
+      LOG_TRACE("updated time progress in handle metadata, passed {}", passed);
 
       std::lock_guard<std::mutex> lock(lv_lock);
       update_time_progress(passed);
@@ -285,7 +285,7 @@ void PrintStatusPanel::handle_metadata(const std::string &gcode_file, json &j) {
   auto thumb_detail = KUtils::get_thumbnail(gcode_file, j, width_scale);
   std::string fullpath = thumb_detail.first;
   if (fullpath.length() > 0) {
-    spdlog::trace("thumb path: {}", fullpath);
+    LOG_TRACE("thumb path: {}", fullpath);
     std::lock_guard<std::mutex> lock(lv_lock);
     const std::string img_path = "A:" + fullpath;
 
@@ -308,7 +308,7 @@ void PrintStatusPanel::consume(json &j) {
     foreground(); // auto move to front when print is detected
   }
 
-//  spdlog::info("{}", j.dump());
+//  LOG_INFO("{}", j.dump());
   auto& pstate = j["/params/0/print_stats/state"_json_pointer];
   if (!pstate.is_null()) {
     auto print_status = pstate.template get<std::string>();
@@ -394,7 +394,7 @@ void PrintStatusPanel::consume(json &j) {
     values.push_back(fmt::format("{}%", fv));
   }
 
-  fans.update_label(fmt::format("{}", fmt::join(values, ", ")).c_str());
+  fans.update_label(fmt::format("{}", join(values, ", ")).c_str());
 
   // progress
   v = j["/params/0/print_stats/print_duration"_json_pointer];

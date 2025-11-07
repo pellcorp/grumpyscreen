@@ -1,7 +1,7 @@
 #include "prompt_panel.h"
 #include "state.h"
 #include "utils.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 // uncomment for helper boxes
 // #define DEBUG_LINES
@@ -154,19 +154,19 @@ void PromptPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *label = lv_obj_get_child(btn, 0);
   lv_obj_t *command = lv_obj_get_child(btn, 1);
   // check if btn in command map
-  spdlog::debug("handle event");
+  LOG_DEBUG("handle event");
 
   if (btn == NULL) {
-    spdlog::debug("no button found");
+    LOG_DEBUG("no button found");
   }
 
   if (label != NULL) {
-    spdlog::debug("button: {}", lv_label_get_text(label));
+    LOG_DEBUG("button: {}", lv_label_get_text(label));
   }
 
   if (command != NULL) {
     std::string cmd = lv_label_get_text(command);
-    spdlog::debug("button: {}", cmd);
+    LOG_DEBUG("button: {}", cmd);
     ws.gcode_script(cmd);
   }
 }
@@ -181,11 +181,11 @@ void PromptPanel::check_height() {
     int y = lv_obj_get_y(last_child);
     int height = lv_obj_get_height(last_child);
     while(((y + height > lv_obj_get_height(flex)) || height == 0) && count < 5) {
-      spdlog::debug("y: {}, h: {}", y, height);
+      LOG_DEBUG("y: {}, h: {}", y, height);
       if ((y + height > lv_obj_get_height(flex)) || height == 0) {
           int newheight = (int) (((double)lv_obj_get_height(prompt_cont)) * 1.1);
           int newwidth = (int) (((double)lv_obj_get_width(prompt_cont)) * 1.1);
-          spdlog::debug("Increase size of panel: {}, {}", newheight, newwidth);
+          LOG_DEBUG("Increase size of panel: {}, {}", newheight, newwidth);
           lv_obj_set_size(prompt_cont, newheight, newwidth);
       }
       lv_obj_update_layout(prompt_cont);
@@ -197,23 +197,23 @@ void PromptPanel::check_height() {
 }
 
 void PromptPanel::handle_macro_response(json &j) {
-  spdlog::trace("macro response: {}", j.dump());
+  LOG_TRACE("macro response: {}", j.dump());
   auto &v = j["/params/0"_json_pointer];
 
   if (!v.is_null()) {
-    spdlog::trace("data found");
+    LOG_TRACE("data found");
     std::string resp = v.template get<std::string>();
     std::lock_guard<std::mutex> lock(lv_lock);
-    spdlog::trace("data: {}", resp);
+    LOG_TRACE("data: {}", resp);
 
     if (resp.find("// action:", 0) == 0) {
       // it is an action
       std::string command = resp.substr(10);
-      spdlog::debug("action: {}", command);
+      LOG_DEBUG("action: {}", command);
 
       if (command.find("prompt_begin") == 0) {
         std::string prompt_header = command.substr(13);
-        spdlog::debug("PROMPT_BEGIN: {}", prompt_header);
+        LOG_DEBUG("PROMPT_BEGIN: {}", prompt_header);
 
         // remove buttons
         lv_obj_clean(footer_cont);
@@ -227,7 +227,7 @@ void PromptPanel::handle_macro_response(json &j) {
         lv_label_set_text(header, prompt_header.c_str());
       } else if (command.find("prompt_text") == 0) {
         std::string prompt_text = command.substr(12);
-        spdlog::debug("PROMPT_TEXT: {}", prompt_text);
+        LOG_DEBUG("PROMPT_TEXT: {}", prompt_text);
         // create label and add to flex field
         lv_obj_t *textfield = lv_label_create(flex);
         lv_obj_set_width(textfield, lv_pct(96));
@@ -245,7 +245,7 @@ void PromptPanel::handle_macro_response(json &j) {
 #endif
       // due to using find, order IS important!
       } else if (command.find("prompt_button_group_start") == 0) {
-        spdlog::debug("Button group created");
+        LOG_DEBUG("Button group created");
         // create new button group in flex window and mark active
         button_group_cont = lv_obj_create(flex);
         lv_obj_add_style(button_group_cont, &button_group_flex_style, 0);
@@ -267,24 +267,24 @@ void PromptPanel::handle_macro_response(json &j) {
         // lv_obj_set_style_min_height(button_group_cont, lv_pct(5), 0);
       } else if (command.find("prompt_button_group_end") == 0) {
         // does nothing since start creates a new one
-        spdlog::debug("Button group ended");
+        LOG_DEBUG("Button group ended");
         button_group_cont = NULL;
       } else if (command.find("prompt_footer_button") == 0 || command.find("prompt_button") == 0) {
         int index_label = command.find("button", 0) + strlen("button");
         int index_first = command.find("|", index_label);
         int index_second = command.find("|", index_first + 1);
-        spdlog::debug("indexes: {} {} {}", index_label, index_first, index_second);
+        LOG_DEBUG("indexes: {} {} {}", index_label, index_first, index_second);
         std::string prompt_footer_button = command.substr(index_label, index_first - index_label);
         std::string prompt_button_command;
         std::string prompt_button_type = "none";
-        spdlog::debug("button: {} |  {} | {}", prompt_footer_button, prompt_button_command, prompt_button_type);
+        LOG_DEBUG("button: {} |  {} | {}", prompt_footer_button, prompt_button_command, prompt_button_type);
         if (index_second > 0) {
           prompt_button_command = command.substr(index_first + 1, index_second - index_first - 1);
           prompt_button_type = command.substr(index_second + 1, command.length() - index_second - 1);
         } else {
           prompt_button_command = command.substr(index_first + 1);
         }
-        spdlog::debug("PROMPT_FOOTER_BUTTON: {} CMD: {}, type {}", prompt_footer_button, prompt_button_command, prompt_button_type);
+        LOG_DEBUG("PROMPT_FOOTER_BUTTON: {} CMD: {}, type {}", prompt_footer_button, prompt_button_command, prompt_button_type);
         lv_obj_t *btn = NULL;
         if (command.find("prompt_footer_button") == 0) {
           btn = lv_btn_create(footer_cont);
@@ -316,32 +316,32 @@ void PromptPanel::handle_macro_response(json &j) {
           lv_obj_center(label);
 
           if (!prompt_button_type.compare("secondary")) {
-            spdlog::debug("type secondary");
+            LOG_DEBUG("type secondary");
             lv_obj_add_style(btn, &style_btn_grey, 0);
           } else if (!prompt_button_type.compare("warning")) {
-            spdlog::debug("type warning");
+            LOG_DEBUG("type warning");
             lv_obj_add_style(btn, &style_btn_orange, 0);
           } else if (!prompt_button_type.compare("error")) {
-            spdlog::debug("type error");
+            LOG_DEBUG("type error");
             lv_obj_add_style(btn, &style_btn_red, 0);
           } else if (!prompt_button_type.compare("info")) {
-            spdlog::debug("type info");
+            LOG_DEBUG("type info");
             lv_obj_add_style(btn, &style_btn_blue, 0);
           } else if (!prompt_button_type.compare("primary")) {
-            spdlog::debug("type primary");
+            LOG_DEBUG("type primary");
             lv_obj_add_style(btn, &style_btn_blue, 0);
           } else { // info and primary as well
-            spdlog::debug("type default");
+            LOG_DEBUG("type default");
             lv_obj_add_style(btn, &style_btn_dark_grey, 0);
           }
           lv_obj_add_event_cb(btn, _handle_callback, LV_EVENT_PRESSED, this);
         }
       } else if (command.find("prompt_show") == 0) {
-        spdlog::debug("PROMPT_SHOW");
+        LOG_DEBUG("PROMPT_SHOW");
         check_height();
         foreground();
       } else if (command.find("prompt_end") == 0) {
-        spdlog::debug("PROMPT_END");
+        LOG_DEBUG("PROMPT_END");
         background();
 
         // remove buttons
@@ -350,7 +350,7 @@ void PromptPanel::handle_macro_response(json &j) {
         lv_obj_set_size(prompt_cont, lv_pct(60), lv_pct(50));
         lv_obj_set_height(flex, LV_SIZE_CONTENT);
       } else {
-        spdlog::debug("action {} --- not supported", command);
+        LOG_DEBUG("action {} --- not supported", command);
       }
     }
   }

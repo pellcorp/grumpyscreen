@@ -1,7 +1,7 @@
 #include "extruder_panel.h"
 #include "state.h"
 #include "config.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 
 #include <limits>
 
@@ -118,7 +118,7 @@ void ExtruderPanel::consume(json& j) {
 }
 
 void ExtruderPanel::handle_callback(lv_event_t *e) {
-  spdlog::trace("handling extruder panel callback");
+  LOG_TRACE("handling extruder panel callback");
   if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
     lv_obj_t *selector = lv_event_get_target(e);
     uint32_t idx = lv_btnmatrix_get_selected_btn(selector);
@@ -136,7 +136,7 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       speed_selector.set_selected_idx(idx);
     }
 
-    spdlog::trace("selector {} {} {}, {} {} {}", fmt::ptr(selector), idx, v,
+    LOG_TRACE("selector {} {} {}, {} {} {}", fmt::ptr(selector), idx, v,
 		  fmt::ptr(temp_selector.get_selector()),
 		  fmt::ptr(length_selector.get_selector()),
 		  fmt::ptr(speed_selector.get_selector()));

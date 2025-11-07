@@ -1,5 +1,5 @@
 #include "sensor_container.h"
-#include "spdlog/spdlog.h"
+#include "logger.h"
 #include "utils.h"
 #include <string>
 
@@ -75,7 +75,7 @@ SensorContainer::SensorContainer(KWebSocketClient &c,
       lv_obj_set_style_radius(target_label, 6, LV_PART_MAIN);
       lv_obj_set_style_border_color(target_label, lv_palette_darken(LV_PALETTE_GREY, 1), LV_PART_MAIN);
 
-      spdlog::debug("sensor cb registered name {}, cont {}, this {}, np {}",
+      LOG_DEBUG("sensor cb registered name {}, cont {}, this {}, np {}",
 		    id, fmt::ptr(sensor_cont), fmt::ptr(this), fmt::ptr(&np));
       lv_obj_add_event_cb(sensor_cont, &SensorContainer::_handle_edit, LV_EVENT_CLICKED, this);
     } 
@@ -100,7 +100,7 @@ SensorContainer::SensorContainer(KWebSocketClient &c,
 
 SensorContainer::~SensorContainer() {
   if (sensor_cont != NULL) {
-    spdlog::debug("deleting sensor {}", id);
+    LOG_DEBUG("deleting sensor {}", id);
     lv_obj_del(sensor_cont);
     sensor_cont = NULL;
   }
@@ -141,7 +141,7 @@ void SensorContainer::update_series(int v) {
 
 void SensorContainer::handle_edit(lv_event_t *e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    spdlog::trace("sensor callback this {}, {}, {}", id, fmt::ptr(this), fmt::ptr(&numpad));
+    LOG_TRACE("sensor callback this {}, {}, {}", id, fmt::ptr(this), fmt::ptr(&numpad));
     numpad.set_callback([this](double v) {
       std::string heater_name = KUtils::get_obj_name(id);
       if (id.find("temperature_fan") != std::string::npos) {
