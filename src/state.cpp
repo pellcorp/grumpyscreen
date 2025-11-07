@@ -172,9 +172,9 @@ std::vector<std::string> State::get_output_pins() {
 
 json State::get_display_sensors() {
   Config *conf = Config::get_instance();
-  json &user_sensors = conf->get_json("/monitored_sensors");
+  const auto& user_sensors = conf->get_objects("/monitored_sensors");
   json sensors_by_id;
-  if (!user_sensors.is_null()) {
+  if (!user_sensors.empty()) {
     for (auto &s : user_sensors) {
       sensors_by_id[s["id"].template get<std::string>()] = s;
     }
@@ -209,9 +209,9 @@ json State::get_display_sensors() {
 
 json State::get_display_fans() {
   Config *conf = Config::get_instance();
-  json &user_fans = conf->get_json("/fans");
+  const auto& user_fans = conf->get_objects("/fans");
   json fans_by_id;
-  if (!user_fans.is_null()) {
+  if (!user_fans.empty()) {
     for (auto &s : user_fans) {
       fans_by_id[s["id"].template get<std::string>()] = s;
     }
@@ -238,10 +238,10 @@ json State::get_display_fans() {
 
 json State::get_display_leds() {
   Config *conf = Config::get_instance();
-  json &user_leds = conf->get_json("/leds");
+  const auto& user_leds = conf->get_objects("/leds");
 
   std::vector<std::string> user_led_ids;
-  if (!user_leds.is_null()) {
+  if (!user_leds.empty()) {
     for (auto &s : user_leds) {
       user_led_ids.push_back(s["id"].template get<std::string>());
     }

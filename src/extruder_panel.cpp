@@ -148,8 +148,8 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       lv_obj_move_background(panel_cont);
     }
 
+    Config *conf = Config::get_instance();
     if (btn == extrude_btn.get_container()) {
-      Config *conf = Config::get_instance();
       const char * temp = lv_btnmatrix_get_btn_text(temp_selector.get_selector(),
 						   temp_selector.get_selected_idx());
       const char * len = lv_btnmatrix_get_btn_text(length_selector.get_selector(),
@@ -162,7 +162,6 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
     }
 
     if (btn == retract_btn.get_container()) {
-      Config *conf = Config::get_instance();
       const char * temp = lv_btnmatrix_get_btn_text(temp_selector.get_selector(),
 						   temp_selector.get_selected_idx());
       const char * len = lv_btnmatrix_get_btn_text(length_selector.get_selector(),
@@ -174,7 +173,6 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
     }
 
     if (btn == unload_btn.get_container()) {
-      Config *conf = Config::get_instance();
       const std::string unload_filament_macro = conf->get<std::string>("/default_macros/unload_filament");
 
       const char *temp = lv_btnmatrix_get_btn_text(temp_selector.get_selector(),
@@ -183,7 +181,6 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
     }
 
     if (btn == load_btn.get_container()) {
-      Config *conf = Config::get_instance();
       const std::string load_filament_macro = conf->get<std::string>("/default_macros/load_filament");
 
       const char *temp = lv_btnmatrix_get_btn_text(temp_selector.get_selector(),
@@ -192,7 +189,6 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
     }
 
     if (btn == cooldown_btn.get_container()) {
-      Config *conf = Config::get_instance();
       const std::string cooldown_macro = conf->get<std::string>("/default_macros/cooldown");
       ws.gcode_script(cooldown_macro);
     }
