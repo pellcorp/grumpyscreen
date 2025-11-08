@@ -29,12 +29,6 @@ public:
         else static_assert(!sizeof(T*), "unsupported T");
     }
 
-    template <typename T>
-    void set(const std::string& json_ptr, const T& value) {
-        auto jp = json::json_pointer(json_ptr);
-        j_[jp] = value;
-    }
-
     std::vector<json> get_objects(const std::string& json_ptr) const {
         std::vector<json> out;
         const auto jp = json::json_pointer(json_ptr);
@@ -46,51 +40,6 @@ public:
         return out;
     }
 
-		bool save() const {
-        if (path_.empty()) return false;
-        std::ofstream out(path_);
-        if (!out.is_open()) return false;
-
-        auto write_pair = [&](const std::string& key, const nlohmann::json& v) {
-            out << key << ": ";
-            if (v.is_string()) out << v.get<std::string>();
-            else if (v.is_boolean()) out << (v.get<bool>() ? "true" : "false");
-            else if (v.is_number_integer()) out << v.get<long long>();
-            else if (v.is_number_float()) out << v.get<double>();
-            out << "\n";
-        };
-
-        // Iterate over top-level keys
-        for (auto it = j_.begin(); it != j_.end(); ++it) {
-            const auto& key = it.key();
-            const auto& val = it.value();
-
-            if (val.is_object()) {
-                out << "[" << key << "]\n";
-                for (auto kv = val.begin(); kv != val.end(); ++kv) {
-                    write_pair(kv.key(), kv.value());
-                }
-                out << "\n";
-            } else if (val.is_array()) {
-                for (const auto& obj : val) {
-                    if (!obj.is_object() || !obj.contains("id")) continue;
-                    std::string id = obj["id"].get<std::string>();
-                    out << "[" << key << " \"" << id << "\"]\n";
-                    for (auto kv = obj.begin(); kv != obj.end(); ++kv) {
-                        if (kv.key() == "id") continue;
-                        write_pair(kv.key(), kv.value());
-                    }
-                    out << "\n";
-                }
-            } else {
-                // top-level scalar
-                write_pair(key, val);
-            }
-        }
-        return true;
-    }
-
-    const json& raw() const { return j_; }
     const std::string& get_path() const { return path_; }
 
 private:
@@ -153,8 +102,8 @@ private:
             // strip line comments if the first non-space is # or ;
             std::string s = line;
             size_t i = 0; while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) ++i;
-            if (i < s.size() && s[i] == '#') continue;
-            size_t cpos = s.find_first_of("#");
+            if (i < s.size() && (s[i]=='#' || s[i]==';')) continue;
+            size_t cpos = s.find_first_of("#;");
             if (cpos != std::string::npos) s.erase(cpos);
 
             trim(s);
@@ -177,7 +126,7 @@ private:
                 continue;
             }
 
-            size_t pos = s.find_first_of(":");
+            size_t pos = s.find_first_of("=:");
             if (pos == std::string::npos) continue;
             std::string key = s.substr(0, pos);
             std::string val = s.substr(pos+1);

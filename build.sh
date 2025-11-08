@@ -87,9 +87,9 @@ else
             password=Creality2023
           fi
           sshpass -p $password scp build/bin/guppyscreen root@$PRINTER_IP:
-          sshpass -p $password scp guppyscreen.json root@$PRINTER_IP:
+          sshpass -p $password scp grumpyscreen.cfg root@$PRINTER_IP:
           sshpass -p $password ssh root@$PRINTER_IP "mv /root/guppyscreen /usr/data/guppyscreen/"
-          sshpass -p $password ssh root@$PRINTER_IP "mv /root/guppyscreen.json /usr/data/guppyscreen/"
+          sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/printer_data/config/"
           if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
             sshpass -p $password ssh root@$PRINTER_IP "/usr/data/pellcorp/tools/rotate-grumpyscreen.sh 0"
           fi
@@ -97,15 +97,15 @@ else
         else # rpi
           sshpass -p 'raspberry' scp build/bin/guppyscreen pi@$PRINTER_IP:/tmp/
           cp guppyscreen.json /tmp
-          sed -i 's/"display_rotate": 3/"display_rotate": 0/g' /tmp/guppyscreen.json
-          sed -i '/S58factoryreset/d' /tmp/guppyscreen.json
+          sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
+          sed -i '/S58factoryreset/d' /tmp/grumpyscreen.cfg
           # rpi does not have switch to stock
-          sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' /tmp/guppyscreen.json
+          sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' /tmp/grumpyscreen.cfg
           # for now no support command for rpi either
-          sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/guppyscreen.json
-          sshpass -p 'raspberry' scp /tmp/guppyscreen.json pi@$PRINTER_IP:/tmp/
+          sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/grumpyscreen.cfg
+          sshpass -p 'raspberry' scp /tmp/grumpyscreen.cfg pi@$PRINTER_IP:/tmp/
           sshpass -p 'raspberry' ssh pi@$PRINTER_IP "mv /tmp/guppyscreen /home/pi/guppyscreen/"
-          sshpass -p 'raspberry' ssh pi@$PRINTER_IP "mv /tmp/guppyscreen.json /home/pi/guppyscreen/"
+          sshpass -p 'raspberry' ssh pi@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/pi/printer_data/config/"
           sshpass -p 'raspberry' ssh pi@$PRINTER_IP "sudo systemctl restart grumpyscreen"
         fi
     fi
