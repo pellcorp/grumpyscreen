@@ -12,6 +12,19 @@ RUN mkdir /toolchains && \
     tar -xf /tmp/x-tools-armv8-rpi3-linux-gnueabihf-gcc12.tar.xz -C /toolchains && \
     rm /tmp/mips32el--musl--stable-2024.02-1.tar.bz2 && \
     rm /tmp/x-tools-armv8-rpi3-linux-gnueabihf-gcc12.tar.xz
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    apt-get install -y --no-install-recommends sudo && \
+    apt-get clean all && \
+    apt-get -y autoremove
+
+RUN adduser --disabled-password --gecos "" developer && \
+  usermod -a -G sudo developer && \
+  echo "%sudo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd
+
 ENV PATH=/toolchains/mips32el--musl--stable-2024.02-1/bin:/toolchains/x-tools/armv8-rpi3-linux-gnueabihf/bin/:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-WORKDIR /toolchains
+
+USER developer
+WORKDIR /home/developer
+
 CMD ["/bin/bash"]

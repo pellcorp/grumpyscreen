@@ -21,7 +21,7 @@ https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
 
 Clone the guppyscreen repo (and submodules) and apply a couple of patches locally.
 
-1. `git clone --recursive https://github.com/pellcorp/guppyscreen grumpyscreen && cd grumpyscreen`
+1. `git clone --recursive https://github.com/pellcorp/grumpyscreen grumpyscreen && cd grumpyscreen`
 
 ### Build for Creality OS (K1, K1M, Ender 3 V3 KE, etc) 
 
