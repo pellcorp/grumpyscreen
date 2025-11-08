@@ -30,7 +30,7 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
   lv_obj_add_flag(btn, LV_OBJ_FLAG_EVENT_BUBBLE);
 
   Config *conf = Config::get_instance();
-  const bool prompt_emergency_stop = conf->get<bool>("/prompt_emergency_stop");
+  const bool prompt_emergency_stop = conf->get<bool>("/ui/prompt_emergency_stop");
   auto prompt_estop = force || prompt_emergency_stop;
 
   if (cb != NULL && !pcb) {

@@ -6,7 +6,6 @@
         "load_filament": "LOAD_FILAMENT EXTRUDER_TEMP={}",
         "unload_filament": "UNLOAD_FILAMENT EXTRUDER_TEMP={}"
     },
-    "display_brightness": 90,
     "display_rotate": 3,
     "display_sleep_sec": 600,
     "factory_reset_cmd": "/etc/init.d/S58factoryreset reset",

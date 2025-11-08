@@ -27,7 +27,7 @@ using namespace hv;
 
 int main(void) {
     Config *conf = Config::get_instance();
-    auto config_path = fs::canonical("/proc/self/exe").parent_path() / "guppyscreen.json";
+    auto config_path = fs::canonical("/proc/self/exe").parent_path() / "guppyscreen.cfg";
     if (fs::exists(config_path)) {
       if (!conf->load(config_path.string())) {
           LOG_ERROR("Failed to load {}", config_path.string());
@@ -66,7 +66,7 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     disp_drv.ver_res    = height;
 
     Config *conf = Config::get_instance();
-    auto rotate_value = conf->get<std::uint32_t>("/display_rotate");
+    auto rotate_value = conf->get<std::uint32_t>("/ui/display_rotate");
     if (rotate_value > 0 && rotate_value < 4) {
       disp_drv.sw_rotate = 1;
       disp_drv.rotated = rotate_value;

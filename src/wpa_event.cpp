@@ -48,7 +48,7 @@ void WpaEvent::register_callback(const std::string &name,
 void WpaEvent::init_wpa() {
   // TODO: retries
   
-  std::string wpa_socket = Config::get_instance()->get<std::string>("/wpa_supplicant");
+  std::string wpa_socket = Config::get_instance()->get<std::string>("/system/wpa_supplicant");
   if (fs::is_directory(fs::status(wpa_socket))) {
     for (const auto &e : fs::directory_iterator(wpa_socket)) {
       if (fs::is_socket(e.path()) && e.path().string().find("p2p") == std::string::npos) {

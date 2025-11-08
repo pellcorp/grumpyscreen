@@ -118,4 +118,9 @@ wpaclean:
 clean:
 	rm -rf $(BUILD_DIR)
 
+test:
+	@mkdir -p $(BUILD_DIR)
+	g++ -std=gnu++17 -O2 -I./src -Ilibhv/include/ tests/test_config.cpp -o $(BUILD_DIR)/test_config
+	$(BUILD_DIR)/test_config
+
 -include			$(DEPS)

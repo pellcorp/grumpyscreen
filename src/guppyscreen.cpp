@@ -46,10 +46,10 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
   // config
   Config *conf = Config::get_instance();
-  auto ll = conf->get<std::string>("/log_level");
+  auto ll = conf->get<std::string>("/ui/log_level");
   set_log_level(ll);
 
-  const std::string selected_theme = conf->get<std::string>("/theme");
+  const std::string selected_theme = conf->get<std::string>("/ui/theme");
   auto theme_config = fs::canonical(conf->get_path()).parent_path() / "themes" / (selected_theme + ".json");
   ThemeConfig *theme_conf = ThemeConfig::get_instance();
   theme_conf->init(theme_config);
@@ -99,8 +99,8 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   GuppyScreen *gs = GuppyScreen::get();
   // start initializing all guppy components
   std::string ws_url = fmt::format("ws://{}:{}/websocket",
-                                   conf->get<std::string>("/moonraker_host"),
-                                   conf->get<uint32_t>("/moonraker_port"));
+                                   conf->get<std::string>("/moonraker/host"),
+                                   conf->get<uint32_t>("/moonraker/port"));
 
   LOG_INFO("connecting to printer at {}", ws_url);
   gs->connect_ws(ws_url);
@@ -135,7 +135,7 @@ void GuppyScreen::loop() {
   /*Handle LitlevGL tasks (tickless mode)*/
   std::atomic_bool is_sleeping(false);
   Config *conf = Config::get_instance();
-  int32_t display_sleep = conf->get<int32_t>("/display_sleep_sec") * 1000;
+  int32_t display_sleep = conf->get<int32_t>("/ui/display_sleep_sec") * 1000;
 
   while (1) {
     lv_lock.lock();

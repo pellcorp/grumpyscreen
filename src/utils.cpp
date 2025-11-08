@@ -72,7 +72,7 @@ namespace KUtils {
       }
 
       Config *conf = Config::get_instance();
-      std::string moonraker_host = conf->get<std::string>("/moonraker_host");
+      std::string moonraker_host = conf->get<std::string>("/moonraker/host");
       std::string fname = relative_path.substr(relative_path.find_last_of("/\\") + 1);
 
       // download thumbnail
@@ -112,7 +112,7 @@ namespace KUtils {
   }
 
   std::string get_wifi_interface() {
-    std::string wpa_socket = Config::get_instance()->get<std::string>("/wpa_supplicant");
+    std::string wpa_socket = Config::get_instance()->get<std::string>("/system/wpa_supplicant");
     if (fs::is_directory(fs::status(wpa_socket))) {
       for (const auto &e : fs::directory_iterator(wpa_socket)) {
         if (fs::is_socket(e.path()) && e.path().string().find("p2p") == std::string::npos) {
