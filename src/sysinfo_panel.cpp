@@ -114,7 +114,7 @@ SysInfoPanel::SysInfoPanel()
 			  "1 Hour\n"
 			  "5 Hours");
 
-  const int32_t sleep_sec = conf->get<int32_t>("/display_sleep_sec");
+  const int32_t sleep_sec = conf->get<int32_t>("/ui/display_sleep_sec");
   const auto &el = sleepsec_to_dd_idx.find(sleep_sec);
   if (el != sleepsec_to_dd_idx.end()) {
     lv_dropdown_set_selected(display_sleep_dd, el->second);
@@ -131,7 +131,7 @@ SysInfoPanel::SysInfoPanel()
 
   lv_dropdown_set_options(loglevel_dd, fmt::format("{}", join(log_levels, "\n")).c_str());
 
-  const std::string log_level = conf->get<std::string>("/log_level");
+  const std::string log_level = conf->get<std::string>("/ui/log_level");
   auto ll_idx = std::find(log_levels.begin(), log_levels.end(), log_level);
   if (ll_idx != std::end(log_levels)) {
     loglevel = std::distance(log_levels.begin(),ll_idx);
@@ -149,7 +149,7 @@ SysInfoPanel::SysInfoPanel()
   lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
   lv_obj_align(prompt_estop_toggle, LV_ALIGN_RIGHT_MID, 0, 0);
 
-  const bool prompt_emergency_stop = conf->get<bool>("/prompt_emergency_stop");
+  const bool prompt_emergency_stop = conf->get<bool>("/ui/prompt_emergency_stop");
   if (prompt_emergency_stop) {
     lv_obj_add_state(prompt_estop_toggle, LV_STATE_CHECKED);
   } else {
@@ -168,7 +168,7 @@ SysInfoPanel::SysInfoPanel()
   lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
   lv_obj_align(z_icon_toggle, LV_ALIGN_RIGHT_MID, 0, 0);
 
-  const bool invert_z_icon = conf->get<bool>("/invert_z_icon");
+  const bool invert_z_icon = conf->get<bool>("/ui/invert_z_icon");
   if (invert_z_icon) {
     lv_obj_add_state(z_icon_toggle, LV_STATE_CHECKED);
   } else {
@@ -187,7 +187,7 @@ SysInfoPanel::SysInfoPanel()
 
   lv_dropdown_set_options(theme_dd, fmt::format("{}", join(themes, "\n")).c_str());
 
-  const std::string theme_id = conf->get<std::string>("/theme");
+  const std::string theme_id = conf->get<std::string>("/ui/theme");
   auto theme_idx = std::find(themes.begin(), themes.end(), theme_id);
   if (theme_idx != std::end(themes)) {
     theme = std::distance(themes.begin(), theme_idx);
@@ -198,7 +198,7 @@ SysInfoPanel::SysInfoPanel()
 
   lv_obj_add_flag(support_zip_btn.get_container(), LV_OBJ_FLAG_FLOATING);
   lv_obj_align(support_zip_btn.get_container(), LV_ALIGN_BOTTOM_LEFT, 0, 0);
-  auto support_zip_cmd = conf->get<std::string>("/support_zip_cmd");
+  auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
   if (support_zip_cmd == "") {
     support_zip_btn.disable();
   }
@@ -237,7 +237,7 @@ void SysInfoPanel::handle_callback(lv_event_t *e) {
       lv_obj_move_background(cont);
     } else if (btn == support_zip_btn.get_container()) {
       Config *conf = Config::get_instance();
-      auto support_zip_cmd = conf->get<std::string>("/support_zip_cmd");
+      auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
       if (support_zip_cmd != "") {
         auto ret = sp::call(support_zip_cmd);
         if (ret == 0) {
@@ -257,13 +257,13 @@ void SysInfoPanel::handle_callback(lv_event_t *e) {
           loglevel = idx;
           set_log_level(log_levels[loglevel]);
           LOG_DEBUG("setting log_level to {}", log_levels[loglevel]);
-          conf->set<std::string>("/log_level", log_levels[loglevel]);
+          conf->set<std::string>("/ui/log_level", log_levels[loglevel]);
           conf->save();
         }
       }
     } else if (obj == prompt_estop_toggle) {
       bool should_prompt = lv_obj_has_state(prompt_estop_toggle, LV_STATE_CHECKED);
-      conf->set<bool>("/prompt_emergency_stop", should_prompt);
+      conf->set<bool>("/ui/prompt_emergency_stop", should_prompt);
       conf->save();
     } else if (obj == display_sleep_dd) {
       char buf[64];
@@ -272,19 +272,19 @@ void SysInfoPanel::handle_callback(lv_event_t *e) {
       const auto &el = sleep_label_to_sec.find(sleep_label);
       if (el != sleep_label_to_sec.end())
       {
-        conf->set<int32_t>("/display_sleep_sec", el->second);
+        conf->set<int32_t>("/ui/display_sleep_sec", el->second);
         conf->save();
       }
     } else if (obj == z_icon_toggle) {
       bool inverted = lv_obj_has_state(z_icon_toggle, LV_STATE_CHECKED);
-      conf->set<bool>("/invert_z_icon", inverted);
+      conf->set<bool>("/ui/invert_z_icon", inverted);
       conf->save();
     } else if (obj == theme_dd) {
       auto idx = lv_dropdown_get_selected(theme_dd);
       if (idx != theme) {
         theme = idx;
         auto selected_theme = themes[theme];
-        conf->set<std::string>("/theme", selected_theme);
+        conf->set<std::string>("/ui/theme", selected_theme);
         conf->save();
         auto theme_config = fs::canonical(conf->get_path()).parent_path() / "themes" / (selected_theme + ".json");
         ThemeConfig::get_instance()->init(theme_config);

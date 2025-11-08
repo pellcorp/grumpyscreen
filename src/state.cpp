@@ -172,7 +172,7 @@ std::vector<std::string> State::get_output_pins() {
 
 json State::get_display_sensors() {
   Config *conf = Config::get_instance();
-  const auto& user_sensors = conf->get_objects("/monitored_sensors");
+  const auto& user_sensors = conf->get_objects("/monitored_sensor");
   json sensors_by_id;
   if (!user_sensors.empty()) {
     for (auto &s : user_sensors) {
@@ -209,7 +209,7 @@ json State::get_display_sensors() {
 
 json State::get_display_fans() {
   Config *conf = Config::get_instance();
-  const auto& user_fans = conf->get_objects("/fans");
+  const auto& user_fans = conf->get_objects("/fan");
   json fans_by_id;
   if (!user_fans.empty()) {
     for (auto &s : user_fans) {
@@ -238,7 +238,7 @@ json State::get_display_fans() {
 
 json State::get_display_leds() {
   Config *conf = Config::get_instance();
-  const auto& user_leds = conf->get_objects("/leds");
+  const auto& user_leds = conf->get_objects("/led");
 
   std::vector<std::string> user_led_ids;
   if (!user_leds.empty()) {

@@ -32,7 +32,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
             [](){
               LOG_INFO("switch to stock pressed");
               Config *conf = Config::get_instance();
-              auto switch_to_stock_cmd = conf->get<std::string>("/switch_to_stock_cmd");
+              auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
               auto ret = sp::call(switch_to_stock_cmd);
               if (ret == 0) {
                 create_simple_dialog(lv_scr_act(), "Switch to Stock Initiated", "Please power cycle your printer!", false);
@@ -45,7 +45,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
     		  "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to execute an emergency factory reset?\n\nThis will reset the printer to stock creality firmware!",
           [](){
             Config *conf = Config::get_instance();
-            auto factory_reset_cmd = conf->get<std::string>("/factory_reset_cmd");
+            auto factory_reset_cmd = conf->get<std::string>("/commands/factory_reset_cmd");
             auto ret = sp::call(factory_reset_cmd);
             if (ret != 0) {
               create_simple_dialog(lv_scr_act(), "Factory Reset Failed", "Failed to initiate factory reset.", true);
@@ -57,15 +57,15 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
 
   Config *conf = Config::get_instance();
-  auto update_script = conf->get<std::string>("/guppy_update_cmd");
+  auto update_script = conf->get<std::string>("/commands/guppy_update_cmd");
   if (update_script == "") {
     guppy_update_btn.disable();
   }
-  auto switch_to_stock_cmd = conf->get<std::string>("/switch_to_stock_cmd");
+  auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
   if (switch_to_stock_cmd == "") {
     switch_to_stock_btn.disable();
   }
-  auto factory_reset_cmd = conf->get<std::string>("/factory_reset_cmd");
+  auto factory_reset_cmd = conf->get<std::string>("/commands/factory_reset_cmd");
     if (factory_reset_cmd == "") {
       factory_reset_btn.disable();
     }
@@ -118,7 +118,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     } else if (btn == guppy_restart_btn.get_container()) {
       LOG_TRACE("restart grumpy pressed");
       Config *conf = Config::get_instance();
-      auto restart_command = conf->get<std::string>("/guppy_restart_cmd");
+      auto restart_command = conf->get<std::string>("/commands/guppy_restart_cmd");
       auto ret = sp::call(restart_command);
       if (ret != 0) {
         create_simple_dialog(lv_scr_act(), "Restart GrumpyScreen Failed", "Failed to restart GrumpyScreen!", true);
@@ -126,7 +126,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     } else if (btn == guppy_update_btn.get_container()) {
       LOG_TRACE("update guppy pressed");
       Config *conf = Config::get_instance();
-      auto update_script = conf->get<std::string>("/guppy_update_cmd");
+      auto update_script = conf->get<std::string>("/commands/guppy_update_cmd");
       auto ret = sp::call(update_script);
       if (ret != 0) {
         create_simple_dialog(lv_scr_act(), "Update GrumpyScreen Failed", "Failed to update GrumpyScreen!", true);

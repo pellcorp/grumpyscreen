@@ -129,7 +129,7 @@ void FineTunePanel::foreground() {
   }
 
   //Set the Z axis buttons
-  const bool inverted = Config::get_instance()->get<bool>("/invert_z_icon");
+  const bool inverted = Config::get_instance()->get<bool>("/ui/invert_z_icon");
   if (inverted) {
     // UP arrow
     zup_btn.set_image(&z_farther);
