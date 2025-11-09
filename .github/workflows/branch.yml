@@ -2,6 +2,10 @@ name: branch build
 
 on:
   push:
+    branches:
+      - '**'
+  pull_request:
+    types: [closed]
 
 permissions:
   contents: write
