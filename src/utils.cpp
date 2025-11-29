@@ -112,7 +112,7 @@ namespace KUtils {
   }
 
   std::string get_wifi_interface() {
-    std::string wpa_socket = Config::get_instance()->get<std::string>("/system/wpa_supplicant");
+    std::string wpa_socket = std::string(std::getenv("WPA_SUPPLICANT_SOCKET"));
     if (fs::is_directory(fs::status(wpa_socket))) {
       for (const auto &e : fs::directory_iterator(wpa_socket)) {
         if (fs::is_socket(e.path()) && e.path().string().find("p2p") == std::string::npos) {
@@ -120,7 +120,6 @@ namespace KUtils {
         }
       }
     }
-
     return "";
   }
 
