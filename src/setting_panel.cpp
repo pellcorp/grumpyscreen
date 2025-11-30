@@ -16,6 +16,28 @@ LV_IMG_DECLARE(sysinfo_img);
 LV_IMG_DECLARE(emergency);
 LV_IMG_DECLARE(print);
 
+struct reset_ctx {
+    lv_obj_t * mbox;
+    std::string cmd;
+};
+
+static void run_factory_reset_cb(lv_timer_t * t) {
+    reset_ctx * ctx = (reset_ctx *)t->user_data;
+
+    int ret = sp::call(ctx->cmd);
+
+    if (ret != 0) {
+        simple_dialog_close(ctx->mbox);
+        create_simple_dialog(lv_scr_act(),
+                             "Factory Reset Failed",
+                             "Failed to initiate factory reset.",
+                             true);
+    }
+
+    delete ctx;
+    lv_timer_del(t);
+}
+
 SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   : ws(c)
   , cont(lv_obj_create(parent))
@@ -44,12 +66,17 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , factory_reset_btn(cont, &emergency, "Factory\nReset", &SettingPanel::_handle_callback, this,
     		  "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to execute an emergency factory reset?\n\nThis will reset the printer to stock creality firmware!",
           [](){
+            LOG_INFO("factory reset pressed");
+            lv_obj_t *mbox  = create_simple_dialog(lv_scr_act(), "Factory Reset Initiated", "Your printer will restart shortly!\nPlease wait for the stock screen to appear!", false);
+
             Config *conf = Config::get_instance();
-            auto factory_reset_cmd = conf->get<std::string>("/commands/factory_reset_cmd");
-            auto ret = sp::call(factory_reset_cmd);
-            if (ret != 0) {
-              create_simple_dialog(lv_scr_act(), "Factory Reset Failed", "Failed to initiate factory reset.", true);
-            }
+            auto cmd = conf->get<std::string>("/commands/factory_reset_cmd");
+
+            reset_ctx * ctx = new reset_ctx{ mbox, cmd };
+
+            lv_timer_t * timer =
+                lv_timer_create(run_factory_reset_cb, 5000, ctx);
+            lv_timer_set_repeat_count(timer, 1);
           },
           true)
 {

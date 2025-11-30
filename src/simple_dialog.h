@@ -5,18 +5,30 @@
 #include "logger.h"
 #include <string.h> // strcmp
 
+
+static inline void simple_dialog_close(lv_obj_t * mbox) {
+    lv_obj_t * overlay = lv_obj_get_parent(mbox);
+
+    if (overlay) {
+        lv_obj_del_async(overlay);   // kills mbox as a child too
+    } else {
+        lv_obj_del_async(mbox);
+    }
+}
+
 static inline void simple_dialog_event_cb(lv_event_t * e) {
-    if(lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
 
-    lv_obj_t * mbox = lv_event_get_target(e);
-    const char * txt = lv_msgbox_get_active_btn_text(mbox);
+    lv_obj_t * btnm = lv_event_get_target(e);
+    lv_obj_t * mbox = lv_obj_get_parent(btnm);
+    if (mbox == NULL) return;
 
-    if(txt && strcmp(txt, "OK") == 0) {
-        lv_obj_t * overlay = lv_obj_get_parent(mbox);
-        lv_msgbox_close(mbox);
-        if (overlay) {
-            lv_obj_del(overlay);
-        }
+    int32_t id = lv_btnmatrix_get_selected_btn(btnm);
+    if (id < 0) return;
+
+    const char * txt = lv_btnmatrix_get_btn_text(btnm, id);
+    if (txt && strcmp(txt, "OK") == 0) {
+        simple_dialog_close(mbox);
     }
 }
 
