@@ -98,10 +98,7 @@ SysInfoPanel::SysInfoPanel()
   lv_obj_align(display_sleep_dd, LV_ALIGN_RIGHT_MID, 0, 0);
 
   const int32_t sleep_sec = conf->get<int32_t>("/ui/display_sleep_sec");
-  const auto &el = sleepsec_to_dd_idx.find(sleep_sec);
-  if (el != sleepsec_to_dd_idx.end()) {
-		lv_label_set_text(display_sleep_dd, el->second.c_str());
-	}
+  lv_label_set_text(display_sleep_dd, (std::to_string(sleep_sec) + " seconds").c_str());
 
   lv_obj_set_size(ll_cont, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_style_pad_all(ll_cont, 0, 0);

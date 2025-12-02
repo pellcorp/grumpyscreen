@@ -50,12 +50,15 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   set_log_level(ll);
 
   const std::string selected_theme = conf->get<std::string>("/ui/theme");
-  auto theme_config = fs::canonical(conf->get_path()).parent_path() / "themes" / (selected_theme + ".json");
+  auto theme_config = fs::canonical("/proc/self/exe").parent_path() / "themes" / (selected_theme + ".json");
   ThemeConfig *theme_conf = ThemeConfig::get_instance();
   theme_conf->init(theme_config);
 
-  auto primary_color = lv_color_hex(std::stoul(theme_conf->get<std::string>("/primary_color"), nullptr, 16));
-  auto secondary_color = lv_color_hex(std::stoul(theme_conf->get<std::string>("/secondary_color"), nullptr, 16));
+  auto theme_primary_color = theme_conf->get<std::string>("/primary_color");
+  auto theme_secondary_color = theme_conf->get<std::string>("/secondary_color");
+
+  auto primary_color = lv_color_hex(std::stoul(theme_primary_color, nullptr, 16));
+  auto secondary_color = lv_color_hex(std::stoul(theme_secondary_color, nullptr, 16));
 
   LOG_INFO("GrumpyScreen Version: {}-{}", GUPPYSCREEN_BRANCH, GUPPYSCREEN_VERSION);
 
