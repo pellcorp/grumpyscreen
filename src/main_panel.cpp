@@ -16,10 +16,11 @@ LV_IMG_DECLARE(heater);
 LV_IMG_DECLARE(emergency);
 
 LV_FONT_DECLARE(materialdesign_font_40);
-#define CONSOLE_SYMBOL "\xF3\xB0\x86\x8D"
-#define TUNE_SYMBOL "\xF3\xB1\x95\x82"
-#define HOME_SYMBOL "\xF3\xB0\x8B\x9C"
-#define SETTING_SYMBOL "\xF3\xB0\x92\x93"
+
+#define INFO_SYMBOL    u8"\U000F02FD"
+#define SETTING_SYMBOL u8"\U000F1064"
+#define HOME_SYMBOL    u8"\U000F02DC"
+#define CONSOLE_SYMBOL u8"\U000F018D"
 
 MainPanel::MainPanel(KWebSocketClient &websocket,
 		     std::mutex &lock,
@@ -35,6 +36,8 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , console_panel(ws, lock, console_tab)
   , setting_tab(lv_tabview_add_tab(tabview, SETTING_SYMBOL))
   , setting_panel(websocket, lock, setting_tab)
+  , sysinfo_tab(lv_tabview_add_tab(tabview, INFO_SYMBOL))
+  , sysinfo_panel(sysinfo_tab)
   , main_cont(lv_obj_create(main_tab))
   , print_status_panel(websocket, lock, main_cont)
   , print_panel(ws, lock, print_status_panel)
@@ -62,7 +65,10 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
     lv_style_set_border_width(&style, 0);
     lv_style_set_bg_color(&style, lv_palette_darken(LV_PALETTE_GREY, 4));
 
-    ws.register_notify_update(this);    
+    ws.register_notify_update(this);
+
+    lv_obj_add_event_cb(tabview, &MainPanel::_tabview_event_cb,
+                            LV_EVENT_VALUE_CHANGED, this);
 }
 
 MainPanel::~MainPanel() {
@@ -136,6 +142,21 @@ static void scroll_begin_event(lv_event_t * e) {
   }
 }
 
+// this is just to ensure we refresh the IP addresses 
+void MainPanel::_tabview_event_cb(lv_event_t *e) {
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+
+    auto *self = static_cast<MainPanel*>(lv_event_get_user_data(e));
+    lv_obj_t *tv = lv_event_get_target(e);
+
+    const uint16_t idx = lv_tabview_get_tab_act(tv);
+
+    const uint16_t sysinfo_idx = lv_obj_get_index(self->sysinfo_tab);
+    if (idx == sysinfo_idx) {
+        self->sysinfo_panel.foreground();
+    }
+}
+
 void MainPanel::create_panel() {
   lv_obj_clear_flag(lv_tabview_get_content(tabview), LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_add_event_cb(lv_tabview_get_content(tabview), scroll_begin_event, LV_EVENT_SCROLL_BEGIN, NULL);
@@ -149,6 +170,7 @@ void MainPanel::create_panel() {
   lv_obj_set_style_pad_all(main_tab, 0, 0);
   lv_obj_set_style_pad_all(console_tab, 0, 0);
   lv_obj_set_style_pad_all(setting_tab, 0, 0);
+  lv_obj_set_style_pad_all(sysinfo_tab, 0, 0);
 
   create_main(main_tab);
 }

@@ -14,6 +14,7 @@
 #include "print_panel.h"
 #include "console_panel.h"
 #include "setting_panel.h"
+#include "sysinfo_panel.h"
 #include "print_status_panel.h"
 #include "spoolman_panel.h"
 #include "lvgl/lvgl.h"
@@ -87,6 +88,7 @@ class MainPanel : public NotifyConsumer {
 
  private:
   void create_main(lv_obj_t *parent);
+  static void _tabview_event_cb(lv_event_t *e);
   KWebSocketClient &ws;
   HomingPanel homing_panel;
   FanPanel fan_panel;
@@ -97,6 +99,8 @@ class MainPanel : public NotifyConsumer {
   ConsolePanel console_panel;
   lv_obj_t *setting_tab;
   SettingPanel setting_panel;
+  lv_obj_t *sysinfo_tab;
+  SysInfoPanel sysinfo_panel;
   lv_obj_t *main_cont;
   PrintStatusPanel print_status_panel;
   PrintPanel print_panel;
