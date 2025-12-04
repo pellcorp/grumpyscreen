@@ -142,7 +142,7 @@ static void scroll_begin_event(lv_event_t * e) {
   }
 }
 
-// this is just to ensure we refresh the IP addresses 
+// this is just to ensure we refresh the IP addresses
 void MainPanel::_tabview_event_cb(lv_event_t *e) {
     if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
 
