@@ -2,22 +2,6 @@
 #include "utils.h"
 #include "config.h"
 #include "theme.h"
-#include "logger.h"
-#include "guppyscreen.h"
-#include "subprocess.hpp"
-#include "simple_dialog.h"
-
-#include <algorithm>
-#include <iterator>
-#include <map>
-
-#include <experimental/filesystem>
-
-namespace fs = std::experimental::filesystem;
-namespace sp = subprocess;
-
-LV_IMG_DECLARE(back);
-LV_IMG_DECLARE(sd_img);
 
 std::vector<std::string> SysInfoPanel::log_levels = {
   "trace",
@@ -39,27 +23,7 @@ SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
   , left_cont(lv_obj_create(cont))
   , right_cont(lv_obj_create(cont))
   , network_label(lv_label_create(right_cont))
-
-  , disp_sleep_cont(lv_obj_create(left_cont))
-  , display_sleep_dd(lv_label_create(disp_sleep_cont))
-
-    // log level
-  , ll_cont(lv_obj_create(left_cont))
-  , loglevel_dd(lv_label_create(ll_cont))
-  , loglevel(1)
-
-    // estop prompt
-  , estop_toggle_cont(lv_obj_create(left_cont))
-  , prompt_estop_toggle(lv_label_create(estop_toggle_cont))
-
-    // Z axis icons
-  , z_icon_toggle_cont(lv_obj_create(left_cont))
-  , z_icon_toggle(lv_label_create(z_icon_toggle_cont))
-
-  // theme
-  , theme_cont(lv_obj_create(left_cont))
-  , theme_dd(lv_label_create(theme_cont))
-  , theme(0)
+  , settings_label(lv_label_create(left_cont))
 {
   lv_obj_move_background(cont);
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
@@ -78,69 +42,48 @@ SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
 
   Config *conf = Config::get_instance();
 
-  lv_obj_t *l = lv_label_create(disp_sleep_cont);
-  lv_obj_set_size(disp_sleep_cont, LV_PCT(100), LV_SIZE_CONTENT);
-  lv_obj_set_style_pad_all(disp_sleep_cont, 0, 0);
-  lv_label_set_text(l, "Display Sleep: ");
-  lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
-  lv_obj_align(display_sleep_dd, LV_ALIGN_RIGHT_MID, 0, 0);
+  std::string settings;
+  settings.append("Settings: \n\n");
 
+  settings.append("\tDisplay Sleep: ");
   const int32_t sleep_sec = conf->get<int32_t>("/ui/display_sleep_sec");
-  lv_label_set_text(display_sleep_dd, (std::to_string(sleep_sec) + " seconds").c_str());
+  settings.append(std::to_string(sleep_sec) + " seconds\n\n");
 
-  lv_obj_set_size(ll_cont, LV_PCT(100), LV_SIZE_CONTENT);
-  lv_obj_set_style_pad_all(ll_cont, 0, 0);
-  l = lv_label_create(ll_cont);
-  lv_label_set_text(l, "Log Level: ");
-  lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
-  lv_obj_align(loglevel_dd, LV_ALIGN_RIGHT_MID, 0, 0);
-
+  settings.append("\tLog Level: ");
   const std::string log_level = conf->get<std::string>("/ui/log_level");
   auto ll_idx = std::find(log_levels.begin(), log_levels.end(), log_level);
   if (ll_idx != std::end(log_levels)) {
-    lv_label_set_text(loglevel_dd, (log_level + "").c_str());
+    settings.append(log_level + "\n\n");
+  } else {
+    settings.append("info\n\n");
   }
 
-  lv_obj_set_size(estop_toggle_cont, LV_PCT(100), LV_SIZE_CONTENT);
-  lv_obj_set_style_pad_all(estop_toggle_cont, 0, 0);
-  l = lv_label_create(estop_toggle_cont);
-  lv_label_set_text(l, "Emergency Stop: ");
-  lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
-  lv_obj_align(prompt_estop_toggle, LV_ALIGN_RIGHT_MID, 0, 0);
-
+  settings.append("\tEmergency Stop: ");
   const bool prompt_emergency_stop = conf->get<bool>("/ui/prompt_emergency_stop");
   if (prompt_emergency_stop) {
-  	lv_label_set_text(prompt_estop_toggle, "Prompt");
+  	settings.append("Prompt\n\n");
   } else {
-    lv_label_set_text(prompt_estop_toggle, "No Prompt");
+    settings.append("No Prompt\n\n");
   }
 
-  lv_obj_set_size(z_icon_toggle_cont, LV_PCT(100), LV_SIZE_CONTENT);
-  lv_obj_set_style_pad_all(z_icon_toggle_cont, 0, 0);
- l = lv_label_create(z_icon_toggle_cont);
-  lv_label_set_text(l, "Z Icon: ");
-  lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
-  lv_obj_align(z_icon_toggle, LV_ALIGN_RIGHT_MID, 0, 0);
-
+  settings.append("\tZ Icon: ");
   const bool invert_z_icon = conf->get<bool>("/ui/invert_z_icon");
   if (invert_z_icon) {
-  	lv_label_set_text(z_icon_toggle, "Inverted");
+  	settings.append("Inverted\n\n");
   } else {
-    lv_label_set_text(z_icon_toggle, "Not Inverted");
+    settings.append("Not Inverted\n\n");
   }
 
-  lv_obj_set_size(theme_cont, LV_PCT(100), LV_SIZE_CONTENT);
-  lv_obj_set_style_pad_all(theme_cont, 0, 0);
-  l = lv_label_create(theme_cont);
-  lv_label_set_text(l, "Theme: ");
-  lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
-  lv_obj_align(theme_dd, LV_ALIGN_RIGHT_MID, 0, 0);
-
+  settings.append("\tTheme: ");
   const std::string theme_id = conf->get<std::string>("/ui/theme");
   auto theme_idx = std::find(themes.begin(), themes.end(), theme_id);
   if (theme_idx != std::end(themes)) {
-  	lv_label_set_text(theme_dd, theme_id.c_str());
+  	settings.append(theme_id + "\n\n");
+  } else {
+    settings.append("blue\n\n");
   }
+
+  lv_label_set_text(settings_label, settings.c_str());
 }
 
 SysInfoPanel::~SysInfoPanel() {
@@ -154,14 +97,18 @@ void SysInfoPanel::foreground() {
   lv_obj_move_foreground(cont);
 
   auto ifaces = KUtils::get_interfaces();
-  std::vector<std::string> network_detail;
-  network_detail.push_back("Network");
+  std::string network_detail;
+  network_detail.append("Network:\n\n");
   for (auto &iface : ifaces) {
     if (iface != "lo") {
       auto ip = KUtils::interface_ip(iface);
-      network_detail.push_back(fmt::format("\t{}: {}", iface, ip));
+      network_detail.append(std::string("\t") + iface + ": " + ip + "\n\n");
     }
   }
-  lv_label_set_text(network_label, fmt::format("{}\n\nGrumpyScreen\n\tBranch: {}\n\tRevision: {}", join(network_detail, "\n"),
-          GUPPYSCREEN_BRANCH, GUPPYSCREEN_VERSION).c_str());
+  network_detail.append("\n");
+  network_detail.append("Version Info:\n\n");
+  network_detail.append(std::string("\tBranch: ") + GUPPYSCREEN_BRANCH + "\n\n");
+  network_detail.append(std::string("\tRevision: ") + GUPPYSCREEN_VERSION + "\n\n");
+
+  lv_label_set_text(network_label, network_detail.c_str());
 }

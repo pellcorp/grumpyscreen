@@ -19,23 +19,7 @@ class SysInfoPanel {
   lv_obj_t *left_cont;
   lv_obj_t *right_cont;
   lv_obj_t *network_label;
-
-  lv_obj_t *disp_sleep_cont;
-  lv_obj_t *display_sleep_dd;
-
-  lv_obj_t *ll_cont;
-  lv_obj_t *loglevel_dd;
-  uint32_t loglevel;
-
-  lv_obj_t *estop_toggle_cont;
-  lv_obj_t *prompt_estop_toggle;
-
-  lv_obj_t *z_icon_toggle_cont;
-  lv_obj_t *z_icon_toggle;
-
-  lv_obj_t *theme_cont;
-  lv_obj_t *theme_dd;
-  uint32_t theme;
+  lv_obj_t *settings_label;
 
   static std::vector<std::string> log_levels;
   static std::vector<std::string> themes;
