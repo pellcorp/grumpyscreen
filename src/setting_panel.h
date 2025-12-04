@@ -3,7 +3,6 @@
 
 #include "platform.h"
 #include "wifi_panel.h"
-#include "sysinfo_panel.h"
 #include "button_container.h"
 #include "websocket_client.h"
 #include "lvgl/lvgl.h"
@@ -30,12 +29,11 @@ class SettingPanel {
 
   WifiPanel wifi_panel;
 
-  SysInfoPanel sysinfo_panel;
   ButtonContainer wifi_btn;
   ButtonContainer restart_klipper_btn;
   ButtonContainer restart_firmware_btn;
   ButtonContainer guppy_restart_btn;
-  ButtonContainer sysinfo_btn;
+  ButtonContainer support_zip_btn;
   ButtonContainer guppy_update_btn;
   ButtonContainer switch_to_stock_btn;
   ButtonContainer factory_reset_btn;

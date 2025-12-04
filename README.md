@@ -17,6 +17,7 @@ Grumpyscreen is a fork of GuppyScreen specifically for Simple AF
 
 - [Guppyscreen](https://github.com/ballaswag/guppyscreen)
 - [Material Design Icons](https://pictogrammers.com/library/mdi/)
+- [Material Design WebFont](https://github.com/Templarian/MaterialDesign-Webfont)
 - [Moonraker](https://github.com/Arksine/moonraker)  
 - [KlipperScreen](https://github.com/KlipperScreen/KlipperScreen)  
 - [Fluidd](https://github.com/fluidd-core/fluidd)  

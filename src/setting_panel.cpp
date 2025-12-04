@@ -12,9 +12,9 @@ namespace sp = subprocess;
 LV_IMG_DECLARE(network_img);
 LV_IMG_DECLARE(refresh_img);
 LV_IMG_DECLARE(update_img);
-LV_IMG_DECLARE(sysinfo_img);
 LV_IMG_DECLARE(emergency);
 LV_IMG_DECLARE(print);
+LV_IMG_DECLARE(sd_img);
 
 struct reset_ctx {
     lv_obj_t * mbox;
@@ -42,12 +42,11 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   : ws(c)
   , cont(lv_obj_create(parent))
   , wifi_panel(l)
-  , sysinfo_panel()
   , wifi_btn(cont, &network_img, "WIFI", &SettingPanel::_handle_callback, this)
   , restart_klipper_btn(cont, &refresh_img, "Restart Klipper", &SettingPanel::_handle_callback, this)
   , restart_firmware_btn(cont, &refresh_img, "Restart\nFirmware", &SettingPanel::_handle_callback, this)
   , guppy_restart_btn(cont, &refresh_img, "Restart Grumpy", &SettingPanel::_handle_callback, this)
-  , sysinfo_btn(cont, &sysinfo_img, "System", &SettingPanel::_handle_callback, this)
+  , support_zip_btn(cont, &sd_img, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
   , guppy_update_btn(cont, &update_img, "Update Grumpy", &SettingPanel::_handle_callback, this)
   , switch_to_stock_btn(cont, &emergency, "Switch to\nStock", &SettingPanel::_handle_callback, this,
     "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!",
@@ -110,7 +109,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_set_grid_cell(guppy_restart_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 1, 1);
 
   // row 2
-  lv_obj_set_grid_cell(sysinfo_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
+  lv_obj_set_grid_cell(support_zip_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
   lv_obj_set_grid_cell(guppy_update_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_START, 2, 1);
   lv_obj_set_grid_cell(switch_to_stock_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_START, 2, 1);
   lv_obj_set_grid_cell(factory_reset_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 2, 1);
@@ -133,9 +132,6 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     if (btn == wifi_btn.get_container()) {
       LOG_TRACE("wifi pressed");
       wifi_panel.foreground();
-    } else if (btn == sysinfo_btn.get_container()) {
-      LOG_TRACE("system info pressed");
-      sysinfo_panel.foreground();
     } else if (btn == restart_klipper_btn.get_container()) {
       LOG_TRACE("restart klipper pressed");
       ws.send_jsonrpc("printer.restart");
@@ -157,6 +153,17 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       auto ret = sp::call(update_script);
       if (ret != 0) {
         create_simple_dialog(lv_scr_act(), "Update GrumpyScreen Failed", "Failed to update GrumpyScreen!", true);
+      }
+    } else if (btn == support_zip_btn.get_container()) {
+      Config *conf = Config::get_instance();
+      auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
+      if (support_zip_cmd != "") {
+        auto ret = sp::call(support_zip_cmd);
+        if (ret == 0) {
+          create_simple_dialog(lv_scr_act(), "Support ZIP Success", "The support.zip can be found in the config directory!", true);
+        } else {
+          create_simple_dialog(lv_scr_act(), "Support ZIP Failed", "Failed to generate a support zip!", true);
+        }
       }
     }
   }

@@ -9,16 +9,10 @@
 
 class SysInfoPanel {
  public:
-  SysInfoPanel();
+  SysInfoPanel(lv_obj_t *parent);
   ~SysInfoPanel();
 
   void foreground();
-  void handle_callback(lv_event_t *event);
-
-  static void _handle_callback(lv_event_t *event) {
-    SysInfoPanel *panel = (SysInfoPanel*)event->user_data;
-    panel->handle_callback(event);
-  };
 
  private:
   lv_obj_t *cont;
@@ -42,9 +36,6 @@ class SysInfoPanel {
   lv_obj_t *theme_cont;
   lv_obj_t *theme_dd;
   uint32_t theme;
-
-  ButtonContainer support_zip_btn;
-  ButtonContainer back_btn;
 
   static std::vector<std::string> log_levels;
   static std::vector<std::string> themes;
