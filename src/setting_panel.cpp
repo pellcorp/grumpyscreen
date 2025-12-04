@@ -92,9 +92,13 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
     switch_to_stock_btn.disable();
   }
   auto factory_reset_cmd = conf->get<std::string>("/commands/factory_reset_cmd");
-    if (factory_reset_cmd == "") {
-      factory_reset_btn.disable();
-    }
+  if (factory_reset_cmd == "") {
+    factory_reset_btn.disable();
+  }
+  auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
+  if (support_zip_cmd == "") {
+    support_zip_btn.disable();
+  }
 
   static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(2), LV_GRID_FR(5), LV_GRID_FR(5), LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
