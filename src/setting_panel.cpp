@@ -56,7 +56,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
               auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
               auto ret = sp::call(switch_to_stock_cmd);
               if (ret == 0) {
-                create_simple_dialog(lv_scr_act(), "Switch to Stock Initiated", "Please power cycle your printer!", false);
+                create_simple_dialog(lv_scr_act(), "Switch to Stock Initiated", "Please power cycle your printer!\nPlease wait for the stock screen to appear!", false);
               } else {
                 create_simple_dialog(lv_scr_act(), "Switch to Stock Failed", "Failed to initiate switch to stock!", true);
               }
