@@ -13,6 +13,8 @@ function docker_make() {
     target_arg=""
     if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
         target_arg="GUPPY_SMALL_SCREEN=true GUPPY_CALIBRATE=true"
+    #elif [ "$TARGET" = "rpi" ]; then
+    #    target_arg="GUPPY_CALIBRATE=true"
     fi
 
     echo "Target Arguments: $target_arg"
@@ -22,6 +24,7 @@ function docker_make() {
 TARGET=
 GUPPY_SMALL_SCREEN=false
 SETUP=false
+PI_USERNAME=pi
 
 while true; do
     if [ "$1" = "--setup" ]; then
@@ -36,6 +39,10 @@ while true; do
     elif [ "$1" = "--small" ]; then
         export GUPPY_SMALL_SCREEN=true
         shift
+    elif [ "$1" = "--username" ] && [ -n "$2" ]; then
+        export PI_USERNAME=$2
+        shift
+        shift
     elif [ "$1" = "--printer" ]; then
         shift
         PRINTER_IP=$1
@@ -48,8 +55,9 @@ done
 if [ "$SETUP" = "true" ]; then
   if [ "$TARGET" = "rpi" ]; then
     echo "rpi" > $CURRENT_DIR/.target.cfg
+    echo "username=$PI_USERNAME" >> $CURRENT_DIR/.target.cfg
   else
-    echo "mips" > $CURRENT_DIR/.target.cfg
+    echo "mips" >> $CURRENT_DIR/.target.cfg
   fi
 
   if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
@@ -61,6 +69,9 @@ if [ -f $CURRENT_DIR/.target.cfg ]; then
   TARGET=$(cat $CURRENT_DIR/.target.cfg | head -1)
   if [ $(cat $CURRENT_DIR/.target.cfg | grep "small=true" | wc -l) -gt 0 ]; then
     export GUPPY_SMALL_SCREEN=true
+  fi
+  if [ $(cat $CURRENT_DIR/.target.cfg | grep "username=" | wc -l) -gt 0 ]; then
+    export PI_USERNAME=$(cat $CURRENT_DIR/.target.cfg | grep "username=" | awk -F '=' '{print $2}')
   fi
 fi
 
@@ -87,26 +98,29 @@ else
             password=Creality2023
           fi
           sshpass -p $password scp build/bin/guppyscreen root@$PRINTER_IP:
-          sshpass -p $password scp grumpyscreen.cfg root@$PRINTER_IP:
           sshpass -p $password ssh root@$PRINTER_IP "mv /root/guppyscreen /usr/data/guppyscreen/"
-          sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/printer_data/config/"
+
+          cp grumpyscreen.cfg /tmp
           if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
-            sshpass -p $password ssh root@$PRINTER_IP "/usr/data/pellcorp/tools/rotate-grumpyscreen.sh 0"
+            sed -i 's/display_rotate: 3/display_rotate: 1/g' /tmp/grumpyscreen.cfg
           fi
+          sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
+          sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/printer_data/config/"
           sshpass -p $password ssh root@$PRINTER_IP "/etc/init.d/S99guppyscreen restart"
         else # rpi
-          sshpass -p 'raspberry' scp build/bin/guppyscreen pi@$PRINTER_IP:/tmp/
-          cp guppyscreen.json /tmp
+          echo "Uploading to ${PI_USERNAME}@$PRINTER_IP ..."
+          cp grumpyscreen.cfg /tmp
+          scp build/bin/guppyscreen $PI_USERNAME@$PRINTER_IP:/tmp/
           sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
           sed -i '/S58factoryreset/d' /tmp/grumpyscreen.cfg
           # rpi does not have switch to stock
           sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' /tmp/grumpyscreen.cfg
           # for now no support command for rpi either
           sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/grumpyscreen.cfg
-          sshpass -p 'raspberry' scp /tmp/grumpyscreen.cfg pi@$PRINTER_IP:/tmp/
-          sshpass -p 'raspberry' ssh pi@$PRINTER_IP "mv /tmp/guppyscreen /home/pi/guppyscreen/"
-          sshpass -p 'raspberry' ssh pi@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/pi/printer_data/config/"
-          sshpass -p 'raspberry' ssh pi@$PRINTER_IP "sudo systemctl restart grumpyscreen"
+          scp /tmp/grumpyscreen.cfg $PI_USERNAME@$PRINTER_IP:/tmp/
+          ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/guppyscreen /home/$PI_USERNAME/guppyscreen/"
+          ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/$PI_USERNAME/printer_data/config/"
+          ssh $PI_USERNAME@$PRINTER_IP "sudo systemctl restart grumpyscreen"
         fi
     fi
 fi
