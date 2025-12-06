@@ -47,7 +47,11 @@ SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
 
   settings.append("\tDisplay Sleep: ");
   const int32_t sleep_sec = conf->get<int32_t>("/ui/display_sleep_sec");
-  settings.append(std::to_string(sleep_sec) + " seconds\n\n");
+  if (sleep_sec == -1) {
+    settings.append("Never\n\n");
+  } else {
+    settings.append(std::to_string(sleep_sec) + " seconds\n\n");
+  }
 
   settings.append("\tLog Level: ");
   const std::string log_level = conf->get<std::string>("/ui/log_level");
