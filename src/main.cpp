@@ -80,7 +80,13 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
 #endif
     lv_disp_set_theme(disp, th);
 
-    evdev_init();
+    const char *path = std::getenv("LVGL_EVDEV_DEV");
+    if (path != nullptr && path[0] != '\0') {
+        LOG_INFO("Input Device is: {}", path);
+        evdev_set_file(const_cast<char *>(path));
+    } else { // k1 will continue to use this
+        evdev_init();
+    }
     static lv_indev_drv_t indev_drv_1;
     lv_indev_drv_init(&indev_drv_1);
     indev_drv_1.read_cb = evdev_read; // no calibration
