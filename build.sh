@@ -57,7 +57,7 @@ if [ "$SETUP" = "true" ]; then
     echo "rpi" > $CURRENT_DIR/.target.cfg
     echo "username=$PI_USERNAME" >> $CURRENT_DIR/.target.cfg
   else
-    echo "mips" >> $CURRENT_DIR/.target.cfg
+    echo "mips" > $CURRENT_DIR/.target.cfg
   fi
 
   if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
