@@ -21,9 +21,9 @@ echo "TIMESTAMP=$TIMESTAMP" >> $RELEASES_DIR/release.info
 echo "Timestamp was $TIMESTAMP"
 
 if [ "$ASSET_NAME" = "guppyscreen-smallscreen" ]; then
-  sed -i 's/"display_rotate": 3/"display_rotate": 2/g' $RELEASES_DIR/grumpyscreen.cfg
+  sed -i 's/display_rotate: 3/display_rotate: 2/g' $RELEASES_DIR/grumpyscreen.cfg
 elif [ "$ASSET_NAME" = "guppyscreen-rpi" ]; then
-  sed -i 's/"display_rotate": 3/"display_rotate": 0/g' $RELEASES_DIR/grumpyscreen.cfg
+  sed -i 's/display_rotate: 3/display_rotate: 0/g' $RELEASES_DIR/grumpyscreen.cfg
   # rpi does not have factory reset
   sed -i 's:/etc/init.d/S58factoryreset::g' $RELEASES_DIR/grumpyscreen.cfg
   # rpi does not have switch to stock
