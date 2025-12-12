@@ -31,4 +31,4 @@ elif [ "$ASSET_NAME" = "guppyscreen-rpi" ]; then
   sed -i 's:/usr/data/pellcorp/tools/support.sh::g' $RELEASES_DIR/grumpyscreen.cfg
 fi
 tar czf $ASSET_NAME.tar.gz -C releases .
-tar czf ${ASSET_NAME}-debug.tar.gz -C ./build/bin/ guppyscreen.debug
+tar czf ${ASSET_NAME}-debug.tar.gz -C ./build/bin/ guppyscreen guppyscreen.debug
