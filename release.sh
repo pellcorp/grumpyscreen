@@ -10,10 +10,9 @@ GIT_BRANCH=$3
 
 TIMESTAMP=$(date +%s)
 
-"$CROSS_COMPILE"strip ./build/bin/guppyscreen
-cp ./build/bin/guppyscreen $RELEASES_DIR/guppyscreen
-cp -r ./themes $RELEASES_DIR
-cp grumpyscreen.cfg $RELEASES_DIR
+cp ./build/bin/guppyscreen $RELEASES_DIR/
+cp -r ./themes $RELEASES_DIR/
+cp grumpyscreen.cfg $RELEASES_DIR/
 echo "GIT_SHA=${GIT_SHA:0:7}" > $RELEASES_DIR/release.info
 echo "GIT_BRANCH=$GIT_BRANCH" >> $RELEASES_DIR/release.info
 echo "TIMESTAMP=$TIMESTAMP" >> $RELEASES_DIR/release.info
@@ -32,3 +31,4 @@ elif [ "$ASSET_NAME" = "guppyscreen-rpi" ]; then
   sed -i 's:/usr/data/pellcorp/tools/support.sh::g' $RELEASES_DIR/grumpyscreen.cfg
 fi
 tar czf $ASSET_NAME.tar.gz -C releases .
+tar czf ${ASSET_NAME}-debug.tar.gz -C ./build/bin/ guppyscreen.debug

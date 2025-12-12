@@ -10,6 +10,7 @@ LD	= $(CROSS_COMPILE)ld
 AR	= $(CROSS_COMPILE)ar
 NM	= $(CROSS_COMPILE)nm
 STRIP 	= $(CROSS_COMPILE)strip
+OBJCOPY 	= $(CROSS_COMPILE)objcopy
 endif
 
 LVGL_DIR_NAME 	?= lvgl
@@ -22,9 +23,9 @@ WARNINGS		:= -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wp
 					-Wno-unused-value -Wno-unused-parameter -Wno-missing-field-initializers -Wuninitialized -Wmaybe-uninitialized -Wall -Wextra -Wno-unused-parameter \
 					-Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess -Wno-format-nonliteral -Wpointer-arith -Wno-cast-qual \
 					-Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-sign-compare
-CFLAGS 			?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
+CFLAGS 			?= -O3 -g -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
 LDFLAGS 		?= -static -lm -Llibhv/lib -l:libhv.a -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -l:libwpa_client.a -lstdc++fs
-BIN 			= guppyscreen
+BIN 			= guppyscreen.unstripped
 BUILD_DIR 		= ./build
 BUILD_OBJ_DIR 	= $(BUILD_DIR)/obj
 BUILD_BIN_DIR 	= $(BUILD_DIR)/bin
@@ -109,6 +110,9 @@ default: $(TARGET)
 	@mkdir -p $(dir $(BUILD_BIN_DIR)/)
 	$(CXX) -o $(BUILD_BIN_DIR)/$(BIN) $(TARGET) $(LDFLAGS) $(LDLIBS)
 	@echo "CXX $<"
+	@$(OBJCOPY) --only-keep-debug $(BUILD_BIN_DIR)/guppyscreen.unstripped $(BUILD_BIN_DIR)/guppyscreen.debug
+	@$(OBJCOPY) --strip-debug $(BUILD_BIN_DIR)/guppyscreen.unstripped $(BUILD_BIN_DIR)/guppyscreen
+	@cd $(BUILD_BIN_DIR) && $(OBJCOPY) --add-gnu-debuglink=guppyscreen.debug guppyscreen
 
 libhvclean:
 	$(MAKE) -C libhv clean
