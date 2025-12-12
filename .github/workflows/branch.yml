@@ -77,10 +77,17 @@ jobs:
         name: ${{ matrix.asset }}
         path: ./${{ matrix.asset }}.tar.gz
 
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.asset }}-debug
+        path: ./${{ matrix.asset }}-debug.tar.gz
+
     - name: branch release
       uses: softprops/action-gh-release@v2
       with:
         name: ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
-        files: ${{ matrix.asset }}.tar.gz
+        files: |
+          ${{ matrix.asset }}.tar.gz
+          ${{ matrix.asset }}-debug.tar.gz
         fail_on_unmatched_files: true
