@@ -17,6 +17,7 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
   : NotifyConsumer(lock)
   , ws(websocket)
   , files_cont(lv_obj_create(lv_scr_act()))
+  , spinner(lv_spinner_create(files_cont, 1000, 60))
   , left_cont(lv_obj_create(files_cont))
   , file_table(lv_table_create(left_cont))
   , file_view(lv_obj_create(files_cont))
@@ -37,6 +38,10 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
   lv_obj_clear_flag(files_cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_flex_flow(files_cont, LV_FLEX_FLOW_ROW);
   lv_obj_set_style_pad_all(files_cont, 0, 0);
+
+  lv_obj_add_flag(spinner, LV_OBJ_FLAG_FLOATING);
+  lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_move_foreground(spinner);
 
   // left side cont
   lv_obj_set_size(left_cont, LV_PCT(50), LV_PCT(100));
@@ -107,6 +112,9 @@ void PrintPanel::consume(json &j) {
 }
 
 void PrintPanel::subscribe() {
+  lv_obj_clear_flag(file_table, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_clear_flag(spinner, LV_OBJ_FLAG_HIDDEN);
+
   ws.send_jsonrpc("server.files.list", R"({"root":"gcodes"})"_json, [this](json &d) {
     std::lock_guard<std::mutex> lock(lv_lock);
     std::string cur_path = cur_dir->full_path;
@@ -119,10 +127,16 @@ void PrintPanel::subscribe() {
         root.add_path(KUtils::split(f["path"], '/'), f["path"], f["modified"].template get<uint32_t>());
       }
     }
+
     Tree *dir = root.find_path(KUtils::split(cur_path, '/'));
     // need to simplify this using the directory endpoint
     cur_dir = dir;
+
     this->populate_files(d);
+
+    // Re-enable the table interaction ONLY after the data is stable
+    lv_obj_add_flag(file_table, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   });
 }
 
@@ -139,7 +153,7 @@ void PrintPanel::foreground() {
     status_btn.enable();
     print_btn.disable();
   }
-  
+
   lv_obj_move_foreground(files_cont);
   subscribe();
 }
@@ -240,22 +254,50 @@ void PrintPanel::show_file_detail(Tree *f) {
     if (f->contains_metadata()) {
       file_panel.refresh_view(f->metadata, f->full_path);
     } else {
-      LOG_TRACE("getting metadata for {}", f->name);
+      std::string filename = f->full_path;
+      std::string dir_path = cur_dir->full_path;
+      LOG_TRACE("getting metadata for {}/{}", dir_path, filename);
+
       ws.send_jsonrpc("server.files.metadata",
 		      json::parse(R"({"filename":")" + f->full_path + R"("})"),
-		      [f, this](json &d) { this->handle_metadata(f, d); });
+		      [this, filename, dir_path](json &d) {
+             this->handle_metadata(filename, dir_path, d);
+         });
     }
   }
 }
 
-void PrintPanel::handle_metadata(Tree *f, json &j) {
-  LOG_TRACE("handling metadata callback");
-  if (f->is_leaf()) {
+void PrintPanel::handle_metadata(const std::string& filename, const std::string& dir_path, json &j) {
+  LOG_TRACE("handling metadata for {}/{}", dir_path, filename);
+
+  std::vector<std::string> dir_segments;
+  if (!dir_path.empty()) {
+      dir_segments = KUtils::split(dir_path, '/');
+  }
+
+  // 1. Find the Parent Directory Node
+  Tree *parent_dir = &root; // Start search at root
+
+  if (!dir_segments.empty()) {
+      // Find the directory node based on the captured path segments
+      parent_dir = root.find_path(dir_segments);
+  }
+
+  Tree *f = nullptr;
+  if (parent_dir != nullptr) {
+      // 2. Find the File Node as a child of the parent directory
+      // We are looking for the file using the filename string.
+      f = parent_dir->get_child(filename.c_str());
+  }
+
+  if (f != nullptr && f->is_leaf()) {
     if (j.contains("result")) {
       std::lock_guard<std::mutex> lock(lv_lock);
       f->set_metadata(j);
       file_panel.refresh_view(f->metadata, f->full_path);
     }
+  } else {
+    LOG_TRACE("is not a leaf {}/{}", dir_path, filename);
   }
 }
 
