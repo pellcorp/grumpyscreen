@@ -49,41 +49,46 @@ lv_obj_t *ConsolePanel::get_container() {
 }
 
 // thanks Chad
-void ta_add_text_limit_lines(lv_obj_t * ta, const std::string &line)
-{
-    // Always append a newline at the end
-    std::string msg = line + "\n";
-    lv_textarea_add_text(ta, msg.c_str());
+void ta_add_text_limit_lines(lv_obj_t * ta, const std::string &line) {
+  // Always append a newline at the end
+  std::string msg = line + "\n";
+  lv_textarea_add_text(ta, msg.c_str());
 
-    // Get the full text after appending
-    const char * full = lv_textarea_get_text(ta);
+  // Get the full text after appending
+  const char * full = lv_textarea_get_text(ta);
 
-    // Count lines
-    int line_count = 0;
-    const char *p = full;
-    while (*p) {
-        if(*p == '\n') line_count++;
-        p++;
+  // Count lines
+  int line_count = 0;
+  const char *p = full;
+  while (*p) {
+    if(*p == '\n') {
+      line_count++;
     }
-    if (p != full && *(p-1) != '\n') line_count++;
+    p++;
+  }
 
-    // Trim if too many lines
-    if (line_count > 100) {
-        int drop = line_count - 100;
+  if (p != full && *(p-1) != '\n') {
+    line_count++;
+  }
 
-        // Find pointer to first line we want to keep
-        const char * keep = full;
-        while(drop > 0 && *keep) {
-            if(*keep == '\n') drop--;
-            keep++;
-        }
+  // Trim if too many lines
+  if (line_count > 100) {
+    int drop = line_count - 100;
 
-        // Replace textarea with trimmed content
-        lv_textarea_set_text(ta, keep);
+    // Find pointer to first line we want to keep
+    const char * keep = full;
+    while(drop > 0 && *keep) {
+        if(*keep == '\n') drop--;
+        keep++;
     }
 
-    // Auto-scroll to bottom
-    lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
+    size_t keep_len = strlen(keep);
+    std::string trimmed_text(keep, keep_len);
+    lv_textarea_set_text(ta, trimmed_text.c_str());
+  }
+
+  // Auto-scroll to bottom
+  lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
 }
 
 void ConsolePanel::handle_macro_response(json &j) {
