@@ -19,7 +19,7 @@ class PrintPanel : public NotifyConsumer {
   void subscribe();
   void foreground();
   void handle_callback(lv_event_t *event);
-  void handle_metadata(Tree *, json & data);
+  void handle_metadata(const std::string& filename, const std::string& dir_path, json & data);
   void handle_back_btn(lv_event_t *event);
   void handle_print_callback(lv_event_t *event);
   void handle_status_btn(lv_event_t *event);
@@ -51,9 +51,8 @@ class PrintPanel : public NotifyConsumer {
   
   KWebSocketClient &ws;
   lv_obj_t *files_cont;
-
+  lv_obj_t *spinner;
   lv_obj_t *left_cont;
-
   lv_obj_t *file_table;
   lv_obj_t *file_view;
   ButtonContainer status_btn;
