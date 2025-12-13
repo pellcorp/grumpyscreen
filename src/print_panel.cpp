@@ -254,39 +254,35 @@ void PrintPanel::show_file_detail(Tree *f) {
     if (f->contains_metadata()) {
       file_panel.refresh_view(f->metadata, f->full_path);
     } else {
-      std::string filename = f->full_path;
-      std::string dir_path = cur_dir->full_path;
-      LOG_TRACE("getting metadata for {}/{}", dir_path, filename);
+      std::string full_path = f->full_path;
+      LOG_TRACE("getting metadata for {}", full_path);
 
       ws.send_jsonrpc("server.files.metadata",
 		      json::parse(R"({"filename":")" + f->full_path + R"("})"),
-		      [this, filename, dir_path](json &d) {
-             this->handle_metadata(filename, dir_path, d);
+		      [this, full_path](json &d) {
+             this->handle_metadata(full_path, d);
          });
     }
   }
 }
 
-void PrintPanel::handle_metadata(const std::string& filename, const std::string& dir_path, json &j) {
-  LOG_TRACE("handling metadata for {}/{}", dir_path, filename);
+void PrintPanel::handle_metadata(const std::string& full_path, json &j) {
+  LOG_TRACE("handling metadata for {}", full_path);
 
-  std::vector<std::string> dir_segments;
-  if (!dir_path.empty()) {
-      dir_segments = KUtils::split(dir_path, '/');
+  std::vector<std::string> segments = KUtils::split(full_path, '/');
+  if (segments.empty()) {
+    return;
   }
 
-  // 1. Find the Parent Directory Node
-  Tree *parent_dir = &root; // Start search at root
+  std::string filename = segments.back();
+  segments.pop_back();
 
-  if (!dir_segments.empty()) {
-      // Find the directory node based on the captured path segments
-      parent_dir = root.find_path(dir_segments);
+  Tree *parent_dir = &root;
+  if (!segments.empty()) {
+      parent_dir = root.find_path(segments);
   }
-
   Tree *f = nullptr;
   if (parent_dir != nullptr) {
-      // 2. Find the File Node as a child of the parent directory
-      // We are looking for the file using the filename string.
       f = parent_dir->get_child(filename.c_str());
   }
 
@@ -296,8 +292,6 @@ void PrintPanel::handle_metadata(const std::string& filename, const std::string&
       f->set_metadata(j);
       file_panel.refresh_view(f->metadata, f->full_path);
     }
-  } else {
-    LOG_TRACE("is not a leaf {}/{}", dir_path, filename);
   }
 }
 
