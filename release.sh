@@ -25,6 +25,7 @@ elif [ "$ASSET_NAME" = "guppyscreen-rpi" ]; then
   sed -i 's/display_rotate: 3/display_rotate: 0/g' $RELEASES_DIR/grumpyscreen.cfg
   # rpi does not have factory reset
   sed -i 's:/etc/init.d/S58factoryreset::g' $RELEASES_DIR/grumpyscreen.cfg
+  sed -i 's:/etc/init.d/S99guppyscreen restart:sudo systemctl restart grumpyscreen:g' $RELEASES_DIR/grumpyscreen.cfg
   # rpi does not have switch to stock
   sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' $RELEASES_DIR/grumpyscreen.cfg
   # for now no support command for rpi either
