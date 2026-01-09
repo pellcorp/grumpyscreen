@@ -25,7 +25,7 @@ jobs:
 
           - arch: armv8-rpi3-linux-gnueabihf-
             small: false
-            calibrate: false
+            calibrate: true
             asset: guppyscreen-rpi
 
     runs-on: ubuntu-22.04

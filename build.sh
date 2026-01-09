@@ -13,8 +13,8 @@ function docker_make() {
     target_arg=""
     if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
         target_arg="GUPPY_SMALL_SCREEN=true GUPPY_CALIBRATE=true"
-    #elif [ "$TARGET" = "rpi" ]; then
-    #    target_arg="GUPPY_CALIBRATE=true"
+    elif [ "$TARGET" = "rpi" ]; then
+        target_arg="GUPPY_CALIBRATE=true"
     fi
 
     echo "Target Arguments: $target_arg"
