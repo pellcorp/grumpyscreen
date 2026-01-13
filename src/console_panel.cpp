@@ -30,7 +30,9 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   lv_obj_set_style_border_width(output, 0, 0);
   lv_obj_set_size(output, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_border_width(output, 0, LV_STATE_FOCUSED | LV_PART_CURSOR);
-  lv_obj_align(delete_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -20);
+
+  lv_obj_add_flag(delete_btn.get_container(), LV_OBJ_FLAG_FLOATING);
+  lv_obj_align(delete_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 10, 10);
 
   ws.register_method_callback("notify_gcode_response",
 			      "ConsolePanel",

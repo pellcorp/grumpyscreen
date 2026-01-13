@@ -20,10 +20,11 @@ FanPanel::FanPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   lv_obj_set_size(fanpanel_cont, LV_PCT(100), LV_PCT(100));
 
   lv_obj_center(fans_cont);
-  lv_obj_set_size(fans_cont, lv_pct(80), lv_pct(100));
+  lv_obj_set_size(fans_cont, lv_pct(100), lv_pct(100));
   lv_obj_set_flex_flow(fans_cont, LV_FLEX_FLOW_COLUMN);
 
-  lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -20);
+  lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);
+  lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -10);
   ws.register_notify_update(this);
 }
 
