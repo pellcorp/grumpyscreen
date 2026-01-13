@@ -68,11 +68,14 @@ SliderContainer::SliderContainer(lv_obj_t *parent,
   lv_obj_set_style_pad_bottom(control_cont, 7, 0);
 
   lv_obj_clear_flag(slider_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(slider_cont, LV_PCT(45), LV_SIZE_CONTENT);
+  lv_obj_set_size(slider_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_flex_grow(slider_cont, 1);
   lv_obj_set_style_pad_all(slider_cont, 0, 0);
+  lv_obj_set_style_pad_left(slider_cont, 12, 0);
+  lv_obj_set_style_pad_right(slider_cont, 12, 0);
 
   lv_obj_align(slider, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_set_width(slider, LV_PCT(85));
+  lv_obj_set_width(slider, LV_PCT(100));
   lv_obj_align_to(slider_value, slider, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
 
   if (max_text == NULL) {

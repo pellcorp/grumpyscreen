@@ -14,17 +14,17 @@ LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , leds_cont(lv_obj_create(ledpanel_cont))
   , back_btn(ledpanel_cont, &back, "Back", &LedPanel::_handle_callback, this)
 {
+    lv_obj_set_style_pad_all(ledpanel_cont, 0, 0);
+
     lv_obj_clear_flag(ledpanel_cont, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(ledpanel_cont, lv_pct(100), lv_pct(100));
 
-    lv_obj_set_style_pad_all(ledpanel_cont, 0, 0);
-    
     lv_obj_center(leds_cont);
-    lv_obj_set_size(leds_cont, lv_pct(80), lv_pct(100));
+    lv_obj_set_size(leds_cont, lv_pct(100), lv_pct(100));
     lv_obj_set_flex_flow(leds_cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(leds_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -20);
+    lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);
+    lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -10);
 
     ws.register_notify_update(this);
 }
