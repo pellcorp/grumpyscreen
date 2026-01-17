@@ -177,8 +177,6 @@ void HomingPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);  
   const char * distance = lv_btnmatrix_get_btn_text(distance_selector.get_selector(),
 						    distance_selector.get_selected_idx());
-  std::string move_op;
-
   if (btn == home_all_btn.get_container()) {
     LOG_DEBUG("home all pressed");
     ws.gcode_script("G28");
@@ -187,22 +185,22 @@ void HomingPanel::handle_callback(lv_event_t *event) {
     ws.gcode_script("G28 X Y");
   } else if (btn == y_up_btn.get_container()) {
     LOG_DEBUG("y up pressed");
-    move_op = fmt::format("G0 Y+{} F1200", distance);
+    ws.gcode_script(fmt::format("_CLIENT_LINEAR_MOVE Y={} F=7800", distance));
   } else if (btn == y_down_btn.get_container()) {
     LOG_DEBUG("y down pressed");
-    move_op = fmt::format("G0 Y-{} F1200", distance);
+    ws.gcode_script(fmt::format("_CLIENT_LINEAR_MOVE Y=-{} F=7800", distance));
   } else if (btn == x_up_btn.get_container()) {
     LOG_DEBUG("x up pressed");
-    move_op = fmt::format("G0 X+{} F1200", distance);
+    ws.gcode_script(fmt::format("_CLIENT_LINEAR_MOVE X={} F=7800", distance));
   } else if (btn == x_down_btn.get_container()) {
     LOG_DEBUG("x down pressed");
-    move_op = fmt::format("G0 X-{} F1200", distance);
+    ws.gcode_script(fmt::format("_CLIENT_LINEAR_MOVE X=-{} F=7800", distance));
   } else if (btn == z_up_btn.get_container()) {
     LOG_DEBUG("z up pressed");
-    move_op = fmt::format("G0 Z+{} F1200", distance);
+    ws.gcode_script(fmt::format("_CLIENT_LINEAR_MOVE Z={} F=600", distance));
   } else if (btn == z_down_btn.get_container()) {
     LOG_DEBUG("z down pressed");
-    move_op = fmt::format("G0 Z-{} F1200", distance);
+    ws.gcode_script(fmt::format("_CLIENT_LINEAR_MOVE Z=-{} F=600", distance));
   } else if (btn == emergency_btn.get_container()) {
     LOG_DEBUG("emergency stop pressed");
     ws.send_jsonrpc("printer.emergency_stop");
@@ -213,11 +211,6 @@ void HomingPanel::handle_callback(lv_event_t *event) {
     lv_obj_move_background(homing_cont);
   } else {
     LOG_DEBUG("Unknown action button pressed");
-  }
-
-  if (move_op.size() > 0) {
-    // ws.gcode_script("G91");
-    ws.gcode_script(fmt::format("G91\n{}", move_op));
   }
 }
 
