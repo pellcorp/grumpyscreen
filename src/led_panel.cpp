@@ -24,8 +24,11 @@ LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
     lv_obj_set_flex_flow(leds_cont, LV_FLEX_FLOW_COLUMN);
 
     lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);
-    lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -10);
-
+#ifdef GUPPY_SMALL_SCREEN
+    lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 20, -10);
+#else
+    lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 30, -10);
+#endif
     ws.register_notify_update(this);
 }
 
@@ -98,7 +101,8 @@ void LedPanel::init(json &l) {
 #else
   if (leds.size() > 3) {
 #endif
-    lv_obj_set_size(leds_cont, lv_pct(75), lv_pct(100));
+    lv_obj_set_size(leds_cont, lv_pct(90), lv_pct(100));
+    lv_obj_align(leds_cont, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_add_flag(leds_cont, LV_OBJ_FLAG_SCROLLABLE);
   } else {
     lv_obj_clear_flag(leds_cont, LV_OBJ_FLAG_SCROLLABLE);    
