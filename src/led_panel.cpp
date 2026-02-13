@@ -93,7 +93,12 @@ void LedPanel::init(json &l) {
     }
   }
 
-  if (leds.size() > 4) {
+#ifdef GUPPY_SMALL_SCREEN
+  if (leds.size() > 2) {
+#else
+  if (leds.size() > 3) {
+#endif
+    lv_obj_set_size(leds_cont, lv_pct(75), lv_pct(100));
     lv_obj_add_flag(leds_cont, LV_OBJ_FLAG_SCROLLABLE);
   } else {
     lv_obj_clear_flag(leds_cont, LV_OBJ_FLAG_SCROLLABLE);    
