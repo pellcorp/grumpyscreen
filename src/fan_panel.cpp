@@ -24,7 +24,11 @@ FanPanel::FanPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   lv_obj_set_flex_flow(fans_cont, LV_FLEX_FLOW_COLUMN);
 
   lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);
-  lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -10);
+  #ifdef GUPPY_SMALL_SCREEN
+      lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 20, -10);
+  #else
+      lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 30, -10);
+  #endif
   ws.register_notify_update(this);
 }
 
