@@ -3,8 +3,27 @@
 #include "utils.h"
 #include "logger.h"
 
+namespace {
+bool get_led_pwm(const json &led) {
+  auto pwm_it = led.find("pwm");
+  if (pwm_it != led.end() && pwm_it->is_boolean()) {
+    return pwm_it->template get<bool>();
+  }
+  return true;
+}
+
+std::string get_led_display_name(const json &led, const std::string &fallback) {
+  auto display_name_it = led.find("display_name");
+  if (display_name_it != led.end() && display_name_it->is_string()) {
+    return display_name_it->template get<std::string>();
+  }
+  return fallback;
+}
+} // namespace
+
 LV_IMG_DECLARE(cancel);
 LV_IMG_DECLARE(light_img);
+LV_IMG_DECLARE(light_off);
 LV_IMG_DECLARE(back);
 
 LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
@@ -49,8 +68,13 @@ void LedPanel::consume(json &j) {
     // hack for output_pin leds
     auto value = j[json::json_pointer(fmt::format("/params/0/{}/value", l.first))];
     if (!value.is_null()) {
-      int v = static_cast<int>(value.template get<double>() * 100);
+      const double raw_value = value.template get<double>();
+      int v = static_cast<int>(raw_value * 100);
       l.second->update_value(v);
+      if (!single_led_id.empty() && l.first == single_led_id) {
+        single_led_last_value = raw_value;
+        single_led_last_value_valid = true;
+      }
     }
 
     value = j[json::json_pointer(fmt::format("/params/0/{}/color_data", l.first))];
@@ -58,8 +82,13 @@ void LedPanel::consume(json &j) {
       // color_data = [[r,b,g,w]]
       value =  value.at(0);
       if (value.size() == 4) {
-        int v = static_cast<int>(value.at(3).template get<double>() * 100);
+        const double raw_value = value.at(3).template get<double>();
+        int v = static_cast<int>(raw_value * 100);
         l.second->update_value(v);
+        if (!single_led_id.empty() && l.first == single_led_id) {
+          single_led_last_value = raw_value;
+          single_led_last_value_valid = true;
+        }
       }
     }
   }
@@ -68,15 +97,32 @@ void LedPanel::consume(json &j) {
 void LedPanel::init(json &l) {
   std::lock_guard<std::mutex> lock(lv_lock);
   leds.clear();
+  single_led_id.clear();
+  single_led_is_output_pin = false;
+  single_led_last_value = 0.0;
+  single_led_last_value_valid = false;
+
+  size_t created_led_count = 0;
+  std::string created_led_id;
+  bool created_led_is_output_pin = false;
+  bool created_led_pwm = true;
+
   for (auto &led : l) {
-    std::string key = led["id"].template get<std::string>();
+    auto id_it = led.find("id");
+    if (id_it == led.end() || !id_it->is_string()) {
+      LOG_DEBUG("skipping malformed LED config entry: {}", led.dump());
+      continue;
+    }
+
+    std::string key = id_it->template get<std::string>();
     LOG_DEBUG("create led {}, {}", l.dump(), led.dump());
-    std::string display_name = led["display_name"].template get<std::string>();
-    bool pwm = led["pwm"].is_null() ? true : led["pwm"].template get<bool>();
+    std::string display_name = get_led_display_name(led, KUtils::get_obj_name(key));
+    bool pwm = get_led_pwm(led);
+    const bool is_output_pin = key.rfind("output_pin ", 0) == 0;
 
     lv_event_cb_t null_cb = NULL;
     lv_event_cb_t led_cb = &LedPanel::_handle_led_update;
-    if (key.rfind("output_pin ", 0) != 0) {
+    if (!is_output_pin) {
       // standard led
       led_cb = &LedPanel::_handle_led_update_generic;
     }
@@ -86,13 +132,35 @@ void LedPanel::init(json &l) {
                 &cancel, "Off", led_cb, this,
                 &light_img, "Max", led_cb, this,
                 led_cb, this, "%");
-      leds.insert({key, lptr});
+      auto inserted = leds.insert({key, lptr}).second;
+      if (inserted) {
+        ++created_led_count;
+        created_led_id = key;
+        created_led_is_output_pin = is_output_pin;
+        created_led_pwm = pwm;
+      }
     } else {
       auto lptr = std::make_shared<SliderContainer>(leds_cont, display_name.c_str(),
                     &cancel, "Off", led_cb, this,
                     &light_img, "On", led_cb, this,
                     null_cb, this, "%");
-      leds.insert({key, lptr});
+      auto inserted = leds.insert({key, lptr}).second;
+      if (inserted) {
+        ++created_led_count;
+        created_led_id = key;
+        created_led_is_output_pin = is_output_pin;
+        created_led_pwm = pwm;
+      }
+    }
+  }
+
+  if (created_led_count == 1) {
+    if (!created_led_pwm) {
+      single_led_id = created_led_id;
+      single_led_is_output_pin = created_led_is_output_pin;
+      LOG_DEBUG("single LED mode enabled for {} (pwm={})",
+                single_led_id,
+                created_led_pwm);
     }
   }
 
@@ -111,13 +179,26 @@ void LedPanel::init(json &l) {
   lv_obj_move_foreground(back_btn.get_container());
 }
 
+void LedPanel::activate() {
+  if (!single_led_id.empty()) {
+    toggle_single_led();
+  } else {
+    foreground();
+  }
+}
+
 void LedPanel::foreground() {
   for (auto &l : leds) {
     // hack for output_pin leds
     auto led_value = State::get_instance()->get_data(json::json_pointer(fmt::format("/printer_state/{}/value", l.first)));
     if (!led_value.is_null()) {
-      int v = static_cast<int>(led_value.template get<double>() * 100);
+      const double raw_value = led_value.template get<double>();
+      int v = static_cast<int>(raw_value * 100);
       l.second->update_value(v);
+      if (!single_led_id.empty() && l.first == single_led_id) {
+        single_led_last_value = raw_value;
+        single_led_last_value_valid = true;
+      }
     }
     
     led_value = State::get_instance()->get_data(json::json_pointer(fmt::format("/printer_state/{}/color_data", l.first)));
@@ -125,13 +206,63 @@ void LedPanel::foreground() {
       // color_data = [[r,b,g,w]]
       led_value = led_value.at(0);
       if (led_value.size() == 4) {
-        int v = static_cast<int>(led_value.at(3).template get<double>() * 100);
+        const double raw_value = led_value.at(3).template get<double>();
+        int v = static_cast<int>(raw_value * 100);
         l.second->update_value(v);
+        if (!single_led_id.empty() && l.first == single_led_id) {
+          single_led_last_value = raw_value;
+          single_led_last_value_valid = true;
+        }
       }
     }
   }
 
   lv_obj_move_foreground(ledpanel_cont);
+}
+
+const void *LedPanel::get_main_button_image() {
+  if (single_led_id.empty()) {
+    return &light_img;
+  }
+
+  const double current_value = single_led_last_value_valid
+                                 ? single_led_last_value
+                                 : get_led_value(single_led_id);
+  return current_value > 0.0 ? &light_img : &light_off;
+}
+
+double LedPanel::get_led_value(const std::string &led_id) {
+  auto value = State::get_instance()->get_data(
+    json::json_pointer(fmt::format("/printer_state/{}/value", led_id)));
+  if (!value.is_null() && value.is_number()) {
+    return value.template get<double>();
+  }
+
+  value = State::get_instance()->get_data(
+    json::json_pointer(fmt::format("/printer_state/{}/color_data", led_id)));
+  if (!value.is_null() && value.is_array() && !value.empty()) {
+    value = value.at(0);
+    if (value.is_array() && value.size() >= 4 && value.at(3).is_number()) {
+      return value.at(3).template get<double>();
+    }
+  }
+
+  return 0.0;
+}
+
+void LedPanel::toggle_single_led() {
+  const auto current_value = get_led_value(single_led_id);
+  const bool turn_on = current_value <= 0.0;
+  const double target_value = turn_on ? 1.0 : 0.0;
+  const std::string led_name = KUtils::get_obj_name(single_led_id);
+
+  if (single_led_is_output_pin) {
+    ws.gcode_script(fmt::format("SET_PIN PIN={} VALUE={}", led_name, target_value));
+  } else {
+    ws.gcode_script(fmt::format("SET_LED LED={} WHITE={}", led_name, target_value));
+  }
+  single_led_last_value = target_value;
+  single_led_last_value_valid = true;
 }
 
 void LedPanel::handle_callback(lv_event_t *event) {

@@ -132,6 +132,8 @@ void MainPanel::consume(json &j) {
       extrude_btn.disable();
     }
   }
+
+  led_btn.set_image(led_panel.get_main_button_image());
 }
 
 static void scroll_begin_event(lv_event_t * e) {
@@ -199,7 +201,8 @@ void MainPanel::handle_fanpanel_cb(lv_event_t *event) {
 void MainPanel::handle_ledpanel_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
     LOG_TRACE("clicked led panel");
-    led_panel.foreground();
+    led_panel.activate();
+    led_btn.set_image(led_panel.get_main_button_image());
   }
 }
 
@@ -301,7 +304,13 @@ void MainPanel::create_fans(json &fans) {
 }
 
 void MainPanel::create_leds(json &leds) {
+  if (leds.is_array() && !leds.empty()) {
+    led_btn.enable();
+  } else {
+    led_btn.disable();
+  }
   led_panel.init(leds);
+  led_btn.set_image(led_panel.get_main_button_image());
 }
 
 void MainPanel::enable_spoolman() {

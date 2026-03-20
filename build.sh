@@ -105,7 +105,7 @@ else
             sed -i 's/display_rotate: 3/display_rotate: 1/g' /tmp/grumpyscreen.cfg
           fi
           sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
-          sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/printer_data/config/"
+          sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/printer_data/config/grumpyscreen.ini"
           sshpass -p $password ssh root@$PRINTER_IP "/etc/init.d/S99guppyscreen restart"
         else # rpi
           echo "Uploading to ${PI_USERNAME}@$PRINTER_IP ..."
@@ -119,7 +119,7 @@ else
           sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/grumpyscreen.cfg
           scp /tmp/grumpyscreen.cfg $PI_USERNAME@$PRINTER_IP:/tmp/
           ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/guppyscreen /home/$PI_USERNAME/guppyscreen/"
-          ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/$PI_USERNAME/printer_data/config/"
+          ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/$PI_USERNAME/printer_data/config/grumpyscreen.ini"
           ssh $PI_USERNAME@$PRINTER_IP "sudo systemctl restart grumpyscreen"
         fi
     fi
