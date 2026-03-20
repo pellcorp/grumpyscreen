@@ -9,6 +9,7 @@
 
 #include <mutex>
 #include <map>
+#include <string>
 
 class LedPanel : public NotifyConsumer {
  public:
@@ -19,6 +20,8 @@ class LedPanel : public NotifyConsumer {
 
   lv_obj_t *get_container();
   void init(json&);
+  void activate();
+  const void *get_main_button_image();
   void foreground();
   void handle_callback(lv_event_t *event);
   void handle_led_update(lv_event_t *event);
@@ -41,11 +44,17 @@ class LedPanel : public NotifyConsumer {
 
 
  private:
+  void toggle_single_led();
+  double get_led_value(const std::string &led_id);
   KWebSocketClient &ws;
   lv_obj_t *ledpanel_cont;
   lv_obj_t *leds_cont;
   std::map<std::string, std::shared_ptr<SliderContainer>> leds;
   ButtonContainer back_btn;
+  std::string single_led_id;
+  bool single_led_is_output_pin{false};
+  double single_led_last_value{0.0};
+  bool single_led_last_value_valid{false};
 
 };
 
