@@ -88,6 +88,7 @@ class MainPanel : public NotifyConsumer {
 
  private:
   void create_main(lv_obj_t *parent);
+  void update_led_button_visual_state();
   static void _tabview_event_cb(lv_event_t *e);
   KWebSocketClient &ws;
   HomingPanel homing_panel;

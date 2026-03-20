@@ -21,7 +21,8 @@ class LedPanel : public NotifyConsumer {
   lv_obj_t *get_container();
   void init(json&);
   void activate();
-  const void *get_main_button_image();
+  bool has_single_led_toggle_mode();
+  bool is_main_button_highlighted();
   void foreground();
   void handle_callback(lv_event_t *event);
   void handle_led_update(lv_event_t *event);

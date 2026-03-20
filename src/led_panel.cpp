@@ -23,7 +23,6 @@ std::string get_led_display_name(const json &led, const std::string &fallback) {
 
 LV_IMG_DECLARE(cancel);
 LV_IMG_DECLARE(light_img);
-LV_IMG_DECLARE(light_off);
 LV_IMG_DECLARE(back);
 
 LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
@@ -220,15 +219,19 @@ void LedPanel::foreground() {
   lv_obj_move_foreground(ledpanel_cont);
 }
 
-const void *LedPanel::get_main_button_image() {
+bool LedPanel::is_main_button_highlighted() {
   if (single_led_id.empty()) {
-    return &light_img;
+    return false;
   }
 
   const double current_value = single_led_last_value_valid
                                  ? single_led_last_value
                                  : get_led_value(single_led_id);
-  return current_value > 0.0 ? &light_img : &light_off;
+  return current_value > 0.0;
+}
+
+bool LedPanel::has_single_led_toggle_mode() {
+  return !single_led_id.empty();
 }
 
 double LedPanel::get_led_value(const std::string &led_id) {

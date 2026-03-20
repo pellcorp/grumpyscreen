@@ -133,7 +133,7 @@ void MainPanel::consume(json &j) {
     }
   }
 
-  led_btn.set_image(led_panel.get_main_button_image());
+  update_led_button_visual_state();
 }
 
 static void scroll_begin_event(lv_event_t * e) {
@@ -202,7 +202,7 @@ void MainPanel::handle_ledpanel_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
     LOG_TRACE("clicked led panel");
     led_panel.activate();
-    led_btn.set_image(led_panel.get_main_button_image());
+    update_led_button_visual_state();
   }
 }
 
@@ -310,7 +310,17 @@ void MainPanel::create_leds(json &leds) {
     led_btn.disable();
   }
   led_panel.init(leds);
-  led_btn.set_image(led_panel.get_main_button_image());
+  update_led_button_visual_state();
+}
+
+void MainPanel::update_led_button_visual_state() {
+  led_btn.set_image(&light_img);
+  if (!led_panel.has_single_led_toggle_mode() || led_panel.is_main_button_highlighted()) {
+    lv_obj_set_style_img_recolor_opa(led_btn.get_button(), LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+  } else {
+    lv_obj_set_style_img_recolor_opa(led_btn.get_button(), LV_OPA_100, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_img_recolor(led_btn.get_button(), lv_color_black(), LV_PART_MAIN | LV_STATE_DEFAULT);
+  }
 }
 
 void MainPanel::enable_spoolman() {
