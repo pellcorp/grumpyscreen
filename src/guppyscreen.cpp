@@ -173,7 +173,7 @@ std::mutex &GuppyScreen::get_lock() {
 }
 
 void GuppyScreen::connect_ws(const std::string &url) {
-  init_panel.set_message(LV_SYMBOL_WARNING " Waiting for printer to initialise...");
+  init_panel.set_message(LV_SYMBOL_WARNING " Waiting for Klipper to start...");
   ws.connect(url.c_str(),
    [this]() { init_panel.connected(ws); },
    [this]() { init_panel.disconnected(ws); });

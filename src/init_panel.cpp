@@ -21,7 +21,7 @@ InitPanel::InitPanel(MainPanel &mp, std::mutex& l)
   
   lv_obj_set_size(label, LV_PCT(100), LV_SIZE_CONTENT);
 
-  lv_label_set_text(label, LV_SYMBOL_WARNING " Waiting for printer to initialise...");
+  lv_label_set_text(label, LV_SYMBOL_WARNING " Waiting for Klipper to start...");
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
@@ -100,7 +100,7 @@ void InitPanel::connected(KWebSocketClient &ws) {
 
 void InitPanel::disconnected(KWebSocketClient &ws) {
   LOG_DEBUG("init panel disconnected");
-  set_message(LV_SYMBOL_WARNING " Waiting for printer to initialise...");
+  set_message(LV_SYMBOL_WARNING " Waiting for Klipper to start...");
   std::lock_guard<std::mutex> lock(lv_lock);
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
