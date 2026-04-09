@@ -27,7 +27,7 @@ FanPanel::FanPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   #ifdef GUPPY_SMALL_SCREEN
       lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 20, -10);
   #else
-      lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 30, -10);
+      lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 30, -5);
   #endif
   ws.register_notify_update(this);
 }
@@ -82,7 +82,13 @@ void FanPanel::create_fans(json &f) {
     fans.insert({key, fptr});
   }
 
+#ifdef GUPPY_SMALL_SCREEN
+  if (fans.size() > 2) {
+#else
   if (fans.size() > 3) {
+#endif
+    lv_obj_set_size(fans_cont, lv_pct(86), lv_pct(100));
+    lv_obj_align(fans_cont, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_add_flag(fans_cont, LV_OBJ_FLAG_SCROLLABLE);
   } else {
     lv_obj_clear_flag(fans_cont, LV_OBJ_FLAG_SCROLLABLE);    
