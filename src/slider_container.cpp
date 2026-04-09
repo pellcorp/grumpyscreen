@@ -68,7 +68,7 @@ SliderContainer::SliderContainer(lv_obj_t *parent,
   lv_obj_set_style_pad_bottom(control_cont, 7, 0);
 
   lv_obj_clear_flag(slider_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(slider_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_size(slider_cont, 0, LV_SIZE_CONTENT);
   lv_obj_set_flex_grow(slider_cont, 1);
   lv_obj_set_style_pad_all(slider_cont, 0, 0);
   lv_obj_set_style_pad_left(slider_cont, 12, 0);
