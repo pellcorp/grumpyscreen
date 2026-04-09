@@ -64,6 +64,9 @@ class PrintPanel : public NotifyConsumer {
   FilePanel file_panel;
   PrintStatusPanel &print_status;
   uint32_t sorted_by;
+  bool refreshing_files;
+  bool refresh_pending;
+  bool visible;
 };
 
 #endif // __PRINT_PANEL_H__
