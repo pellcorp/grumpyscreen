@@ -32,13 +32,13 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 		   {"1", "2", "5", "10", "25", "35", "50", ""}, 2, &ExtruderPanel::_handle_callback, this)
   , rightside_btns_cont(lv_obj_create(panel_cont))
   , leftside_btns_cont(lv_obj_create(panel_cont))
-  , load_btn(leftside_btns_cont, &load_filament_img, "Load", &ExtruderPanel::_handle_callback, this)
-  , unload_btn(leftside_btns_cont, &unload_filament_img, "Unload", &ExtruderPanel::_handle_callback, this)
-  , cooldown_btn(leftside_btns_cont, &cooldown_img, "Cooldown", &ExtruderPanel::_handle_callback, this)
-  , spoolman_btn(rightside_btns_cont, &spoolman_img, "Spoolman", &ExtruderPanel::_handle_callback, this)
-  , extrude_btn(rightside_btns_cont, &extrude_img, "Extrude", &ExtruderPanel::_handle_callback, this)
-  , retract_btn(rightside_btns_cont, &retract_img, "Retract", &ExtruderPanel::_handle_callback, this)
-  , back_btn(rightside_btns_cont, &back, "Back", &ExtruderPanel::_handle_callback, this)
+  , load_btn(leftside_btns_cont, &load_filament_img, "Load", ButtonContainer::direct(&ExtruderPanel::_handle_callback, this))
+  , unload_btn(leftside_btns_cont, &unload_filament_img, "Unload", ButtonContainer::direct(&ExtruderPanel::_handle_callback, this))
+  , cooldown_btn(leftside_btns_cont, &cooldown_img, "Cooldown", ButtonContainer::direct(&ExtruderPanel::_handle_callback, this))
+  , spoolman_btn(rightside_btns_cont, &spoolman_img, "Spoolman", ButtonContainer::direct(&ExtruderPanel::_handle_callback, this))
+  , extrude_btn(rightside_btns_cont, &extrude_img, "Extrude", ButtonContainer::direct(&ExtruderPanel::_handle_callback, this))
+  , retract_btn(rightside_btns_cont, &retract_img, "Retract", ButtonContainer::direct(&ExtruderPanel::_handle_callback, this))
+  , back_btn(rightside_btns_cont, &back, "Back", ButtonContainer::direct(&ExtruderPanel::_handle_callback, this))
 {
   lv_obj_move_background(panel_cont);
   lv_obj_clear_flag(panel_cont, LV_OBJ_FLAG_SCROLLABLE);  

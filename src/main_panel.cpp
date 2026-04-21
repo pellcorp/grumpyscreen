@@ -1,4 +1,5 @@
 #include "main_panel.h"
+#include "config.h"
 #include "state.h"
 #include "lvgl/lvgl.h"
 #include "logger.h"
@@ -21,6 +22,24 @@ LV_FONT_DECLARE(materialdesign_font_40);
 #define SETTING_SYMBOL u8"\U000F1064"
 #define HOME_SYMBOL    u8"\U000F02DC"
 #define CONSOLE_SYMBOL u8"\U000F018D"
+
+namespace {
+ButtonContainer::Action make_emergency_stop_action(lv_event_cb_t callback,
+                                                   void *user_data,
+                                                   KWebSocketClient &websocket) {
+  const bool prompt = Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
+  return ButtonContainer::conditional_confirm(
+      prompt,
+      "Do you want to emergency stop?",
+      [&websocket]() {
+        LOG_DEBUG("emergency stop pressed");
+        websocket.send_jsonrpc("printer.emergency_stop");
+      },
+      callback,
+      user_data,
+      ButtonContainer::PromptStyle::Destructive);
+}
+}
 
 MainPanel::MainPanel(KWebSocketClient &websocket,
 		     std::mutex &lock,
@@ -47,17 +66,13 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , spoolman_panel(sm)
   , temp_cont(lv_obj_create(main_cont))
   , temp_chart(lv_chart_create(main_cont))
-  , homing_btn(main_cont, &move, "Homing", &MainPanel::_handle_homing_cb, this)
-  , extrude_btn(main_cont, &filament_img, "Extrude", &MainPanel::_handle_extrude_cb, this)
-  , action_btn(main_cont, &fan, "Fans", &MainPanel::_handle_fanpanel_cb, this)
-  , led_btn(main_cont, &light_img, "LED", &MainPanel::_handle_ledpanel_cb, this)
-  , print_btn(main_cont, &print, "Print", &MainPanel::_handle_print_cb, this)
-  , emergency_btn(main_cont, &emergency, "Stop", &MainPanel::_handle_emergency_cb, this,
-  		  "Do you want to emergency stop?",
-  		  [&websocket]() {
-  		    LOG_DEBUG("emergency stop pressed");
-  		    websocket.send_jsonrpc("printer.emergency_stop");
-  		  })
+  , homing_btn(main_cont, &move, "Homing", ButtonContainer::direct(&MainPanel::_handle_homing_cb, this))
+  , extrude_btn(main_cont, &filament_img, "Extrude", ButtonContainer::direct(&MainPanel::_handle_extrude_cb, this))
+  , action_btn(main_cont, &fan, "Fans", ButtonContainer::direct(&MainPanel::_handle_fanpanel_cb, this))
+  , led_btn(main_cont, &light_img, "LED", ButtonContainer::direct(&MainPanel::_handle_ledpanel_cb, this))
+  , print_btn(main_cont, &print, "Print", ButtonContainer::direct(&MainPanel::_handle_print_cb, this))
+  , emergency_btn(main_cont, &emergency, "Stop",
+                  make_emergency_stop_action(&MainPanel::_handle_emergency_cb, this, websocket))
 {
     lv_style_init(&style);
     lv_style_set_img_recolor_opa(&style, LV_OPA_30);

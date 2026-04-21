@@ -15,7 +15,7 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   , console_cont(lv_obj_create(parent))
   , top_cont(lv_obj_create(console_cont))
   , output(lv_textarea_create(top_cont))
-  , delete_btn(top_cont, &delete_img, "", &ConsolePanel::_handle_delete_btn, this)
+  , delete_btn(top_cont, &delete_img, "", ButtonContainer::direct(&ConsolePanel::_handle_delete_btn, this))
 {
   lv_obj_align(console_cont, LV_ALIGN_CENTER, 0, 0);
   lv_obj_set_size(console_cont, LV_PCT(100), LV_PCT(100));

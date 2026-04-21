@@ -35,8 +35,8 @@ WifiPanel::WifiPanel(std::mutex &l)
   , prompt_cont(wifi_right)
   , wifi_label(lv_label_create(prompt_cont))
   , password_input(lv_textarea_create(prompt_cont))
-  , back_btn(cont, &back, "Back", &WifiPanel::_handle_back_btn, this)
-  , refresh_btn(cont, &refresh_img, "Refresh", &WifiPanel::_handle_refresh_btn, this)
+  , back_btn(cont, &back, "Back", ButtonContainer::direct(&WifiPanel::_handle_back_btn, this))
+  , refresh_btn(cont, &refresh_img, "Refresh", ButtonContainer::direct(&WifiPanel::_handle_refresh_btn, this))
   , kb(lv_keyboard_create(cont))
 {
   lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));

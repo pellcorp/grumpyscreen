@@ -12,7 +12,7 @@ FanPanel::FanPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , ws(websocket_client)
   , fanpanel_cont(lv_obj_create(lv_scr_act()))
   , fans_cont(lv_obj_create(fanpanel_cont))
-  , back_btn(fanpanel_cont, &back, "Back", &FanPanel::_handle_callback, this)
+  , back_btn(fanpanel_cont, &back, "Back", ButtonContainer::direct(&FanPanel::_handle_callback, this))
 {
   lv_obj_set_style_pad_all(fanpanel_cont, 0, 0);
   

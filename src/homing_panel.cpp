@@ -16,26 +16,40 @@ LV_IMG_DECLARE(z_farther);
 LV_IMG_DECLARE(emergency);
 LV_IMG_DECLARE(motor_off_img);
 
+namespace {
+ButtonContainer::Action make_emergency_stop_action(lv_event_cb_t callback,
+                                                   void *user_data,
+                                                   KWebSocketClient &websocket) {
+  const bool prompt = Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
+  return ButtonContainer::conditional_confirm(
+      prompt,
+      "Do you want to emergency stop?",
+      [&websocket]() {
+        LOG_DEBUG("emergency stop pressed");
+        websocket.send_jsonrpc("printer.emergency_stop");
+      },
+      callback,
+      user_data,
+      ButtonContainer::PromptStyle::Destructive);
+}
+}
+
 HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   : NotifyConsumer(lock)
   , ws(websocket_client)
   , homing_cont(lv_obj_create(lv_scr_act()))
-  , home_all_btn(homing_cont, &home, "Home All", &HomingPanel::_handle_callback, this)
-  , home_xy_btn(homing_cont, &home, "Home XY", &HomingPanel::_handle_callback, this)
-  , y_up_btn(homing_cont, &arrow_up, "Y+", &HomingPanel::_handle_callback, this)
-  , y_down_btn(homing_cont, &arrow_down, "Y-", &HomingPanel::_handle_callback, this)    
-  , x_up_btn(homing_cont, &arrow_right, "X+", &HomingPanel::_handle_callback, this)
-  , x_down_btn(homing_cont, &arrow_left, "X-", &HomingPanel::_handle_callback, this)
-  , z_up_btn(homing_cont, &z_closer, "Z+", &HomingPanel::_handle_callback, this)
-  , z_down_btn(homing_cont, &z_farther, "Z-", &HomingPanel::_handle_callback, this)
-  , emergency_btn(homing_cont, &emergency, "Stop", &HomingPanel::_handle_callback, this,
-		  "Do you want to emergency stop?",
-		  [&websocket_client]() {
-		    LOG_DEBUG("emergency stop pressed");
-		    websocket_client.send_jsonrpc("printer.emergency_stop");
-		  })
-  , motoroff_btn(homing_cont, &motor_off_img, "Motors Off", &HomingPanel::_handle_callback, this)
-  , back_btn(homing_cont, &back, "Back", &HomingPanel::_handle_callback, this)
+  , home_all_btn(homing_cont, &home, "Home All", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , home_xy_btn(homing_cont, &home, "Home XY", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , y_up_btn(homing_cont, &arrow_up, "Y+", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , y_down_btn(homing_cont, &arrow_down, "Y-", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , x_up_btn(homing_cont, &arrow_right, "X+", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , x_down_btn(homing_cont, &arrow_left, "X-", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , z_up_btn(homing_cont, &z_closer, "Z+", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , z_down_btn(homing_cont, &z_farther, "Z-", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , emergency_btn(homing_cont, &emergency, "Stop",
+                  make_emergency_stop_action(&HomingPanel::_handle_callback, this, websocket_client))
+  , motoroff_btn(homing_cont, &motor_off_img, "Motors Off", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
+  , back_btn(homing_cont, &back, "Back", ButtonContainer::direct(&HomingPanel::_handle_callback, this))
   , distance_selector(homing_cont, "Move Distance (mm)",
 		     {".1", ".5", "1", "5", "10", "25", "50", ""}, 2, 70, 15, &HomingPanel::_handle_selector_cb, this)
 {

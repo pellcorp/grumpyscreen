@@ -1,4 +1,5 @@
 #include "print_status_panel.h"
+#include "config.h"
 #include "finetune_panel.h"
 #include "state.h"
 #include "utils.h"
@@ -25,6 +26,24 @@ LV_IMG_DECLARE(back);
 
 double pi() { return std::atan(1)*4; }
 
+namespace {
+ButtonContainer::Action make_emergency_stop_action(lv_event_cb_t callback,
+                                                   void *user_data,
+                                                   KWebSocketClient &websocket) {
+  const bool prompt = Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
+  return ButtonContainer::conditional_confirm(
+      prompt,
+      "Do you want to emergency stop?",
+      [&websocket]() {
+        LOG_DEBUG("emergency stop pressed");
+        websocket.send_jsonrpc("printer.emergency_stop");
+      },
+      callback,
+      user_data,
+      ButtonContainer::PromptStyle::Destructive);
+}
+}
+
 PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
 				   std::mutex &lock,
 				   lv_obj_t *mini_parent)
@@ -34,22 +53,19 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , mini_print_status(mini_parent, &PrintStatusPanel::_handle_callback, this)
   , status_cont(lv_obj_create(lv_scr_act()))
   , buttons_cont(lv_obj_create(status_cont))
-  , finetune_btn(buttons_cont, &fine_tune_img, "Fine Tune", &PrintStatusPanel::_handle_callback, this)
-  , pause_btn(buttons_cont, &pause_img, "Pause", &PrintStatusPanel::_handle_callback, this)
-  , resume_btn(buttons_cont, &resume, "Resume", &PrintStatusPanel::_handle_callback, this)
-  , cancel_btn(buttons_cont, &cancel, "Cancel", &PrintStatusPanel::_handle_callback, this,
-	       "Do you want to cancel the print?",
-	       [&websocket_client]() {
-		 LOG_DEBUG("cancel print prompt");
-		 websocket_client.send_jsonrpc("printer.print.cancel");
-	       })
-  , emergency_btn(buttons_cont, &emergency, "Stop", &PrintStatusPanel::_handle_callback, this,
-		  "Do you want to emergency stop?",
-		  [&websocket_client]() {
-		    LOG_DEBUG("emergency stop pressed");
-		    websocket_client.send_jsonrpc("printer.emergency_stop");
-		  })
-  , back_btn(buttons_cont, &back, "Back", &PrintStatusPanel::_handle_callback, this)
+  , finetune_btn(buttons_cont, &fine_tune_img, "Fine Tune", ButtonContainer::direct(&PrintStatusPanel::_handle_callback, this))
+  , pause_btn(buttons_cont, &pause_img, "Pause", ButtonContainer::direct(&PrintStatusPanel::_handle_callback, this))
+  , resume_btn(buttons_cont, &resume, "Resume", ButtonContainer::direct(&PrintStatusPanel::_handle_callback, this))
+  , cancel_btn(buttons_cont, &cancel, "Cancel",
+               ButtonContainer::confirm(
+                   "Do you want to cancel the print?",
+                   [&websocket_client]() {
+                     LOG_DEBUG("cancel print prompt");
+                     websocket_client.send_jsonrpc("printer.print.cancel");
+                   }))
+  , emergency_btn(buttons_cont, &emergency, "Stop",
+                  make_emergency_stop_action(&PrintStatusPanel::_handle_callback, this, websocket_client))
+  , back_btn(buttons_cont, &back, "Back", ButtonContainer::direct(&PrintStatusPanel::_handle_callback, this))
   , thumbnail_cont(lv_obj_create(status_cont))
   , thumbnail(lv_img_create(thumbnail_cont))
   , pbar_cont(lv_obj_create(thumbnail_cont))
@@ -456,8 +472,6 @@ void PrintStatusPanel::handle_callback(lv_event_t *event) {
   } else if (btn == resume_btn.get_container()) {
     ws.send_jsonrpc("printer.print.resume");
     resume_btn.disable();
-  } else if (btn == cancel_btn.get_container()) {
-    ws.send_jsonrpc("printer.print.cancel");
   } else if (btn == finetune_btn.get_container()) {
     finetune_panel.foreground();
   } else if (btn == mini_print_status.get_container()) {

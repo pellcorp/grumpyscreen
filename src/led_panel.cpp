@@ -31,7 +31,7 @@ LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , ws(websocket_client)
   , ledpanel_cont(lv_obj_create(lv_scr_act()))
   , leds_cont(lv_obj_create(ledpanel_cont))
-  , back_btn(ledpanel_cont, &back, "Back", &LedPanel::_handle_callback, this)
+  , back_btn(ledpanel_cont, &back, "Back", ButtonContainer::direct(&LedPanel::_handle_callback, this))
 {
     lv_obj_set_style_pad_all(ledpanel_cont, 0, 0);
 

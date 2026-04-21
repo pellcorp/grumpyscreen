@@ -41,11 +41,11 @@ SliderContainer::SliderContainer(lv_obj_t *parent,
   : cont(lv_obj_create(parent))
   , label(lv_label_create(cont))
   , control_cont(lv_obj_create(cont))
-  , off_btn(control_cont, off_btn_img, off_text, off_cb, off_cb_user_data)
+  , off_btn(control_cont, off_btn_img, off_text, ButtonContainer::direct(off_cb, off_cb_user_data))
   , slider_cont(lv_obj_create(control_cont))
   , slider(lv_slider_create(slider_cont))
   , slider_value(lv_label_create(slider_cont))
-  , max_btn(control_cont, max_btn_img, max_text, max_cb, max_cb_user_data)
+  , max_btn(control_cont, max_btn_img, max_text, ButtonContainer::direct(max_cb, max_cb_user_data))
   , unit(u)
 {
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
