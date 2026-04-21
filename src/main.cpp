@@ -14,10 +14,12 @@
 namespace fs = std::experimental::filesystem;
 
 static void hal_init(lv_color_t p, lv_color_t s);
+static void wake_filtered_evdev_read(lv_indev_drv_t * drv, lv_indev_data_t * data);
 
 #include "guppyscreen.h"
 #include "hv/hlog.h"
 #include "config.h"
+#include "wake_input_guard.h"
 
 #include <algorithm>
 
@@ -89,11 +91,18 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     }
     static lv_indev_drv_t indev_drv_1;
     lv_indev_drv_init(&indev_drv_1);
-    indev_drv_1.read_cb = evdev_read; // no calibration
+    indev_drv_1.read_cb = wake_filtered_evdev_read; // no calibration
     indev_drv_1.type = LV_INDEV_TYPE_POINTER;
 
 #ifdef GUPPY_CALIBRATE
-    lv_tc_indev_drv_init(&indev_drv_1, evdev_read);
+    lv_tc_indev_drv_init(&indev_drv_1, wake_filtered_evdev_read);
 #endif
     lv_indev_drv_register(&indev_drv_1);
+}
+
+static void wake_filtered_evdev_read(lv_indev_drv_t * drv, lv_indev_data_t * data) {
+    evdev_read(drv, data);
+    if (drv->type == LV_INDEV_TYPE_POINTER) {
+        data->state = (lv_indev_state_t)wake_input_guard_filter_pointer(data->state);
+    }
 }
