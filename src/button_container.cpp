@@ -1,6 +1,4 @@
 #include "button_container.h"
-#include "config.h"
-#include "logger.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_22);
 ButtonContainer::ButtonContainer(lv_obj_t *parent,
@@ -9,14 +7,12 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
 				 lv_event_cb_t cb,
 				 void* user_data,
 				 const std::string &prompt,
-				 const std::function<void()> &pcb,
-				 const bool force)
+				 const PromptMode mode)
   : btn_cont(lv_obj_create(parent))
   , btn(lv_imgbtn_create(btn_cont))
   , label(lv_label_create(btn_cont))
   , prompt_text(prompt)
-  , prompt_callback(pcb)
-  , force_prompt(force)
+  , prompt_mode(mode)
 {
   lv_obj_set_style_pad_all(btn_cont, 0, 0);
   auto width_scale = (double)lv_disp_get_physical_hor_res(NULL) / 800.0;
@@ -29,29 +25,13 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
 
   lv_obj_add_flag(btn, LV_OBJ_FLAG_EVENT_BUBBLE);
 
-  Config *conf = Config::get_instance();
-  const bool prompt_emergency_stop = conf->get<bool>("/ui/prompt_emergency_stop");
-  auto prompt_estop = force || prompt_emergency_stop;
-
-  if (cb != NULL && !pcb) {
+  if (cb != NULL) {
     lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_PRESSED, this);
     lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_RELEASED, this);
-    
-    lv_obj_add_event_cb(btn_cont, cb, LV_EVENT_CLICKED, user_data);
-  } else if (cb != NULL && pcb) {
-    if (prompt_estop) {
-      lv_obj_add_event_cb(btn_cont, [](lv_event_t *e) {
-        lv_event_code_t code = lv_event_get_code(e);
-        if (code == LV_EVENT_CLICKED) {
-          ((ButtonContainer*)e->user_data)->handle_prompt();
-        }
-      }, LV_EVENT_CLICKED, this);
-    } else {
-      lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_PRESSED, this);
-      lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_RELEASED, this);
-
-      lv_obj_add_event_cb(btn_cont, cb, LV_EVENT_CLICKED, user_data);
+    if (!prompt_text.empty()) {
+      lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_CLICKED, this);
     }
+    lv_obj_add_event_cb(btn_cont, cb, LV_EVENT_CLICKED, user_data);
   }
 
   lv_label_set_text(label, text);
@@ -100,14 +80,19 @@ void ButtonContainer::handle_callback(lv_event_t *e) {
     lv_imgbtn_set_state(btn, LV_IMGBTN_STATE_PRESSED);
   } else if (code == LV_EVENT_RELEASED) {
     lv_imgbtn_set_state(btn, LV_IMGBTN_STATE_RELEASED);
+  } else if (code == LV_EVENT_CLICKED && !dispatch_confirmed_click) {
+    lv_event_stop_processing(e);
+    handle_prompt();
   }
 }
 
 void ButtonContainer::handle_prompt() {
-  static const char *force_btns[] = {"Cancel", "Confirm", ""};
+  static const char *destructive_btns[] = {"Cancel", "Confirm", ""};
   static const char *btns[] = {"Confirm", "Cancel", ""};
 
-  lv_obj_t *mbox1 = lv_msgbox_create(NULL, NULL, prompt_text.c_str(), (force_prompt ? force_btns : btns), false);
+  const bool destructive = prompt_mode == PromptMode::Destructive;
+  lv_obj_t *mbox1 = lv_msgbox_create(NULL, NULL, prompt_text.c_str(),
+                                    destructive ? destructive_btns : btns, false);
   lv_obj_t *msg = ((lv_msgbox_t*)mbox1)->text;
   lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_width(msg, LV_PCT(100));
@@ -122,7 +107,7 @@ void ButtonContainer::handle_prompt() {
   auto hscale = (double)lv_disp_get_physical_ver_res(NULL) / 480.0;
 
   lv_obj_set_size(btnm, LV_PCT(90), 50 *hscale);
-  if (force_prompt) {
+  if (destructive) {
 #ifdef GUPPY_SMALL_SCREEN
     lv_obj_set_size(mbox1, LV_PCT(95), LV_PCT(65));
     lv_obj_set_style_text_font(mbox1, &lv_font_montserrat_16, LV_STATE_DEFAULT);
@@ -133,30 +118,22 @@ void ButtonContainer::handle_prompt() {
   } else {
     lv_obj_set_size(mbox1, LV_PCT(50), LV_PCT(35));
   }
-  // this is nasty as fuck, I can't figure out how to pass state into the lambda
-  if (force_prompt) {
-    lv_obj_add_event_cb(mbox1, [](lv_event_t *e) {
-      lv_obj_t *obj = lv_obj_get_parent(lv_event_get_target(e));
-      uint32_t clicked_btn = lv_msgbox_get_active_btn(obj);
-      if(clicked_btn == 1) {
-        ((ButtonContainer*)e->user_data)->run_callback();
-      }
-      lv_msgbox_close(obj);
-    }, LV_EVENT_VALUE_CHANGED, this);
-  } else {
-    lv_obj_add_event_cb(mbox1, [](lv_event_t *e) {
-      lv_obj_t *obj = lv_obj_get_parent(lv_event_get_target(e));
-      uint32_t clicked_btn = lv_msgbox_get_active_btn(obj);
-      if(clicked_btn == 0) {
-        ((ButtonContainer*)e->user_data)->run_callback();
-      }
-      lv_msgbox_close(obj);
-    }, LV_EVENT_VALUE_CHANGED, this);
-  }
+  lv_obj_add_event_cb(mbox1, &ButtonContainer::_handle_prompt_result, LV_EVENT_VALUE_CHANGED, this);
 
   lv_obj_center(mbox1);
 }
 
-void ButtonContainer::run_callback() {
-  prompt_callback();
+void ButtonContainer::handle_prompt_result(lv_event_t *event) {
+  lv_obj_t *msgbox = lv_obj_get_parent(lv_event_get_target(event));
+  uint32_t clicked_btn = lv_msgbox_get_active_btn(msgbox);
+  const bool destructive = prompt_mode == PromptMode::Destructive;
+  const uint32_t confirm_idx = destructive ? 1 : 0;
+
+  if (clicked_btn == confirm_idx) {
+    dispatch_confirmed_click = true;
+    lv_event_send(btn_cont, LV_EVENT_CLICKED, NULL);
+    dispatch_confirmed_click = false;
+  }
+
+  lv_msgbox_close(msgbox);
 }

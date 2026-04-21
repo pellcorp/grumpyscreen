@@ -1,4 +1,5 @@
 #include "main_panel.h"
+#include "config.h"
 #include "state.h"
 #include "lvgl/lvgl.h"
 #include "logger.h"
@@ -53,11 +54,8 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , led_btn(main_cont, &light_img, "LED", &MainPanel::_handle_ledpanel_cb, this)
   , print_btn(main_cont, &print, "Print", &MainPanel::_handle_print_cb, this)
   , emergency_btn(main_cont, &emergency, "Stop", &MainPanel::_handle_emergency_cb, this,
-  		  "Do you want to emergency stop?",
-  		  [&websocket]() {
-  		    LOG_DEBUG("emergency stop pressed");
-  		    websocket.send_jsonrpc("printer.emergency_stop");
-  		  })
+                  Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
+                  ButtonContainer::PromptMode::Destructive)
 {
     lv_style_init(&style);
     lv_style_set_img_recolor_opa(&style, LV_OPA_30);
@@ -216,6 +214,7 @@ void MainPanel::handle_print_cb(lv_event_t *event) {
 void MainPanel::handle_emergency_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
     LOG_TRACE("clicked emergency");
+    ws.send_jsonrpc("printer.emergency_stop");
   }
 }
 

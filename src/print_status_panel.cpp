@@ -1,4 +1,5 @@
 #include "print_status_panel.h"
+#include "config.h"
 #include "finetune_panel.h"
 #include "state.h"
 #include "utils.h"
@@ -38,17 +39,10 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , pause_btn(buttons_cont, &pause_img, "Pause", &PrintStatusPanel::_handle_callback, this)
   , resume_btn(buttons_cont, &resume, "Resume", &PrintStatusPanel::_handle_callback, this)
   , cancel_btn(buttons_cont, &cancel, "Cancel", &PrintStatusPanel::_handle_callback, this,
-	       "Do you want to cancel the print?",
-	       [&websocket_client]() {
-		 LOG_DEBUG("cancel print prompt");
-		 websocket_client.send_jsonrpc("printer.print.cancel");
-	       })
+	       "Do you want to cancel the print?")
   , emergency_btn(buttons_cont, &emergency, "Stop", &PrintStatusPanel::_handle_callback, this,
-		  "Do you want to emergency stop?",
-		  [&websocket_client]() {
-		    LOG_DEBUG("emergency stop pressed");
-		    websocket_client.send_jsonrpc("printer.emergency_stop");
-		  })
+		  Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
+                  ButtonContainer::PromptMode::Destructive)
   , back_btn(buttons_cont, &back, "Back", &PrintStatusPanel::_handle_callback, this)
   , thumbnail_cont(lv_obj_create(status_cont))
   , thumbnail(lv_img_create(thumbnail_cont))

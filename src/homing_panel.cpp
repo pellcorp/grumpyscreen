@@ -23,17 +23,14 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , home_all_btn(homing_cont, &home, "Home All", &HomingPanel::_handle_callback, this)
   , home_xy_btn(homing_cont, &home, "Home XY", &HomingPanel::_handle_callback, this)
   , y_up_btn(homing_cont, &arrow_up, "Y+", &HomingPanel::_handle_callback, this)
-  , y_down_btn(homing_cont, &arrow_down, "Y-", &HomingPanel::_handle_callback, this)    
+  , y_down_btn(homing_cont, &arrow_down, "Y-", &HomingPanel::_handle_callback, this)
   , x_up_btn(homing_cont, &arrow_right, "X+", &HomingPanel::_handle_callback, this)
   , x_down_btn(homing_cont, &arrow_left, "X-", &HomingPanel::_handle_callback, this)
   , z_up_btn(homing_cont, &z_closer, "Z+", &HomingPanel::_handle_callback, this)
   , z_down_btn(homing_cont, &z_farther, "Z-", &HomingPanel::_handle_callback, this)
   , emergency_btn(homing_cont, &emergency, "Stop", &HomingPanel::_handle_callback, this,
-		  "Do you want to emergency stop?",
-		  [&websocket_client]() {
-		    LOG_DEBUG("emergency stop pressed");
-		    websocket_client.send_jsonrpc("printer.emergency_stop");
-		  })
+		  Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
+                  ButtonContainer::PromptMode::Destructive)
   , motoroff_btn(homing_cont, &motor_off_img, "Motors Off", &HomingPanel::_handle_callback, this)
   , back_btn(homing_cont, &back, "Back", &HomingPanel::_handle_callback, this)
   , distance_selector(homing_cont, "Move Distance (mm)",
