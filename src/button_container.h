@@ -4,18 +4,20 @@
 #include "lvgl/lvgl.h"
 
 #include <string>
-#include <functional>
-
 class ButtonContainer {
  public:
+  enum class PromptMode {
+    Standard,
+    Destructive,
+  };
+
   ButtonContainer(lv_obj_t *parent,
 		  const void *btn_img,
 		  const char *text,
 		  lv_event_cb_t cb,
 		  void *user_data,
 		  const std::string &prompt_text = {},
-		  const std::function<void()> &prompt_callback = {},
-		  const bool force_prompt = false);
+		  const PromptMode prompt_mode = PromptMode::Standard);
   ~ButtonContainer();
 
   lv_obj_t *get_container();
@@ -27,13 +29,17 @@ class ButtonContainer {
   void set_image(const void *img);
 
   void handle_callback(lv_event_t *event);
-
   void handle_prompt();
-  void run_callback();
+  void handle_prompt_result(lv_event_t *event);
   
   static void _handle_callback(lv_event_t *event) {
     ButtonContainer *button_container = (ButtonContainer*)event->user_data;
     button_container->handle_callback(event);
+  };
+
+  static void _handle_prompt_result(lv_event_t *event) {
+    ButtonContainer *button_container = (ButtonContainer*)event->user_data;
+    button_container->handle_prompt_result(event);
   };
 
  private:
@@ -41,8 +47,8 @@ class ButtonContainer {
   lv_obj_t *btn;
   lv_obj_t *label;
   std::string prompt_text;
-  std::function<void()> prompt_callback;
-  bool force_prompt;
+  PromptMode prompt_mode;
+  bool dispatch_confirmed_click = false;
 };
 
 #endif // __BUTTON_CONTAINER_H__

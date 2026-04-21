@@ -50,34 +50,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , guppy_update_btn(cont, &update_img, "Update Grumpy", &SettingPanel::_handle_callback, this)
   , switch_to_stock_btn(cont, &emergency, "Switch to\nStock", &SettingPanel::_handle_callback, this,
     "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!",
-            [](){
-              LOG_INFO("switch to stock pressed");
-              Config *conf = Config::get_instance();
-              auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
-              auto ret = sp::call(switch_to_stock_cmd);
-              if (ret == 0) {
-                create_simple_dialog(lv_scr_act(), "Switch to Stock Initiated", "Please power cycle your printer!\nPlease wait for the stock screen to appear!", false);
-              } else {
-                create_simple_dialog(lv_scr_act(), "Switch to Stock Failed", "Failed to initiate switch to stock!", true);
-              }
-            },
-            true)
+            ButtonContainer::PromptMode::Destructive)
   , factory_reset_btn(cont, &emergency, "Factory\nReset", &SettingPanel::_handle_callback, this,
     		  "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to execute an emergency factory reset?\n\nThis will reset the printer to stock creality firmware!",
-          [](){
-            LOG_INFO("factory reset pressed");
-            lv_obj_t *mbox  = create_simple_dialog(lv_scr_act(), "Factory Reset Initiated", "Your printer will restart shortly!\nPlease wait for the stock screen to appear!", false);
-
-            Config *conf = Config::get_instance();
-            auto cmd = conf->get<std::string>("/commands/factory_reset_cmd");
-
-            reset_ctx * ctx = new reset_ctx{ mbox, cmd };
-
-            lv_timer_t * timer =
-                lv_timer_create(run_factory_reset_cb, 5000, ctx);
-            lv_timer_set_repeat_count(timer, 1);
-          },
-          true)
+          ButtonContainer::PromptMode::Destructive)
 {
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
@@ -169,6 +145,28 @@ void SettingPanel::handle_callback(lv_event_t *event) {
           create_simple_dialog(lv_scr_act(), "Support ZIP Failed", "Failed to generate a support zip!", true);
         }
       }
+    } else if (btn == switch_to_stock_btn.get_container()) {
+      LOG_INFO("switch to stock pressed");
+      Config *conf = Config::get_instance();
+      auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
+      auto ret = sp::call(switch_to_stock_cmd);
+      if (ret == 0) {
+        create_simple_dialog(lv_scr_act(), "Switch to Stock Initiated", "Please power cycle your printer!\nPlease wait for the stock screen to appear!", false);
+      } else {
+        create_simple_dialog(lv_scr_act(), "Switch to Stock Failed", "Failed to initiate switch to stock!", true);
+      }
+    } else if (btn == factory_reset_btn.get_container()) {
+      LOG_INFO("factory reset pressed");
+      lv_obj_t *mbox  = create_simple_dialog(lv_scr_act(), "Factory Reset Initiated", "Your printer will restart shortly!\nPlease wait for the stock screen to appear!", false);
+
+      Config *conf = Config::get_instance();
+      auto cmd = conf->get<std::string>("/commands/factory_reset_cmd");
+
+      reset_ctx * ctx = new reset_ctx{ mbox, cmd };
+
+      lv_timer_t * timer =
+          lv_timer_create(run_factory_reset_cb, 5000, ctx);
+      lv_timer_set_repeat_count(timer, 1);
     }
   }
 }
