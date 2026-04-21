@@ -6,6 +6,7 @@
 #include "logger.h"
 #include "state.h"
 #include "theme.h"
+#include "wake_input_guard.h"
 #ifdef GUPPY_CALIBRATE
 #include <fstream>
 #endif
@@ -146,9 +147,20 @@ void GuppyScreen::loop() {
     lv_lock.unlock();
 
     if (display_sleep != -1) {
-      if (lv_disp_get_inactive_time(NULL) > display_sleep) {
+      bool wake_requested = wake_input_guard_take_wake_request() != 0;
+      if (wake_requested && is_sleeping.load()) {
+        LOG_DEBUG("waking up display from touch");
+        wake_input_guard_set_sleeping(0);
+        // The wake tap is intentionally suppressed, so mark activity manually
+        // to avoid immediately re-entering sleep on the next loop iteration.
+        lv_disp_trig_activity(NULL);
+        fbdev_unblank();
+        lv_obj_move_background(screen_saver);
+        is_sleeping = false;
+      } else if (lv_disp_get_inactive_time(NULL) > display_sleep) {
         if (!is_sleeping.load()) {
-          LOG_DEBUG("putting display to sleeping");
+          LOG_DEBUG("putting display to sleep");
+          wake_input_guard_set_sleeping(1);
           fbdev_blank();
           lv_obj_move_foreground(screen_saver);
           // LOG_DEBUG("screen saver foreground");
@@ -157,6 +169,7 @@ void GuppyScreen::loop() {
       } else {
         if (is_sleeping.load()) {
           LOG_DEBUG("waking up display");
+          wake_input_guard_set_sleeping(0);
           fbdev_unblank();
           lv_obj_move_background(screen_saver);
           is_sleeping = false;
