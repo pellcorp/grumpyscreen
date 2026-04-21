@@ -26,7 +26,7 @@ void ThemeConfig::init(const std::string config_path) {
   struct stat buffer;
 
   if (stat(config_path.c_str(), &buffer) == 0) {
-    data = json::parse(std::fstream(config_path));
+    data = json::parse(std::ifstream(config_path));
   } else {
     LOG_ERROR("Theme file not found: {}", config_path);
     data = {
@@ -34,8 +34,4 @@ void ThemeConfig::init(const std::string config_path) {
       {"secondary_color", "0xF44336"} // red
     };
   }
-
-  std::ofstream o(config_path);
-  o << std::setw(2) << data << std::endl;
 }
-
