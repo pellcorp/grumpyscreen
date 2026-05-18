@@ -4,6 +4,7 @@
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
+#include "config.h"
 
 
 LV_IMG_DECLARE(extruder);
@@ -52,7 +53,7 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , detail_cont(lv_obj_create(status_cont))
   , extruder_temp(detail_cont, &extruder, 100, "20")
   , bed_temp(detail_cont, &bed, 100, "21")
-  , chamber_temp(detail_cont, &heater, 100, "35")
+  , chamber_temp(detail_cont, &heater, 100, "")
   , print_speed(detail_cont, &speed_up_img, 100, "0 mm/s")
   , z_offset(detail_cont, &home_z, 100, "0.0 mm")
   , flow_rate(detail_cont, &extrude, 100, "0.0 mm3/s")
@@ -64,6 +65,7 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , filament_diameter(1.75) // XXX: check config
   , extruder_target(-1)
   , heater_bed_target(-1)
+  , chamber_sensor_key_(Config::get_instance()->get<std::string>("/ui/chamber_temp_sensor"))
 {
   lv_obj_move_background(status_cont);
   lv_obj_clear_flag(status_cont, LV_OBJ_FLAG_SCROLLABLE);  
@@ -83,6 +85,9 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
 
   //detail containter row 2
   lv_obj_set_grid_cell(chamber_temp.get_container(), LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 1, 1);
+  if (chamber_sensor_key_.empty()) {
+    lv_obj_add_flag(chamber_temp.get_container(), LV_OBJ_FLAG_HIDDEN);
+  }
   lv_obj_set_grid_cell(fans.get_container(), LV_GRID_ALIGN_START, 1, 1, LV_GRID_ALIGN_START, 1, 1);
 
   //detail containter row 3
@@ -345,7 +350,7 @@ void PrintStatusPanel::consume(json &j) {
     }
   }
 
-  v = j["/params/0/temperature_sensor chamber_temp/temperature"_json_pointer];
+  v = j[json::json_pointer(fmt::format("/params/0/{}/temperature", chamber_sensor_key_))];
   if (!v.is_null()) {
     chamber_temp.update_label(fmt::format("{}", v.template get<int>()).c_str());
   }
