@@ -302,6 +302,7 @@ void MainPanel::create_fans(json &fans) {
 }
 
 void MainPanel::create_leds(json &leds) {
+  std::lock_guard<std::mutex> lock(lv_lock);
   if (leds.is_array() && !leds.empty()) {
     led_btn.enable();
   } else {

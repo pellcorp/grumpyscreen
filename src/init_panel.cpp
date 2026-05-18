@@ -100,8 +100,8 @@ void InitPanel::connected(KWebSocketClient &ws) {
 
 void InitPanel::disconnected(KWebSocketClient &ws) {
   LOG_DEBUG("init panel disconnected");
-  set_message(LV_SYMBOL_WARNING " Waiting for Klipper to start...");
   std::lock_guard<std::mutex> lock(lv_lock);
+  set_message(LV_SYMBOL_WARNING " Waiting for Klipper to start...");
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
 }

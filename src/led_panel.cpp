@@ -95,7 +95,6 @@ void LedPanel::consume(json &j) {
 }
 
 void LedPanel::init(json &l) {
-  std::lock_guard<std::mutex> lock(lv_lock);
   leds.clear();
   single_led_id.clear();
   single_led_is_output_pin = false;

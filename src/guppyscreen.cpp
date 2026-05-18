@@ -143,7 +143,6 @@ void GuppyScreen::loop() {
   while (1) {
     lv_lock.lock();
     lv_timer_handler();
-    lv_lock.unlock();
 
     if (display_sleep != -1) {
       if (lv_disp_get_inactive_time(NULL) > display_sleep) {
@@ -151,7 +150,6 @@ void GuppyScreen::loop() {
           LOG_DEBUG("putting display to sleeping");
           fbdev_blank();
           lv_obj_move_foreground(screen_saver);
-          // LOG_DEBUG("screen saver foreground");
           is_sleeping = true;
         }
       } else {
@@ -164,6 +162,7 @@ void GuppyScreen::loop() {
       }
     }
 
+    lv_lock.unlock();
     usleep(5000);
   }
 }
