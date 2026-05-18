@@ -8,6 +8,7 @@ Numpad::Numpad(lv_obj_t *parent)
   , input(lv_textarea_create(edit_cont))
   , kb(lv_keyboard_create(edit_cont))
   , ready_cb([](double v){})
+  , prev_was_empty(false)
 {
   LOG_TRACE("creating numpad on main_cont");
   lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
@@ -36,6 +37,7 @@ Numpad::Numpad(lv_obj_t *parent)
   lv_keyboard_set_textarea(kb, input);
 
   lv_obj_add_event_cb(input, &Numpad::_handle_input, LV_EVENT_ALL, this);
+  lv_obj_add_event_cb(kb, &Numpad::_handle_kb_input, LV_EVENT_VALUE_CHANGED, this);
 }
 
 Numpad::~Numpad() {
@@ -74,9 +76,27 @@ void Numpad::handle_input(lv_event_t *e) {
   }
 }
 
+void Numpad::handle_kb_input(lv_event_t *e) {
+  uint16_t btn = lv_btnmatrix_get_selected_btn(kb);
+  const char *btn_text = lv_btnmatrix_get_btn_text(kb, btn);
+  if (btn_text != NULL && strcmp(btn_text, LV_SYMBOL_BACKSPACE) == 0) {
+    bool is_empty = strlen(lv_textarea_get_text(input)) == 0;
+    if (is_empty && prev_was_empty) {
+      lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_move_background(edit_cont);
+    }
+    prev_was_empty = is_empty;
+  } else {
+    prev_was_empty = false;
+  }
+}
+
 void Numpad::foreground_reset() {
   LOG_TRACE("resetting foreground");
+  prev_was_empty = false;
   lv_textarea_set_text(input, "");
   lv_obj_clear_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_align(edit_cont, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_move_foreground(edit_cont);
+  lv_keyboard_set_textarea(kb, input);
 }

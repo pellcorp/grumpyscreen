@@ -11,12 +11,18 @@ class Numpad {
 
   void set_callback(std::function<void(double)> cb);
   void handle_input(lv_event_t *event);
+  void handle_kb_input(lv_event_t *event);
   /* void handle_defocused(lv_event_t *event); */
   void foreground_reset();
 
   static void _handle_input(lv_event_t *event) {
     Numpad *panel = (Numpad*)event->user_data;
     panel->handle_input(event);
+  };
+
+  static void _handle_kb_input(lv_event_t *event) {
+    Numpad *panel = (Numpad*)event->user_data;
+    panel->handle_kb_input(event);
   };
 
   /* static void _handle_defocused(lv_event_t *event) { */
@@ -29,6 +35,7 @@ class Numpad {
   lv_obj_t *input;
   lv_obj_t *kb;
   std::function<void(double)> ready_cb;
+  bool prev_was_empty;
 };
 
 #endif // __NUMPAD_H__
