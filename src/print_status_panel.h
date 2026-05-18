@@ -86,6 +86,7 @@ class PrintStatusPanel : public NotifyConsumer {
   json current_file;
 
   std::map<std::string, int> fan_speeds;
+  std::string chamber_sensor_key_;
 };
 
 #endif // __PRINT_STATUS_PANEL_H__
