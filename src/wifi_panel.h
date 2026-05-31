@@ -52,6 +52,10 @@ class WifiPanel {
   };
 
  private:
+  void begin_connection_attempt(const std::string &network_name);
+  void finish_connection_attempt(const std::string &message, bool success);
+  bool connection_in_progress = false;
+  std::string pending_network;
   std::mutex &lv_lock;
   WpaEvent wpa_event;
   lv_obj_t *cont;

@@ -8,9 +8,26 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <cctype>
 
 LV_IMG_DECLARE(back);
 LV_IMG_DECLARE(refresh_img);
+
+namespace {
+std::string trim_copy(std::string s) {
+  size_t b = 0;
+  while (b < s.size() && std::isspace(static_cast<unsigned char>(s[b]))) {
+    ++b;
+  }
+
+  size_t e = s.size();
+  while (e > b && std::isspace(static_cast<unsigned char>(s[e - 1]))) {
+    --e;
+  }
+
+  return s.substr(b, e - b);
+}
+}
 
 static void draw_part_event_cb(lv_event_t * e) {
   lv_obj_t * obj = lv_event_get_target(e);
@@ -189,8 +206,16 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
     } else if (list_networks.count(selected_network)) {
       auto nid = list_networks.find(selected_network)->second;
-      wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid));
-      wpa_event.send_command("SAVE_CONFIG");
+      begin_connection_attempt(selected_network);
+      const std::string select_resp = trim_copy(
+          wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid)));
+      const std::string save_resp = trim_copy(wpa_event.send_command("SAVE_CONFIG"));
+      if (select_resp != "OK" || save_resp != "OK") {
+        LOG_ERROR("failed to select existing network {}: select={}, save={}",
+            selected_network, select_resp, save_resp);
+        finish_connection_attempt(
+            fmt::format("Failed to start connection to {}", selected_network), false);
+      }
     } else {
       lv_label_set_text(wifi_label, fmt::format("Connect to {}\n\nPassword:", selected_network).c_str());
       lv_obj_clear_flag(password_input, LV_OBJ_FLAG_HIDDEN);
@@ -260,6 +285,8 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   } else if (event.rfind("<3>CTRL-EVENT-CONNECTED", 0) == 0) {
     if (find_current_network()) {
+      connection_in_progress = false;
+      pending_network.clear();
       LOG_TRACE("handle wpa event connected - current network {}", cur_network);
       std::vector<std::pair<std::string, int>> pairs;
       for (auto it = wifi_name_db.begin(); it != wifi_name_db.end(); ++it) {
@@ -302,6 +329,25 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     } else {
       lv_label_set_text(wifi_label, "");
     }
+  } else if (event.rfind("<3>CTRL-EVENT-SSID-TEMP-DISABLED", 0) == 0 ||
+             event.rfind("<3>CTRL-EVENT-NETWORK-NOT-FOUND", 0) == 0 ||
+             event.rfind("<3>CTRL-EVENT-ASSOC-REJECT", 0) == 0) {
+    std::lock_guard<std::mutex> lock(lv_lock);
+    const std::string target = pending_network.empty() ? selected_network : pending_network;
+    LOG_ERROR("wifi connection failed for {}: {}", target, trim_copy(event));
+    finish_connection_attempt(
+        target.empty() ? "WiFi connection failed" : fmt::format("Failed to connect to {}", target),
+        false);
+  } else if (event.rfind("<3>CTRL-EVENT-DISCONNECTED", 0) == 0) {
+    std::lock_guard<std::mutex> lock(lv_lock);
+    if (connection_in_progress) {
+      const std::string target = pending_network.empty() ? selected_network : pending_network;
+      LOG_ERROR("wifi disconnected while connecting to {}: {}", target, trim_copy(event));
+      finish_connection_attempt(
+          target.empty() ? "WiFi connection interrupted"
+                         : fmt::format("Connection to {} interrupted", target),
+          false);
+    }
   }
 }
 
@@ -310,7 +356,9 @@ void WifiPanel::handle_kb_input(lv_event_t *e) {
   if (code == LV_EVENT_FOCUSED) {
     lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
   } else if (code == LV_EVENT_DEFOCUSED) {
-    lv_label_set_text(wifi_label, "Please select your wifi network");
+    if (!connection_in_progress) {
+      lv_label_set_text(wifi_label, "Please select your wifi network");
+    }
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
   } else if (code == LV_EVENT_READY) {
@@ -320,10 +368,10 @@ void WifiPanel::handle_kb_input(lv_event_t *e) {
     }
 
     // add network, set password, save wpa
+    begin_connection_attempt(selected_network);
     connect(password);
     lv_textarea_set_text(password_input, "");
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
-    lv_label_set_text(wifi_label, fmt::format("Connecting to {} ...", selected_network).c_str());
     lv_obj_clear_state(password_input, LV_STATE_FOCUSED);
     lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
   } else if (code == LV_EVENT_CLICKED) {
@@ -335,14 +383,31 @@ void WifiPanel::handle_kb_input(lv_event_t *e) {
 }
 
 void WifiPanel::connect(const char *password) {
-  std::string nid = wpa_event.send_command("ADD_NETWORK");
+  std::string nid = trim_copy(wpa_event.send_command("ADD_NETWORK"));
   LOG_TRACE("add_nework {}", nid);
   if (nid.length() > 0) {
-    wpa_event.send_command(fmt::format("SET_NETWORK {} ssid {:?}", nid, selected_network));
-    wpa_event.send_command(fmt::format("SET_NETWORK {} psk {:?}", nid, password));
-    wpa_event.send_command(fmt::format("ENABLE_NETWORK {}", nid));
-    wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid));
-    wpa_event.send_command("SAVE_CONFIG");
+    const std::string set_ssid_resp = trim_copy(
+        wpa_event.send_command(fmt::format("SET_NETWORK {} ssid {:?}", nid, selected_network)));
+    const std::string set_psk_resp = trim_copy(
+        wpa_event.send_command(fmt::format("SET_NETWORK {} psk {:?}", nid, password)));
+    const std::string enable_resp = trim_copy(
+        wpa_event.send_command(fmt::format("ENABLE_NETWORK {}", nid)));
+    const std::string select_resp = trim_copy(
+        wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid)));
+    const std::string save_resp = trim_copy(wpa_event.send_command("SAVE_CONFIG"));
+
+    if (set_ssid_resp != "OK" || set_psk_resp != "OK" || enable_resp != "OK" ||
+        select_resp != "OK" || save_resp != "OK") {
+      LOG_ERROR(
+          "failed to configure network {} (nid {}): ssid={}, psk={}, enable={}, select={}, save={}",
+          selected_network, nid, set_ssid_resp, set_psk_resp, enable_resp, select_resp, save_resp);
+      finish_connection_attempt(
+          fmt::format("Failed to start connection to {}", selected_network), false);
+    }
+  } else {
+    LOG_ERROR("failed to add wifi network {}", selected_network);
+    finish_connection_attempt(
+        fmt::format("Failed to create WiFi entry for {}", selected_network), false);
   }
 }
 
@@ -366,4 +431,22 @@ bool WifiPanel::find_current_network() {
     }
   }
   return found;
+}
+
+void WifiPanel::begin_connection_attempt(const std::string &network_name) {
+  connection_in_progress = true;
+  pending_network = network_name;
+  lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(spinner, LV_OBJ_FLAG_HIDDEN);
+  lv_label_set_text(wifi_label, fmt::format("Connecting to {} ...", network_name).c_str());
+}
+
+void WifiPanel::finish_connection_attempt(const std::string &message, bool success) {
+  connection_in_progress = false;
+  pending_network.clear();
+  lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
+  lv_label_set_text(wifi_label, message.c_str());
+  if (success) {
+    lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
+  }
 }
