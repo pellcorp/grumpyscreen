@@ -3,6 +3,8 @@
 #include "config.h"
 #include "logger.h"
 
+#include <algorithm>
+#include <cctype>
 #include <limits>
 
 LV_IMG_DECLARE(back);
@@ -14,6 +16,86 @@ LV_IMG_DECLARE(load_filament_img);
 LV_IMG_DECLARE(extruder);
 LV_IMG_DECLARE(cooldown_img);
 
+namespace {
+
+std::string trim_copy(std::string s) {
+  auto is_ws = [](unsigned char c) { return std::isspace(c) != 0; };
+  s.erase(s.begin(), std::find_if(s.begin(), s.end(), [&](unsigned char c) { return !is_ws(c); }));
+  s.erase(std::find_if(s.rbegin(), s.rend(), [&](unsigned char c) { return !is_ws(c); }).base(), s.end());
+  return s;
+}
+
+std::vector<std::string> parse_selector_options(const std::string &csv) {
+  std::vector<std::string> options;
+  size_t start = 0;
+  while (start <= csv.size()) {
+    size_t end = csv.find(',', start);
+    std::string token = trim_copy(csv.substr(start, end == std::string::npos ? std::string::npos : end - start));
+    if (!token.empty()) {
+      options.push_back(token);
+    }
+    if (end == std::string::npos) {
+      break;
+    }
+    start = end + 1;
+  }
+  return options;
+}
+
+std::vector<std::string> load_selector_options(const std::string &config_key, size_t max_options) {
+  Config *conf = Config::get_instance();
+  auto options = parse_selector_options(conf->get<std::string>(config_key));
+  if (options.size() > max_options) {
+    LOG_INFO("{} has {} values; truncating to {}", config_key, options.size(), max_options);
+    options.resize(max_options);
+  }
+  return options;
+}
+
+std::vector<const char*> build_selector_map(std::vector<std::string> &options) {
+  std::vector<const char*> map;
+  map.reserve(options.size() + 1);
+  for (auto &option : options) {
+    map.push_back(option.c_str());
+  }
+  map.push_back("");
+  return map;
+}
+
+std::string read_config_value_as_string(const std::string &config_key) {
+  Config *conf = Config::get_instance();
+  std::string configured_value = trim_copy(conf->get<std::string>(config_key));
+  if (!configured_value.empty()) {
+    return configured_value;
+  }
+
+  int configured_int = conf->get<int>(config_key, std::numeric_limits<int>::min());
+  if (configured_int != std::numeric_limits<int>::min()) {
+    return std::to_string(configured_int);
+  }
+
+  return "";
+}
+
+uint32_t resolve_default_idx(const std::string &config_key,
+                             const std::vector<std::string> &options) {
+  std::string configured_value = read_config_value_as_string(config_key);
+  if (!configured_value.empty()) {
+    auto it = std::find(options.begin(), options.end(), configured_value);
+    if (it != options.end()) {
+      return static_cast<uint32_t>(std::distance(options.begin(), it));
+    }
+  }
+
+  if (options.empty()) {
+    return std::numeric_limits<uint32_t>::max();
+  }
+
+  return 0;
+}
+
+} // namespace
+
 ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 			     std::mutex &lock,
 			     Numpad &numpad,
@@ -22,14 +104,23 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , ws(websocket_client)
   , panel_cont(lv_obj_create(lv_scr_act()))
   , spoolman_panel(sm)
+  , temp_options(load_selector_options("/ui/extruder_temp_presets", 8))
+  , temp_option_map(build_selector_map(temp_options))
+  , temp_default_idx(resolve_default_idx("/ui/extruder_temp_default", temp_options))
+  , length_options(load_selector_options("/ui/extruder_length_presets", 8))
+  , length_option_map(build_selector_map(length_options))
+  , length_default_idx(resolve_default_idx("/ui/extruder_length_default", length_options))
+  , speed_options(load_selector_options("/ui/extruder_speed_presets", 8))
+  , speed_option_map(build_selector_map(speed_options))
+  , speed_default_idx(resolve_default_idx("/ui/extruder_speed_default", speed_options))
   , extruder_temp(ws, panel_cont, &extruder, 150,
 	  "Extruder", lv_palette_main(LV_PALETTE_RED), false, true, numpad, "extruder", NULL, NULL)
   , temp_selector(panel_cont, "Extruder Temperature (C)",
-		  {"190", "200", "220", "230", "240", "260", "280", "300", ""}, 3, &ExtruderPanel::_handle_callback, this)
+		  temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
   , length_selector(panel_cont, "Extrude Length (mm)",
-		    {"5", "10", "15", "20", "25", "30", "35", ""}, 1, &ExtruderPanel::_handle_callback, this)
+		    length_option_map, length_default_idx, &ExtruderPanel::_handle_callback, this)
   , speed_selector(panel_cont, "Extrude Speed (mm/s)",
-		   {"1", "2", "5", "10", "25", "35", "50", ""}, 2, &ExtruderPanel::_handle_callback, this)
+		   speed_option_map, speed_default_idx, &ExtruderPanel::_handle_callback, this)
   , rightside_btns_cont(lv_obj_create(panel_cont))
   , leftside_btns_cont(lv_obj_create(panel_cont))
   , load_btn(leftside_btns_cont, &load_filament_img, "Load", &ExtruderPanel::_handle_callback, this)

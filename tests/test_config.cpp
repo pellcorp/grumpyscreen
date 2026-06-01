@@ -27,6 +27,14 @@ brightness: 90
 rotate: 3
 sleep_sec: 600
 
+[ui]
+extruder_temp_presets: 190, 220, 245
+extruder_temp_default: 245
+extruder_length_presets: 5, 25
+extruder_length_default: 25
+extruder_speed_presets: 2, 8, 16
+extruder_speed_default: 8
+
 [fan "fan"]
 display_name: Toolhead
 
@@ -55,6 +63,12 @@ display_name: Chamber
     assert(conf->get<int32_t>("/display/brightness") == 90);
     assert(conf->get<int32_t>("/display/rotate") == 3);
     assert(conf->get<int32_t>("/display/sleep_sec") == 600);
+    assert(conf->get<std::string>("/ui/extruder_temp_presets") == "190, 220, 245");
+    assert(conf->get<std::string>("/ui/extruder_temp_default") == "245");
+    assert(conf->get<std::string>("/ui/extruder_length_presets") == "5, 25");
+    assert(conf->get<std::string>("/ui/extruder_length_default") == "25");
+    assert(conf->get<std::string>("/ui/extruder_speed_presets") == "2, 8, 16");
+    assert(conf->get<std::string>("/ui/extruder_speed_default") == "8");
     assert(conf->get<std::string>("/missing/key", "default") == "default");
     assert(conf->get<std::string>("/missing/key") == ""); // empty by default
 
