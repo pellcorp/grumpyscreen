@@ -9,6 +9,8 @@
 #include "sensor_container.h"
 #include "numpad.h"
 #include "lvgl/lvgl.h"
+#include <string>
+#include <vector>
 
 class ExtruderPanel : public NotifyConsumer {
  public:
@@ -29,6 +31,15 @@ class ExtruderPanel : public NotifyConsumer {
   KWebSocketClient &ws;
   lv_obj_t *panel_cont;
   SpoolmanPanel &spoolman_panel;
+  std::vector<std::string> temp_options;
+  std::vector<const char*> temp_option_map;
+  uint32_t temp_default_idx;
+  std::vector<std::string> length_options;
+  std::vector<const char*> length_option_map;
+  uint32_t length_default_idx;
+  std::vector<std::string> speed_options;
+  std::vector<const char*> speed_option_map;
+  uint32_t speed_default_idx;
   SensorContainer extruder_temp;
   Selector temp_selector;
   Selector length_selector;
