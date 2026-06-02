@@ -98,6 +98,7 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   lv_disp_set_theme(NULL, &th_new);
 
   ws.register_notify_update(State::get_instance());
+  ws.register_notify_update(&init_panel);
 
   GuppyScreen *gs = GuppyScreen::get();
   // start initializing all guppy components

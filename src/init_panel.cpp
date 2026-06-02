@@ -8,7 +8,8 @@
 #include <cstdio>
 
 InitPanel::InitPanel(MainPanel &mp, std::mutex& l)
-  : cont(lv_obj_create(lv_scr_act()))
+  : NotifyConsumer(l)
+  , cont(lv_obj_create(lv_scr_act()))
   , label(lv_label_create(cont))
   , main_panel(mp)
   , lv_lock(l)
@@ -108,4 +109,15 @@ void InitPanel::disconnected(KWebSocketClient &ws) {
 
 void InitPanel::set_message(const char *message) {
 	lv_label_set_text(label, message);
+}
+
+void InitPanel::consume(json &j) {
+  auto &pstate = j["/params/0/print_stats/state"_json_pointer];
+  if (pstate.is_null()) {
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(lv_lock);
+  lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_background(cont);
 }
