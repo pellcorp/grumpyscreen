@@ -50,7 +50,11 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   set_log_level(ll);
 
   const std::string selected_theme = conf->get<std::string>("/ui/theme");
+#ifdef GRUMPYSCREEN_THEMES_DIR
+  auto theme_config = fs::path(GRUMPYSCREEN_THEMES_DIR) / (selected_theme + ".json");
+#else
   auto theme_config = fs::canonical("/proc/self/exe").parent_path() / "themes" / (selected_theme + ".json");
+#endif
   ThemeConfig *theme_conf = ThemeConfig::get_instance();
   theme_conf->init(theme_config);
 

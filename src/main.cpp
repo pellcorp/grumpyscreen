@@ -27,7 +27,11 @@ using namespace hv;
 
 int main(void) {
     Config *conf = Config::get_instance();
+#ifdef GRUMPYSCREEN_CONFIG_DIR
+    auto config_path = fs::path(GRUMPYSCREEN_CONFIG_DIR) / "grumpyscreen.cfg";
+#else
     auto config_path = fs::canonical("/proc/self/exe").parent_path() / "grumpyscreen.cfg";
+#endif
     if (fs::exists(config_path)) {
       if (!conf->load(config_path.string())) {
           LOG_ERROR("Failed to load {}", config_path.string());
