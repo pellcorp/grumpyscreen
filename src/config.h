@@ -4,6 +4,7 @@
 #include <vector>
 #include <fstream>
 #include <cctype>
+#include <algorithm>
 #include <type_traits>
 
 class Config {
@@ -16,6 +17,13 @@ public:
         path_ = ini_path;
         j_ = json::object();
         return load_ini(ini_path, j_);
+    }
+
+    bool load_override(const std::string& ini_path) {
+        json override_json = json::object();
+        if (!load_ini(ini_path, override_json)) return false;
+        merge_override(j_, override_json);
+        return true;
     }
 
     template <typename T>
@@ -76,6 +84,50 @@ private:
         if (parse_bool(val, bv)) obj[k] = bv;
         else if (parse_int(val, iv)) obj[k] = iv;
         else obj[k] = val;
+    }
+
+    static void merge_override(json& base, const json& override_json) {
+        if (!base.is_object() || !override_json.is_object()) return;
+
+        for (auto& [key, val] : override_json.items()) {
+            auto base_it = base.find(key);
+            if (base_it == base.end()) {
+                if (val.is_array() && !val.empty() && val[0].is_object() && val[0].contains("id")) {
+                    base[key] = val;
+                }
+                continue;
+            }
+
+            if (base_it->is_object() && val.is_object()) {
+                merge_override(*base_it, val);
+                continue;
+            }
+
+            if (base_it->is_array() && val.is_array()) {
+                merge_group_override(*base_it, val);
+                continue;
+            }
+
+            *base_it = val;
+        }
+    }
+
+    static void merge_group_override(json& base_group, const json& override_group) {
+        for (const auto& override_item : override_group) {
+            if (!override_item.is_object()) continue;
+
+            const auto id_it = override_item.find("id");
+            if (id_it == override_item.end() || !id_it->is_string()) continue;
+            const auto& override_id = id_it->get<std::string>();
+
+            auto found = std::find_if(base_group.begin(), base_group.end(), [&](const json& item) {
+                if (!item.is_object()) return false;
+                auto it = item.find("id");
+                return it != item.end() && it->is_string() && it->get<std::string>() == override_id;
+            });
+            if (found != base_group.end()) merge_override(*found, override_item);
+            else base_group.push_back(override_item);
+        }
     }
 
     // INI: [section] or [group "id"]; key [:|=] value; comments start with # or ;
