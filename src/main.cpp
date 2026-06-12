@@ -42,6 +42,20 @@ int main(void) {
         LOG_ERROR("Config file {} not found", config_path.string());
         return 1;
     }
+
+    const char* config_override_env = std::getenv("CONFIG_OVERRIDE_FILE");
+    if (config_override_env && config_override_env[0] != '\0') {
+        fs::path config_override_path = fs::path(config_override_env);
+        if (fs::exists(config_override_path)) {
+            if (!conf->load_override(config_override_path.string())) {
+                LOG_ERROR("Failed to load override config {}", config_override_path.string());
+                return 1;
+            }
+        } else {
+            LOG_INFO("Override config file {} not found, continuing without overrides", config_override_path.string());
+        }
+    }
+
     GuppyScreen::init(hal_init);
     GuppyScreen::loop();
     return 0;
