@@ -49,7 +49,6 @@ class GuppyScreen {
   static std::vector<float> load_calibration_coeff();
   static void save_calibration_coeff(lv_tc_coeff_t coeff);
 #endif
-  static void refresh_theme();
 };
 
 #endif  // __GUPPY_SCREEN_H__
