@@ -48,9 +48,8 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   auto ll = conf->get<std::string>("/ui/log_level");
   set_log_level(ll);
 
-  auto theme_primary_color = conf->get<std::string>("/theme/primary_colour");
-  auto theme_secondary_color = conf->get<std::string>("/theme/secondary_colour");
-
+  auto theme_primary_color = conf->get<std::string>("/theme/primary_colour", "0x2196F3");
+  auto theme_secondary_color = conf->get<std::string>("/theme/secondary_colour", "0xF44336");
   auto primary_color = lv_color_hex(std::stoul(theme_primary_color, nullptr, 16));
   auto secondary_color = lv_color_hex(std::stoul(theme_secondary_color, nullptr, 16));
 
