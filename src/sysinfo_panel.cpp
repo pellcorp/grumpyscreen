@@ -1,21 +1,11 @@
 #include "sysinfo_panel.h"
 #include "utils.h"
 #include "config.h"
-#include "theme.h"
 
 std::vector<std::string> SysInfoPanel::log_levels = {
   "trace",
   "debug",
   "info"
-};
-
-std::vector<std::string> SysInfoPanel::themes = {
-  "blue",
-  "red",
-  "green",
-  "purple",
-  "pink",
-  "yellow"
 };
 
 SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
@@ -76,15 +66,6 @@ SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
   	settings.append("Inverted\n\n");
   } else {
     settings.append("Not Inverted\n\n");
-  }
-
-  settings.append("\tTheme: ");
-  const std::string theme_id = conf->get<std::string>("/ui/theme");
-  auto theme_idx = std::find(themes.begin(), themes.end(), theme_id);
-  if (theme_idx != std::end(themes)) {
-  	settings.append(theme_id + "\n\n");
-  } else {
-    settings.append("blue\n\n");
   }
 
   lv_label_set_text(settings_label, settings.c_str());

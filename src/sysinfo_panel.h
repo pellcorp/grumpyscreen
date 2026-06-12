@@ -22,7 +22,6 @@ class SysInfoPanel {
   lv_obj_t *settings_label;
 
   static std::vector<std::string> log_levels;
-  static std::vector<std::string> themes;
 };
 
 #endif //__SYSINFO_PANEL_H__

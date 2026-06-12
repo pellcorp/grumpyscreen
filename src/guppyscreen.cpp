@@ -5,7 +5,6 @@
 #include "lv_drivers/indev/evdev.h"
 #include "logger.h"
 #include "state.h"
-#include "theme.h"
 #ifdef GUPPY_CALIBRATE
 #include <fstream>
 #endif
@@ -49,13 +48,8 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   auto ll = conf->get<std::string>("/ui/log_level");
   set_log_level(ll);
 
-  const std::string selected_theme = conf->get<std::string>("/ui/theme");
-  auto theme_config = fs::canonical("/proc/self/exe").parent_path() / "themes" / (selected_theme + ".json");
-  ThemeConfig *theme_conf = ThemeConfig::get_instance();
-  theme_conf->init(theme_config);
-
-  auto theme_primary_color = theme_conf->get<std::string>("/primary_color");
-  auto theme_secondary_color = theme_conf->get<std::string>("/secondary_color");
+  auto theme_primary_color = conf->get<std::string>("/theme/primary_colour");
+  auto theme_secondary_color = conf->get<std::string>("/theme/secondary_colour");
 
   auto primary_color = lv_color_hex(std::stoul(theme_primary_color, nullptr, 16));
   auto secondary_color = lv_color_hex(std::stoul(theme_secondary_color, nullptr, 16));
@@ -85,16 +79,15 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   lv_style_set_img_recolor_opa(&style_imgbtn_disabled, LV_OPA_100);
   lv_style_set_img_recolor(&style_imgbtn_disabled, lv_palette_darken(LV_PALETTE_GREY, 1));
 
-  /*Initia1ize the new theme from the current theme*/
-
+  // Initia1ize the new theme from the current theme
   lv_theme_t *th_act = lv_disp_get_theme(NULL);
   th_new = *th_act;
 
-  /*Set the parent theme and the style apply callback for the new theme*/
+  // Set the parent theme and the style apply callback for the new theme
   lv_theme_set_parent(&th_new, th_act);
   lv_theme_set_apply_cb(&th_new, &GuppyScreen::new_theme_apply_cb);
 
-  /*Assign the new theme to the current display*/
+  // Assign the new theme to the current display
   lv_disp_set_theme(NULL, &th_new);
 
   ws.register_notify_update(State::get_instance());
@@ -226,18 +219,6 @@ void GuppyScreen::save_calibration_coeff(lv_tc_coeff_t coeff) {
   f << j.dump(2);
 }
 #endif
-
-void GuppyScreen::refresh_theme() {
-  lv_theme_t *th = lv_theme_default_get();
-  ThemeConfig *theme_conf = ThemeConfig::get_instance();
-  auto primary_color = lv_color_hex(std::stoul(theme_conf->get<std::string>("/primary_color"), nullptr, 16));
-  auto secondary_color = lv_color_hex(std::stoul(theme_conf->get<std::string>("/secondary_color"), nullptr, 16));
-
-  lv_disp_t *disp = lv_disp_get_default();
-  lv_theme_t * new_theme =  lv_theme_default_init(disp, primary_color, secondary_color, true, th->font_normal);
-  lv_disp_set_theme(disp, new_theme);
-  lv_style_set_img_recolor(&style_imgbtn_pressed, primary_color);
-}
 
 /*Set in lv_conf.h as `LV_TICK_CUSTOM_SYS_TIME_EXPR`*/
 uint32_t custom_tick_get(void) {
