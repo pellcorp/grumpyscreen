@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
+#include <cstdlib>
 #include <experimental/filesystem>
 
 namespace fs = std::experimental::filesystem;
@@ -26,16 +27,20 @@ using namespace hv;
 #define DISP_BUF_SIZE (128 * 1024)
 
 int main(void) {
+    const char* config_file_env = std::getenv("CONFIG_FILE");
+    fs::path config_path = config_file_env && config_file_env[0] != '\0'
+        ? fs::path(config_file_env)
+        : fs::canonical("/proc/self/exe").parent_path() / "grumpyscreen.cfg";
+
     Config *conf = Config::get_instance();
-    auto config_path = fs::canonical("/proc/self/exe").parent_path() / "grumpyscreen.cfg";
     if (fs::exists(config_path)) {
-      if (!conf->load(config_path.string())) {
-          LOG_ERROR("Failed to load {}", config_path.string());
-          return 1;
-      }
+        if (!conf->load(config_path.string())) {
+            LOG_ERROR("Failed to load {}", config_path.string());
+            return 1;
+        }
     } else {
-      LOG_ERROR("Config file {} not found", config_path.string());
-      return 1;
+        LOG_ERROR("Config file {} not found", config_path.string());
+        return 1;
     }
     GuppyScreen::init(hal_init);
     GuppyScreen::loop();
