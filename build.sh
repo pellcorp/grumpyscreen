@@ -18,7 +18,7 @@ function docker_make() {
     fi
 
     echo "Target Arguments: $target_arg"
-    docker run -ti -v $PWD:$PWD pellcorp/guppydev /bin/bash -c "cd $PWD && GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH $target_arg CROSS_COMPILE=$CROSS_COMPILE make $@"
+    docker run --name=grumpydev -ti --rm -v $PWD:$PWD pellcorp/guppydev /bin/bash -c "cd $PWD && GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH $target_arg CROSS_COMPILE=$CROSS_COMPILE make $@"
 }
 
 TARGET=
@@ -98,7 +98,7 @@ else
             password=Creality2023
           fi
           sshpass -p $password scp build/bin/guppyscreen root@$PRINTER_IP:
-          sshpass -p $password ssh root@$PRINTER_IP "mv /root/guppyscreen /usr/data/guppyscreen/"
+          sshpass -p $password ssh root@$PRINTER_IP "mv /root/guppyscreen /usr/data/grumpyscreen/"
 
           cp grumpyscreen.cfg /tmp
           if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
@@ -106,7 +106,7 @@ else
           fi
           sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
           sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/printer_data/config/grumpyscreen.ini"
-          sshpass -p $password ssh root@$PRINTER_IP "/etc/init.d/S99guppyscreen restart"
+          sshpass -p $password ssh root@$PRINTER_IP "/etc/init.d/S99grumpyscreen restart"
         else # rpi
           echo "Uploading to ${PI_USERNAME}@$PRINTER_IP ..."
           cp grumpyscreen.cfg /tmp
@@ -118,7 +118,7 @@ else
           # for now no support command for rpi either
           sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/grumpyscreen.cfg
           scp /tmp/grumpyscreen.cfg $PI_USERNAME@$PRINTER_IP:/tmp/
-          ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/guppyscreen /home/$PI_USERNAME/guppyscreen/"
+          ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/guppyscreen /home/$PI_USERNAME/grumpyscreen/"
           ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/$PI_USERNAME/printer_data/config/grumpyscreen.ini"
           ssh $PI_USERNAME@$PRINTER_IP "sudo systemctl restart grumpyscreen"
         fi
