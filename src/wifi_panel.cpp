@@ -189,14 +189,12 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
     } else if (list_networks.count(selected_network)) {
       auto nid = list_networks.find(selected_network)->second;
-      lv_label_set_text(wifi_label, fmt::format("Connecting to {} ...", selected_network).c_str());
-      lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_clear_flag(spinner, LV_OBJ_FLAG_HIDDEN);
       wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid));
       wpa_event.send_command("SAVE_CONFIG");
     } else {
       lv_label_set_text(wifi_label, fmt::format("Connect to {}\n\nPassword:", selected_network).c_str());
       lv_obj_clear_flag(password_input, LV_OBJ_FLAG_HIDDEN);
+      entering_password = true;
       lv_event_send(password_input, LV_EVENT_FOCUSED, NULL);
     }
     lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
@@ -214,19 +212,24 @@ void WifiPanel::handle_callback(lv_event_t *e) {
 
 void WifiPanel::handle_wpa_event(const std::string &event) {
   if (event.rfind("<3>CTRL-EVENT-SCAN-RESULTS", 0) == 0) {
+    if (entering_password) {
+      return;
+    }
     LOG_TRACE("got scan result event");
     std::istringstream f(wpa_event.send_command("SCAN_RESULTS"));
     std::string line;
     wifi_name_db.clear();
     uint32_t index = 0;
 
-    if (find_current_network()) {
+    bool has_current = find_current_network();
+    if (has_current) {
       LOG_TRACE("handle wpa event scan results - current network {}", cur_network);
-    } else {
-      lv_label_set_text(wifi_label, "");
     }
 
     std::lock_guard<std::mutex> lock(lv_lock);
+    if (!has_current) {
+      lv_label_set_text(wifi_label, "");
+    }
     while (std::getline(f, line)) {
       if (line.rfind("bss", 0) == 0) {
 	      continue;
@@ -313,6 +316,7 @@ void WifiPanel::handle_kb_input(lv_event_t *e) {
   if (code == LV_EVENT_FOCUSED) {
     lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
   } else if (code == LV_EVENT_DEFOCUSED) {
+    entering_password = false;
     lv_label_set_text(wifi_label, "Please select your wifi network");
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
@@ -323,6 +327,7 @@ void WifiPanel::handle_kb_input(lv_event_t *e) {
     }
 
     // add network, set password, save wpa
+    entering_password = false;
     connect(password);
     lv_textarea_set_text(password_input, "");
     lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
