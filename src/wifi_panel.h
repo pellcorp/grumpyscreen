@@ -69,7 +69,8 @@ class WifiPanel {
   std::string cur_network;
   std::map<std::string, std::string> list_networks;
   std::map<std::string, int> wifi_name_db;
-  
+  bool entering_password = false;
+
 };
 
 #endif // __WIFI_PANEL_H__
