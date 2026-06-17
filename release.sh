@@ -17,10 +17,9 @@ function do_release() {
     # rpi does not have factory reset
     sed -i 's:/etc/init.d/S58factoryreset reset::g' $RELEASES_DIR/grumpyscreen.cfg
     sed -i 's:/etc/init.d/S99guppyscreen restart:sudo systemctl restart grumpyscreen:g' $RELEASES_DIR/grumpyscreen.cfg
+    sed -i 's:/etc/init.d/S55klipper_service restart:sudo systemctl restart klipper:g' $RELEASES_DIR/grumpyscreen.cfg
     # rpi does not have switch to stock
     sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' $RELEASES_DIR/grumpyscreen.cfg
-    # for now no support command for rpi either
-    sed -i 's:/usr/data/pellcorp/tools/support.sh::g' $RELEASES_DIR/grumpyscreen.cfg
   fi
   tar cf - -C releases/build . | pigz -9 > releases/${ASSET_NAME}.tar.gz
 }

@@ -30,7 +30,7 @@ static void run_factory_reset_cb(lv_timer_t * t) {
         simple_dialog_close(ctx->mbox);
         create_simple_dialog(lv_scr_act(),
                              "Factory Reset Failed",
-                             "Failed to initiate factory reset.",
+                             "Failed to initiate factory reset!",
                              true);
     }
 
@@ -38,31 +38,24 @@ static void run_factory_reset_cb(lv_timer_t * t) {
     lv_timer_del(t);
 }
 
-SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
-  : ws(c)
-  , cont(lv_obj_create(parent))
+SettingPanel::SettingPanel(std::mutex &l, lv_obj_t *parent)
+  : cont(lv_obj_create(parent))
   , wifi_panel(l)
   , wifi_btn(cont, &network_img, "WIFI", &SettingPanel::_handle_callback, this)
   , restart_klipper_btn(cont, &refresh_img, "Restart Klipper", &SettingPanel::_handle_callback, this)
-  , restart_firmware_btn(cont, &refresh_img, "Restart\nFirmware", &SettingPanel::_handle_callback, this)
-  , guppy_restart_btn(cont, &refresh_img, "Restart Grumpy", &SettingPanel::_handle_callback, this)
+  , guppy_restart_btn(cont, &refresh_img, "Restart GUI", &SettingPanel::_handle_callback, this)
   , support_zip_btn(cont, &sd_img, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
-  , guppy_update_btn(cont, &update_img, "Update Grumpy", &SettingPanel::_handle_callback, this)
   , switch_to_stock_btn(cont, &emergency, "Switch to\nStock", &SettingPanel::_handle_callback, this,
     "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!",
             ButtonContainer::PromptMode::Destructive)
   , factory_reset_btn(cont, &emergency, "Factory\nReset", &SettingPanel::_handle_callback, this,
-    		  "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to execute an emergency factory reset?\n\nThis will reset the printer to stock creality firmware!",
+    		  "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to factory reset?\n\nThis will reset the printer to stock creality firmware!",
           ButtonContainer::PromptMode::Destructive)
 {
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
 
   Config *conf = Config::get_instance();
-  auto update_script = conf->get<std::string>("/commands/guppy_update_cmd");
-  if (update_script == "") {
-    guppy_update_btn.disable();
-  }
   auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
   if (switch_to_stock_cmd == "") {
     switch_to_stock_btn.disable();
@@ -85,14 +78,12 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   // row 1
   lv_obj_set_grid_cell(wifi_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 1, 1);
   lv_obj_set_grid_cell(restart_klipper_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_START, 1, 1);
-  lv_obj_set_grid_cell(restart_firmware_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_START, 1, 1);
-  lv_obj_set_grid_cell(guppy_restart_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 1, 1);
+  lv_obj_set_grid_cell(guppy_restart_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_START, 1, 1);
+  lv_obj_set_grid_cell(support_zip_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 1, 1);
 
   // row 2
-  lv_obj_set_grid_cell(support_zip_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
-  lv_obj_set_grid_cell(guppy_update_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_START, 2, 1);
-  lv_obj_set_grid_cell(switch_to_stock_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_START, 2, 1);
-  lv_obj_set_grid_cell(factory_reset_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 2, 1);
+  lv_obj_set_grid_cell(switch_to_stock_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
+  lv_obj_set_grid_cell(factory_reset_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_START, 2, 1);
 }
 
 SettingPanel::~SettingPanel() {
@@ -110,29 +101,20 @@ void SettingPanel::handle_callback(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
     lv_obj_t *btn = lv_event_get_current_target(event);
     if (btn == wifi_btn.get_container()) {
-      LOG_TRACE("wifi pressed");
       wifi_panel.foreground();
     } else if (btn == restart_klipper_btn.get_container()) {
-      LOG_TRACE("restart klipper pressed");
-      ws.send_jsonrpc("printer.restart");
-    } else if (btn == restart_firmware_btn.get_container()) {
-      LOG_TRACE("restart klipper pressed");
-      ws.send_jsonrpc("printer.firmware_restart");
-    } else if (btn == guppy_restart_btn.get_container()) {
-      LOG_TRACE("restart grumpy pressed");
       Config *conf = Config::get_instance();
-      auto restart_command = conf->get<std::string>("/commands/guppy_restart_cmd");
+      auto restart_command = conf->get<std::string>("/commands/restart_klipper_cmd");
       auto ret = sp::call(restart_command);
       if (ret != 0) {
-        create_simple_dialog(lv_scr_act(), "Restart GrumpyScreen Failed", "Failed to restart GrumpyScreen!", true);
+        create_simple_dialog(lv_scr_act(), "Restart Klipper Failed", "Failed to restart Klipper!", true);
       }
-    } else if (btn == guppy_update_btn.get_container()) {
-      LOG_TRACE("update guppy pressed");
+    } else if (btn == guppy_restart_btn.get_container()) {
       Config *conf = Config::get_instance();
-      auto update_script = conf->get<std::string>("/commands/guppy_update_cmd");
-      auto ret = sp::call(update_script);
+      auto restart_command = conf->get<std::string>("/commands/gui_restart_cmd");
+      auto ret = sp::call(restart_command);
       if (ret != 0) {
-        create_simple_dialog(lv_scr_act(), "Update GrumpyScreen Failed", "Failed to update GrumpyScreen!", true);
+        create_simple_dialog(lv_scr_act(), "Restart GUI Failed", "Failed to restart GUI!", true);
       }
     } else if (btn == support_zip_btn.get_container()) {
       Config *conf = Config::get_instance();
@@ -146,7 +128,6 @@ void SettingPanel::handle_callback(lv_event_t *event) {
         }
       }
     } else if (btn == switch_to_stock_btn.get_container()) {
-      LOG_INFO("switch to stock pressed");
       Config *conf = Config::get_instance();
       auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
       auto ret = sp::call(switch_to_stock_cmd);
@@ -156,16 +137,13 @@ void SettingPanel::handle_callback(lv_event_t *event) {
         create_simple_dialog(lv_scr_act(), "Switch to Stock Failed", "Failed to initiate switch to stock!", true);
       }
     } else if (btn == factory_reset_btn.get_container()) {
-      LOG_INFO("factory reset pressed");
       lv_obj_t *mbox  = create_simple_dialog(lv_scr_act(), "Factory Reset Initiated", "Your printer will restart shortly!\nPlease wait for the stock screen to appear!", false);
 
       Config *conf = Config::get_instance();
       auto cmd = conf->get<std::string>("/commands/factory_reset_cmd");
 
       reset_ctx * ctx = new reset_ctx{ mbox, cmd };
-
-      lv_timer_t * timer =
-          lv_timer_create(run_factory_reset_cb, 5000, ctx);
+      lv_timer_t * timer = lv_timer_create(run_factory_reset_cb, 5000, ctx);
       lv_timer_set_repeat_count(timer, 1);
     }
   }
