@@ -34,6 +34,9 @@ class SettingPanel {
   ButtonContainer support_zip_btn;
   ButtonContainer switch_to_stock_btn;
   ButtonContainer factory_reset_btn;
+#ifdef UPDATE_BUTTON_CMD
+  ButtonContainer update_btn;
+#endif
 };
 
 #endif // __SETTING_PANEL_H__

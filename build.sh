@@ -17,12 +17,38 @@ function docker_make() {
         target_arg="GUPPY_CALIBRATE=true"
     fi
 
+    # this is just an easy way for me to test shit
+    if [ "$COSMOS" = "true" ]; then
+      MISC_ARGS="UPDATE_CMD=cosmos_update_cmd"
+      MISC_ARGS+=" UPDATE_TEXT='Update\nCOSMOS'"
+      MISC_ARGS+=" UPDATE_PROMPT='Are you sure you want to update COSMOS?\n\nThis will download and update to the latest version of COSMOS!'"
+      MISC_ARGS+=" UPDATE_SUCCESS='Your printer will restart shortly!'"
+      MISC_ARGS+=" UPDATE_FAILURE='Failed to initiate update COSMOS!'"
+
+      MISC_ARGS+=" SWITCH_TO_STOCK_TEXT='Switch to OC\nPatched'"
+      MISC_ARGS+=" SWITCH_TO_STOCK_PROMPT='**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to switch to OpenCentauri patched firmware?\n\nThis will take some time, **DO NOT TURN OFF YOUR PRINTER**, just wait for it to reboot.'"
+      MISC_ARGS+=" SWITCH_TO_STOCK_FAILURE='Failed to initiate switch to OC Patched!'"
+      MISC_ARGS+=" SWITCH_TO_STOCK_SUCCESS='Your printer will restart shortly!'"
+
+      MISC_ARGS+=" FACTORY_RESET_TEXT='Factory\nReset'"
+      MISC_ARGS+=" FACTORY_RESET_PROMPT='**WARNING** **WARNING** **WARNING**\n\nAre you sure you want factory reset?\n\nThis will reset all printer setting but it will stay using COSMOS, it will not switch back to stock.'"
+      MISC_ARGS+=" FACTORY_RESET_FAILURE='Failed to factory reset!'"
+      MISC_ARGS+=" FACTORY_RESET_SUCCESS='Your printer will restart shortly!'"
+
+      echo "MISC_ARGS: $MISC_ARGS"
+    fi
+
     echo "Target Arguments: $target_arg"
-    docker run --name=grumpydev -ti --rm -v $PWD:$PWD pellcorp/guppydev /bin/bash -c "cd $PWD && GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH $target_arg CROSS_COMPILE=$CROSS_COMPILE make $@"
+
+    # make sure we are building all the src changes
+    #[ -d $CURRENT_DIR/build/obj/src ] && rm $CURRENT_DIR/build/obj/src/*
+
+    docker run --name=grumpydev -ti --rm -v $PWD:$PWD pellcorp/guppydev /bin/bash -c "cd $PWD && $MISC_ARGS GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH $target_arg CROSS_COMPILE=$CROSS_COMPILE make $@"
 }
 
 TARGET=
 GUPPY_SMALL_SCREEN=false
+COSMOS=false
 SETUP=false
 PI_USERNAME=pi
 
@@ -38,6 +64,9 @@ while true; do
         shift
     elif [ "$1" = "--small" ]; then
         export GUPPY_SMALL_SCREEN=true
+        shift
+    elif [ "$1" = "--cosmos" ]; then
+        export COSMOS=true
         shift
     elif [ "$1" = "--username" ] && [ -n "$2" ]; then
         export PI_USERNAME=$2
@@ -63,12 +92,19 @@ if [ "$SETUP" = "true" ]; then
   if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
     echo "small=true" >> $CURRENT_DIR/.target.cfg
   fi
+
+  if [ "$COSMOS" = "true" ]; then
+    echo "cosmos=true" >> $CURRENT_DIR/.target.cfg
+  fi
 fi
 
 if [ -f $CURRENT_DIR/.target.cfg ]; then
   TARGET=$(cat $CURRENT_DIR/.target.cfg | head -1)
   if [ $(cat $CURRENT_DIR/.target.cfg | grep "small=true" | wc -l) -gt 0 ]; then
     export GUPPY_SMALL_SCREEN=true
+  fi
+  if [ $(cat $CURRENT_DIR/.target.cfg | grep "cosmos=true" | wc -l) -gt 0 ]; then
+    export COSMOS=true
   fi
   if [ $(cat $CURRENT_DIR/.target.cfg | grep "username=" | wc -l) -gt 0 ]; then
     export PI_USERNAME=$(cat $CURRENT_DIR/.target.cfg | grep "username=" | awk -F '=' '{print $2}')
@@ -103,6 +139,12 @@ else
           cp grumpyscreen.cfg /tmp
           if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
             sed -i 's/display_rotate: 3/display_rotate: 1/g' /tmp/grumpyscreen.cfg
+          fi
+
+          if [ "$COSMOS" = "true" ]; then
+            if ! grep -q 'cosmos_update_cmd' /tmp/grumpyscreen.cfg; then
+                sed -i '/^\[commands\]/a cosmos_update_cmd: /usr/bin/update-cosmos' /tmp/grumpyscreen.cfg
+            fi
           fi
           sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
           sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/printer_data/config/grumpyscreen.ini"
