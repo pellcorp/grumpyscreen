@@ -29,8 +29,8 @@ static void run_factory_reset_cb(lv_timer_t * t) {
     if (ret != 0) {
         simple_dialog_close(ctx->mbox);
         create_simple_dialog(lv_scr_act(),
-                             "Factory Reset Failed",
-                             "Failed to initiate factory reset!",
+                             FACTORY_RESET_BUTTON_TITLE " Failed",
+                             FACTORY_RESET_BUTTON_FAILURE,
                              true);
     }
 
@@ -45,12 +45,15 @@ SettingPanel::SettingPanel(std::mutex &l, lv_obj_t *parent)
   , restart_klipper_btn(cont, &refresh_img, "Restart Klipper", &SettingPanel::_handle_callback, this)
   , guppy_restart_btn(cont, &refresh_img, "Restart GUI", &SettingPanel::_handle_callback, this)
   , support_zip_btn(cont, &sd_img, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
-  , switch_to_stock_btn(cont, &emergency, "Switch to\nStock", &SettingPanel::_handle_callback, this,
-    "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!",
-            ButtonContainer::PromptMode::Destructive)
-  , factory_reset_btn(cont, &emergency, "Factory\nReset", &SettingPanel::_handle_callback, this,
-    		  "**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to factory reset?\n\nThis will reset the printer to stock creality firmware!",
+  , switch_to_stock_btn(cont, &emergency, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+          SWITCH_TO_STOCK_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive)
+  , factory_reset_btn(cont, &emergency, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+    		  FACTORY_RESET_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive)
+#ifdef UPDATE_BUTTON_CMD
+  , update_btn(cont, &update_img, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+          UPDATE_BUTTON_PROMPT,
           ButtonContainer::PromptMode::Destructive)
+#endif
 {
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
@@ -84,6 +87,10 @@ SettingPanel::SettingPanel(std::mutex &l, lv_obj_t *parent)
   // row 2
   lv_obj_set_grid_cell(switch_to_stock_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
   lv_obj_set_grid_cell(factory_reset_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_START, 2, 1);
+
+#ifdef UPDATE_BUTTON_CMD
+  lv_obj_set_grid_cell(update_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_START, 2, 1);
+#endif
 }
 
 SettingPanel::~SettingPanel() {
@@ -116,6 +123,17 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       if (ret != 0) {
         create_simple_dialog(lv_scr_act(), "Restart GUI Failed", "Failed to restart GUI!", true);
       }
+#ifdef UPDATE_BUTTON_CMD
+    } else if (btn == update_btn.get_container()) {
+      Config *conf = Config::get_instance();
+      auto update_cmd = conf->get<std::string>(std::string("/commands/") + UPDATE_BUTTON_CMD);
+      auto ret = sp::call(update_cmd);
+      if (ret == 0) {
+        create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Initiated", UPDATE_BUTTON_SUCCESS, false);
+      } else {
+        create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Failed", UPDATE_BUTTON_FAILURE, true);
+      }
+#endif
     } else if (btn == support_zip_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
@@ -132,16 +150,15 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
       auto ret = sp::call(switch_to_stock_cmd);
       if (ret == 0) {
-        create_simple_dialog(lv_scr_act(), "Switch to Stock Initiated", "Please power cycle your printer!\nPlease wait for the stock screen to appear!", false);
+        create_simple_dialog(lv_scr_act(), SWITCH_TO_STOCK_BUTTON_TITLE " Initiated", SWITCH_TO_STOCK_BUTTON_SUCCESS, false);
       } else {
-        create_simple_dialog(lv_scr_act(), "Switch to Stock Failed", "Failed to initiate switch to stock!", true);
+        create_simple_dialog(lv_scr_act(), SWITCH_TO_STOCK_BUTTON_TITLE " Failed", SWITCH_TO_STOCK_BUTTON_FAILURE, true);
       }
     } else if (btn == factory_reset_btn.get_container()) {
-      lv_obj_t *mbox  = create_simple_dialog(lv_scr_act(), "Factory Reset Initiated", "Your printer will restart shortly!\nPlease wait for the stock screen to appear!", false);
+      lv_obj_t *mbox  = create_simple_dialog(lv_scr_act(), FACTORY_RESET_BUTTON_TITLE " Initiated", FACTORY_RESET_BUTTON_SUCCESS, false);
 
       Config *conf = Config::get_instance();
       auto cmd = conf->get<std::string>("/commands/factory_reset_cmd");
-
       reset_ctx * ctx = new reset_ctx{ mbox, cmd };
       lv_timer_t * timer = lv_timer_create(run_factory_reset_cb, 5000, ctx);
       lv_timer_set_repeat_count(timer, 1);
