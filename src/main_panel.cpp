@@ -36,7 +36,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
   , console_panel(ws, lock, console_tab)
   , setting_tab(lv_tabview_add_tab(tabview, SETTING_SYMBOL))
-  , setting_panel(websocket, lock, setting_tab)
+  , setting_panel(lock, setting_tab)
   , sysinfo_tab(lv_tabview_add_tab(tabview, INFO_SYMBOL))
   , sysinfo_panel(sysinfo_tab)
   , main_cont(lv_obj_create(main_tab))
