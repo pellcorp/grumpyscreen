@@ -26,12 +26,12 @@ function docker_make() {
       MISC_ARGS+=" UPDATE_FAILURE='Failed to initiate update COSMOS!'"
 
       MISC_ARGS+=" SWITCH_TO_STOCK_TEXT='Switch to OC\nPatched'"
-      MISC_ARGS+=" SWITCH_TO_STOCK_PROMPT='**WARNING** **WARNING** **WARNING**\n\nAre you sure you want to switch to OpenCentauri patched firmware?\n\nThis will take some time, **DO NOT TURN OFF YOUR PRINTER**, just wait for it to reboot.'"
+      MISC_ARGS+=" SWITCH_TO_STOCK_PROMPT='Are you sure you want to switch to OpenCentauri patched firmware?\n\nThis will take some time, **DO NOT TURN OFF YOUR PRINTER**, just wait for it to reboot.'"
       MISC_ARGS+=" SWITCH_TO_STOCK_FAILURE='Failed to initiate switch to OC Patched!'"
       MISC_ARGS+=" SWITCH_TO_STOCK_SUCCESS='Your printer will restart shortly!'"
 
       MISC_ARGS+=" FACTORY_RESET_TEXT='Factory\nReset'"
-      MISC_ARGS+=" FACTORY_RESET_PROMPT='**WARNING** **WARNING** **WARNING**\n\nAre you sure you want factory reset?\n\nThis will reset all printer setting but it will stay using COSMOS, it will not switch back to stock.'"
+      MISC_ARGS+=" FACTORY_RESET_PROMPT='Are you sure you want factory reset?\n\nThis will reset all printer setting but it will stay using COSMOS, it will not switch back to stock.'"
       MISC_ARGS+=" FACTORY_RESET_FAILURE='Failed to factory reset!'"
       MISC_ARGS+=" FACTORY_RESET_SUCCESS='Your printer will restart shortly!'"
 
@@ -143,7 +143,7 @@ else
 
           if [ "$COSMOS" = "true" ]; then
             if ! grep -q 'cosmos_update_cmd' /tmp/grumpyscreen.cfg; then
-                sed -i '/^\[commands\]/a cosmos_update_cmd: /usr/bin/update-cosmos' /tmp/grumpyscreen.cfg
+                sed -i '/^\[commands\]/a cosmos_update_cmd: /bin/false' /tmp/grumpyscreen.cfg
             fi
           fi
           sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:

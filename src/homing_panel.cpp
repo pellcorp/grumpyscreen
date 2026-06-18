@@ -29,7 +29,7 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , z_up_btn(homing_cont, &z_closer, "Z+", &HomingPanel::_handle_callback, this)
   , z_down_btn(homing_cont, &z_farther, "Z-", &HomingPanel::_handle_callback, this)
   , emergency_btn(homing_cont, &emergency, "Stop", &HomingPanel::_handle_callback, this,
-		  Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
+		  "Emergency Stop", Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
                   ButtonContainer::PromptMode::Destructive)
   , motoroff_btn(homing_cont, &motor_off_img, "Motors Off", &HomingPanel::_handle_callback, this)
   , back_btn(homing_cont, &back, "Back", &HomingPanel::_handle_callback, this)

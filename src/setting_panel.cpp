@@ -31,6 +31,7 @@ static void run_factory_reset_cb(lv_timer_t * t) {
         create_simple_dialog(lv_scr_act(),
                              FACTORY_RESET_BUTTON_TITLE " Failed",
                              FACTORY_RESET_BUTTON_FAILURE,
+                             true,
                              true);
     }
 
@@ -46,13 +47,12 @@ SettingPanel::SettingPanel(std::mutex &l, lv_obj_t *parent)
   , guppy_restart_btn(cont, &refresh_img, "Restart GUI", &SettingPanel::_handle_callback, this)
   , support_zip_btn(cont, &sd_img, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
   , switch_to_stock_btn(cont, &emergency, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-          SWITCH_TO_STOCK_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive)
+          SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive, true)
   , factory_reset_btn(cont, &emergency, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-    		  FACTORY_RESET_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive)
+    		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive, true)
 #ifdef UPDATE_BUTTON_CMD
   , update_btn(cont, &update_img, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-          UPDATE_BUTTON_PROMPT,
-          ButtonContainer::PromptMode::Destructive)
+          UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive, true)
 #endif
 {
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
@@ -114,14 +114,14 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       auto restart_command = conf->get<std::string>("/commands/restart_klipper_cmd");
       auto ret = sp::call(restart_command);
       if (ret != 0) {
-        create_simple_dialog(lv_scr_act(), "Restart Klipper Failed", "Failed to restart Klipper!", true);
+        create_simple_dialog(lv_scr_act(), "Restart Klipper Failed", "Failed to restart Klipper!", true, true);
       }
     } else if (btn == guppy_restart_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto restart_command = conf->get<std::string>("/commands/gui_restart_cmd");
       auto ret = sp::call(restart_command);
       if (ret != 0) {
-        create_simple_dialog(lv_scr_act(), "Restart GUI Failed", "Failed to restart GUI!", true);
+        create_simple_dialog(lv_scr_act(), "Restart GUI Failed", "Failed to restart GUI!", true, true);
       }
 #ifdef UPDATE_BUTTON_CMD
     } else if (btn == update_btn.get_container()) {
@@ -129,9 +129,9 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       auto update_cmd = conf->get<std::string>(std::string("/commands/") + UPDATE_BUTTON_CMD);
       auto ret = sp::call(update_cmd);
       if (ret == 0) {
-        create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Initiated", UPDATE_BUTTON_SUCCESS, false);
+        create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Initiated", UPDATE_BUTTON_SUCCESS, false, false);
       } else {
-        create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Failed", UPDATE_BUTTON_FAILURE, true);
+        create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Failed", UPDATE_BUTTON_FAILURE, true, true);
       }
 #endif
     } else if (btn == support_zip_btn.get_container()) {
@@ -140,9 +140,9 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       if (support_zip_cmd != "") {
         auto ret = sp::call(support_zip_cmd);
         if (ret == 0) {
-          create_simple_dialog(lv_scr_act(), "Support ZIP Success", "The support.zip can be found in the config directory!", true);
+          create_simple_dialog(lv_scr_act(), "Support ZIP Success", "The support.zip can be found in the config directory!", true, false);
         } else {
-          create_simple_dialog(lv_scr_act(), "Support ZIP Failed", "Failed to generate a support zip!", true);
+          create_simple_dialog(lv_scr_act(), "Support ZIP Failed", "Failed to generate a support zip!", true, true);
         }
       }
     } else if (btn == switch_to_stock_btn.get_container()) {
@@ -150,12 +150,12 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
       auto ret = sp::call(switch_to_stock_cmd);
       if (ret == 0) {
-        create_simple_dialog(lv_scr_act(), SWITCH_TO_STOCK_BUTTON_TITLE " Initiated", SWITCH_TO_STOCK_BUTTON_SUCCESS, false);
+        create_simple_dialog(lv_scr_act(), SWITCH_TO_STOCK_BUTTON_TITLE " Initiated", SWITCH_TO_STOCK_BUTTON_SUCCESS, false, false);
       } else {
-        create_simple_dialog(lv_scr_act(), SWITCH_TO_STOCK_BUTTON_TITLE " Failed", SWITCH_TO_STOCK_BUTTON_FAILURE, true);
+        create_simple_dialog(lv_scr_act(), SWITCH_TO_STOCK_BUTTON_TITLE " Failed", SWITCH_TO_STOCK_BUTTON_FAILURE, true, true);
       }
     } else if (btn == factory_reset_btn.get_container()) {
-      lv_obj_t *mbox  = create_simple_dialog(lv_scr_act(), FACTORY_RESET_BUTTON_TITLE " Initiated", FACTORY_RESET_BUTTON_SUCCESS, false);
+      lv_obj_t *mbox  = create_simple_dialog(lv_scr_act(), FACTORY_RESET_BUTTON_TITLE " Initiated", FACTORY_RESET_BUTTON_SUCCESS, false, false);
 
       Config *conf = Config::get_instance();
       auto cmd = conf->get<std::string>("/commands/factory_reset_cmd");

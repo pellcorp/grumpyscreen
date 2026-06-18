@@ -1,18 +1,29 @@
 #include "button_container.h"
+#include "simple_dialog.h"
 
-LV_FONT_DECLARE(lv_font_montserrat_22);
+namespace {
+  void handle_button_container_dialog_result(lv_obj_t *, uint32_t clicked_btn, void *user_data) {
+    ButtonContainer *button_container = static_cast<ButtonContainer *>(user_data);
+    button_container->handle_prompt_result(clicked_btn);
+  }
+}
+
 ButtonContainer::ButtonContainer(lv_obj_t *parent,
 				 const void *btn_img,
 				 const char *text,
 				 lv_event_cb_t cb,
 				 void* user_data,
+				 const std::string &title,
 				 const std::string &prompt,
-				 const PromptMode mode)
+				 const PromptMode mode,
+				 const bool multiline_prompt)
   : btn_cont(lv_obj_create(parent))
   , btn(lv_imgbtn_create(btn_cont))
   , label(lv_label_create(btn_cont))
+  , title_text(title)
   , prompt_text(prompt)
   , prompt_mode(mode)
+  , prompt_multiline(multiline_prompt)
 {
   lv_obj_set_style_pad_all(btn_cont, 0, 0);
   auto width_scale = (double)lv_disp_get_physical_hor_res(NULL) / 800.0;
@@ -57,7 +68,6 @@ void ButtonContainer::disable() {
   lv_obj_add_state(btn, LV_STATE_DISABLED);
   lv_obj_add_state(btn_cont, LV_STATE_DISABLED);
   lv_obj_add_state(label, LV_STATE_DISABLED);
-  
 }
 
 void ButtonContainer::enable() {
@@ -91,42 +101,16 @@ void ButtonContainer::handle_prompt() {
   static const char *btns[] = {"Confirm", "Cancel", ""};
 
   const bool destructive = prompt_mode == PromptMode::Destructive;
-  lv_obj_t *mbox = lv_msgbox_create(NULL, NULL, prompt_text.c_str(),
-                                    destructive ? destructive_btns : btns, false);
-  lv_obj_t *msg = ((lv_msgbox_t*)mbox)->text;
-  lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_width(msg, LV_PCT(100));
-  lv_obj_center(msg);
-
-  lv_obj_t *btnm = lv_msgbox_get_btns(mbox);
-  lv_btnmatrix_set_btn_ctrl(btnm, 0, LV_BTNMATRIX_CTRL_CHECKED);
-  lv_btnmatrix_set_btn_ctrl(btnm, 1, LV_BTNMATRIX_CTRL_CHECKED);
-  lv_obj_add_flag(btnm, LV_OBJ_FLAG_FLOATING);
-  lv_obj_align(btnm, LV_ALIGN_BOTTOM_MID, 0, 0);
-  
-  auto hscale = (double)lv_disp_get_physical_ver_res(NULL) / 480.0;
-  lv_obj_set_size(btnm, LV_PCT(90), 50 *hscale);
-
-  if (destructive) {
-#ifdef GUPPY_SMALL_SCREEN
-    lv_obj_set_size(mbox, LV_PCT(95), LV_PCT(75));
-    lv_obj_set_style_text_font(mbox, &lv_font_montserrat_16, LV_STATE_DEFAULT);
-#else
-    lv_obj_set_size(mbox, LV_PCT(95), LV_PCT(60));
-    lv_obj_set_style_text_font(mbox, &lv_font_montserrat_22, LV_STATE_DEFAULT);
-#endif
-  } else {
-    lv_obj_set_size(mbox, LV_PCT(50), LV_PCT(35));
-  }
-
-  lv_obj_add_event_cb(mbox, &ButtonContainer::_handle_prompt_result, LV_EVENT_VALUE_CHANGED, this);
-
-  lv_obj_center(mbox);
+  SimpleDialogOptions options{};
+  options.buttons = destructive ? destructive_btns : btns;
+  options.error = destructive;
+  options.multiline_message = prompt_multiline;
+  options.result_cb = handle_button_container_dialog_result;
+  options.user_data = this;
+  create_configurable_dialog(lv_scr_act(), title_text.c_str(), prompt_text.c_str(), options);
 }
 
-void ButtonContainer::handle_prompt_result(lv_event_t *event) {
-  lv_obj_t *msgbox = lv_obj_get_parent(lv_event_get_target(event));
-  uint32_t clicked_btn = lv_msgbox_get_active_btn(msgbox);
+void ButtonContainer::handle_prompt_result(uint32_t clicked_btn) {
   const bool destructive = prompt_mode == PromptMode::Destructive;
   const uint32_t confirm_idx = destructive ? 1 : 0;
 
@@ -135,6 +119,4 @@ void ButtonContainer::handle_prompt_result(lv_event_t *event) {
     lv_event_send(btn_cont, LV_EVENT_CLICKED, NULL);
     dispatch_confirmed_click = false;
   }
-
-  lv_msgbox_close(msgbox);
 }

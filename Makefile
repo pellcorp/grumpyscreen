@@ -91,7 +91,7 @@ endif
 
 SWITCH_TO_STOCK_TEXT    ?= Switch to\nStock
 SWITCH_TO_STOCK_TITLE   ?= $(subst \n, ,$(SWITCH_TO_STOCK_TEXT))
-SWITCH_TO_STOCK_PROMPT  ?= **WARNING** **WARNING** **WARNING**\n\nAre you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!
+SWITCH_TO_STOCK_PROMPT  ?= Are you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!
 SWITCH_TO_STOCK_FAILURE	?= Failed to initiate switch to stock!
 SWITCH_TO_STOCK_SUCCESS	?= Please power cycle your printer!\nPlease wait for the stock screen to appear!
 
@@ -103,7 +103,7 @@ DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_SUCCESS='"$(SWITCH_TO_STOCK_SUCCESS)"'
 
 FACTORY_RESET_TEXT    ?= Factory\nReset
 FACTORY_RESET_TITLE   ?= $(subst \n, ,$(FACTORY_RESET_TEXT))
-FACTORY_RESET_PROMPT  ?= **WARNING** **WARNING** **WARNING**\n\nAre you sure you want to factory reset?\n\nThis will reset the printer to stock creality firmware!
+FACTORY_RESET_PROMPT  ?= Are you sure you want to factory reset?\n\nThis will reset the printer to stock creality firmware!
 FACTORY_RESET_FAILURE	?= Failed to initiate factory reset!
 FACTORY_RESET_SUCCESS	?= Your printer will restart shortly!\nPlease wait for the stock screen to appear!
 
