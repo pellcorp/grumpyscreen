@@ -167,11 +167,11 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
 
 #ifdef GUPPY_SMALL_SCREEN
     if (has_buttons) {
-        lv_obj_set_size(mbox, LV_PCT(95), options.multiline_message ? LV_PCT(65) : LV_PCT(50));
+        lv_obj_set_size(mbox, LV_PCT(95), options.multiline_message ? LV_PCT(70) : LV_PCT(50));
     } else {
         lv_obj_set_size(mbox, LV_PCT(95), options.multiline_message ? LV_PCT(50) : LV_PCT(35));
     }
-    lv_obj_set_style_text_font(mbox, &lv_font_montserrat_18, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(mbox, &lv_font_montserrat_16, LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(title_label, &lv_font_montserrat_18, 0);
 #else
     if (has_buttons) {
@@ -179,7 +179,7 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
     } else {
         lv_obj_set_size(mbox, LV_PCT(95), options.multiline_message ? LV_PCT(35) : LV_PCT(25));
     }
-    lv_obj_set_style_text_font(mbox, &lv_font_montserrat_22, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(mbox, &lv_font_montserrat_20, LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(title_label, &lv_font_montserrat_22, 0);
 #endif
 
