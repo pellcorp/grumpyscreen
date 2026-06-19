@@ -143,7 +143,7 @@ else
 
           if [ "$COSMOS" = "true" ]; then
             if ! grep -q 'cosmos_update_cmd' /tmp/grumpyscreen.cfg; then
-                sed -i '/^\[commands\]/a cosmos_update_cmd: /bin/false' /tmp/grumpyscreen.cfg
+                sed -i '/^\[commands\]/a cosmos_update_cmd: /bin/true' /tmp/grumpyscreen.cfg
             fi
           fi
           sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
