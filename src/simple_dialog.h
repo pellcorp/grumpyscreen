@@ -10,6 +10,7 @@ struct SimpleDialogOptions {
     bool auto_close = true;
     bool with_overlay = true;
     bool multiline_message = false;
+    int32_t highlighted_button_idx = -1;
     simple_dialog_result_cb_t result_cb = nullptr;
     void *user_data = nullptr;
 };
@@ -18,7 +19,23 @@ struct SimpleDialogContext {
     simple_dialog_result_cb_t result_cb;
     void *user_data;
     bool auto_close;
+    int32_t highlighted_button_idx;
 };
+
+static inline void simple_dialog_btnm_draw_part_cb(lv_event_t *e) {
+    if (lv_event_get_code(e) != LV_EVENT_DRAW_PART_BEGIN) return;
+
+    auto *ctx = static_cast<SimpleDialogContext *>(lv_event_get_user_data(e));
+    if (ctx == nullptr || ctx->highlighted_button_idx < 0) return;
+
+    lv_obj_draw_part_dsc_t *dsc = lv_event_get_draw_part_dsc(e);
+    if (dsc == nullptr || dsc->part != LV_PART_ITEMS) return;
+    if (static_cast<int32_t>(dsc->id) != ctx->highlighted_button_idx) return;
+
+    dsc->rect_dsc->bg_color = lv_palette_main(LV_PALETTE_RED);
+    dsc->rect_dsc->bg_opa = LV_OPA_COVER;
+    dsc->label_dsc->color = lv_color_white();
+}
 
 static inline bool simple_dialog_has_overlay(lv_obj_t *overlay) {
     if (overlay == nullptr) return false;
@@ -79,17 +96,11 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
     lv_obj_set_style_pad_row(mbox, 0, 0);
 
     const lv_color_t title_bg = options.error
-        ? lv_palette_darken(LV_PALETTE_RED, 2)
+        ? lv_palette_main(LV_PALETTE_RED)
         : lv_theme_get_color_primary(mbox);
 
     lv_obj_t * title_label = lv_msgbox_get_title(mbox);
     lv_obj_t *content = lv_msgbox_get_content(mbox);
-    if (options.error) {
-        lv_obj_set_style_bg_color(mbox, lv_palette_main(LV_PALETTE_RED), 0);
-        lv_obj_set_style_bg_opa(mbox, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(mbox, 0, 0);
-        lv_obj_set_style_outline_width(mbox, 0, 0);
-    }
     lv_obj_set_width(title_label, LV_PCT(100));
     lv_obj_set_style_bg_color(title_label, title_bg, 0);
     lv_obj_set_style_bg_opa(title_label, LV_OPA_COVER, 0);
@@ -139,8 +150,10 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
             options.result_cb,
             options.user_data,
             options.auto_close,
+            options.highlighted_button_idx,
         };
         lv_obj_add_event_cb(mbox, simple_dialog_event_cb, LV_EVENT_VALUE_CHANGED, ctx);
+        lv_obj_add_event_cb(btnm, simple_dialog_btnm_draw_part_cb, LV_EVENT_DRAW_PART_BEGIN, ctx);
         lv_obj_add_event_cb(
             mbox,
             [](lv_event_t *e) {
@@ -179,6 +192,7 @@ static inline lv_obj_t * create_simple_dialog(lv_obj_t * parent, const char * ti
     SimpleDialogOptions options{};
     options.buttons = closable ? btns : nullptr;
     options.error = error;
+    options.highlighted_button_idx = (closable && error) ? 0 : -1;
     return create_configurable_dialog(parent, title, message, options);
 }
 
