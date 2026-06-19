@@ -109,6 +109,7 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
 
     const bool has_buttons = options.buttons != nullptr;
     if (has_buttons) {
+        constexpr lv_coord_t button_bottom_padding = 8;
         lv_obj_t *btnm = lv_msgbox_get_btns(mbox);
         uint32_t btn_count = 0;
         while (options.buttons[btn_count] != nullptr && options.buttons[btn_count][0] != '\0') {
@@ -118,7 +119,7 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
             lv_btnmatrix_set_btn_ctrl(btnm, i, LV_BTNMATRIX_CTRL_CHECKED);
         }
         lv_obj_add_flag(btnm, LV_OBJ_FLAG_FLOATING);
-        lv_obj_align(btnm, LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_align(btnm, LV_ALIGN_BOTTOM_MID, 0, -button_bottom_padding);
 
         auto hscale = (double)lv_disp_get_physical_ver_res(nullptr) / 480.0;
         lv_obj_set_size(btnm, LV_PCT(90), 50 * hscale);
