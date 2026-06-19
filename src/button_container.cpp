@@ -104,6 +104,7 @@ void ButtonContainer::handle_prompt() {
   SimpleDialogOptions options{};
   options.buttons = destructive ? destructive_btns : btns;
   options.error = destructive;
+  options.highlighted_button_idx = destructive ? 1 : -1;
   options.multiline_message = prompt_multiline;
   options.result_cb = handle_button_container_dialog_result;
   options.user_data = this;
