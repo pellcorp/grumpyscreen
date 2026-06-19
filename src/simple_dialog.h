@@ -192,7 +192,6 @@ static inline lv_obj_t * create_simple_dialog(lv_obj_t * parent, const char * ti
     SimpleDialogOptions options{};
     options.buttons = closable ? btns : nullptr;
     options.error = error;
-    options.highlighted_button_idx = (closable && error) ? 0 : -1;
     return create_configurable_dialog(parent, title, message, options);
 }
 
