@@ -43,7 +43,8 @@ SettingPanel::SettingPanel(std::mutex &l, lv_obj_t *parent)
   : cont(lv_obj_create(parent))
   , wifi_panel(l)
   , wifi_btn(cont, &network_img, "WIFI", &SettingPanel::_handle_callback, this)
-  , restart_klipper_btn(cont, &refresh_img, "Restart Klipper", &SettingPanel::_handle_callback, this)
+  , restart_klipper_btn(cont, &refresh_img, "Restart Klipper", &SettingPanel::_handle_callback, this,
+        "Restart Klipper?", "Do you want to restart klipper?", ButtonContainer::PromptMode::Destructive)
   , guppy_restart_btn(cont, &refresh_img, "Restart GUI", &SettingPanel::_handle_callback, this)
   , support_zip_btn(cont, &sd_img, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
   , switch_to_stock_btn(cont, &emergency, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
