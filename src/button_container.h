@@ -31,6 +31,7 @@ class ButtonContainer {
   void set_image(const void *img);
 
   void handle_callback(lv_event_t *event);
+  void dispatch_click(lv_event_t *event);
   void handle_prompt();
   void handle_prompt_result(uint32_t clicked_btn);
   
@@ -39,14 +40,25 @@ class ButtonContainer {
     button_container->handle_callback(event);
   };
 
+  static void _dispatch_click_callback(lv_event_t *event) {
+    ButtonContainer *button_container = (ButtonContainer*)event->user_data;
+    button_container->dispatch_click(event);
+  };
+
  private:
+  void apply_disabled_state();
+
   lv_obj_t *btn_cont;
   lv_obj_t *btn;
   lv_obj_t *label;
+  lv_event_cb_t click_cb;
+  void *click_user_data;
   std::string title_text;
   std::string prompt_text;
   PromptMode prompt_mode;
   bool prompt_multiline;
+  bool disabled_by_user = false;
+  bool disabled_while_executing = false;
   bool dispatch_confirmed_click = false;
 };
 

@@ -20,12 +20,15 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
   : btn_cont(lv_obj_create(parent))
   , btn(lv_imgbtn_create(btn_cont))
   , label(lv_label_create(btn_cont))
+  , click_cb(cb)
+  , click_user_data(user_data)
   , title_text(title)
   , prompt_text(prompt)
   , prompt_mode(mode)
   , prompt_multiline(multiline_prompt)
 {
   lv_obj_set_style_pad_all(btn_cont, 0, 0);
+  lv_obj_set_style_opa(btn_cont, LV_OPA_50, LV_STATE_DISABLED);
   auto width_scale = (double)lv_disp_get_physical_hor_res(NULL) / 800.0;
   lv_obj_set_size(btn_cont, 150 * width_scale, LV_SIZE_CONTENT);
 
@@ -42,13 +45,14 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
     if (!prompt_text.empty()) {
       lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_CLICKED, this);
     }
-    lv_obj_add_event_cb(btn_cont, cb, LV_EVENT_CLICKED, user_data);
+    lv_obj_add_event_cb(btn_cont, &ButtonContainer::_dispatch_click_callback, LV_EVENT_CLICKED, this);
   }
 
   lv_label_set_text(label, text);
   lv_obj_set_width(label, LV_PCT(100));
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_style_text_color(label, lv_palette_darken(LV_PALETTE_GREY, 1), LV_STATE_DISABLED);
+  lv_obj_set_style_text_color(label, lv_palette_main(LV_PALETTE_GREY), LV_STATE_DISABLED);
+  lv_obj_set_style_opa(label, LV_OPA_70, LV_STATE_DISABLED);
 
   lv_obj_align_to(label, btn, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
 }
@@ -64,16 +68,27 @@ lv_obj_t *ButtonContainer::get_button() {
   return btn;
 }
 
+void ButtonContainer::apply_disabled_state() {
+  const bool disabled = disabled_by_user || disabled_while_executing;
+  if (disabled) {
+    lv_obj_add_state(btn, LV_STATE_DISABLED);
+    lv_obj_add_state(btn_cont, LV_STATE_DISABLED);
+    lv_obj_add_state(label, LV_STATE_DISABLED);
+  } else {
+    lv_obj_clear_state(btn, LV_STATE_DISABLED);
+    lv_obj_clear_state(btn_cont, LV_STATE_DISABLED);
+    lv_obj_clear_state(label, LV_STATE_DISABLED);
+  }
+}
+
 void ButtonContainer::disable() {
-  lv_obj_add_state(btn, LV_STATE_DISABLED);
-  lv_obj_add_state(btn_cont, LV_STATE_DISABLED);
-  lv_obj_add_state(label, LV_STATE_DISABLED);
+  disabled_by_user = true;
+  apply_disabled_state();
 }
 
 void ButtonContainer::enable() {
-  lv_obj_clear_state(btn, LV_STATE_DISABLED);
-  lv_obj_clear_state(btn_cont, LV_STATE_DISABLED);
-  lv_obj_clear_state(label, LV_STATE_DISABLED);
+  disabled_by_user = false;
+  apply_disabled_state();
 }
 
 void ButtonContainer::hide() {
@@ -94,6 +109,20 @@ void ButtonContainer::handle_callback(lv_event_t *e) {
     lv_event_stop_processing(e);
     handle_prompt();
   }
+}
+
+void ButtonContainer::dispatch_click(lv_event_t *event) {
+  if (click_cb == NULL) {
+    return;
+  }
+
+  disabled_while_executing = true;
+  apply_disabled_state();
+  lv_event_t click_event = *event;
+  click_event.user_data = click_user_data;
+  click_cb(&click_event);
+  disabled_while_executing = false;
+  apply_disabled_state();
 }
 
 void ButtonContainer::handle_prompt() {
