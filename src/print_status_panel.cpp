@@ -1,11 +1,11 @@
 #include "print_status_panel.h"
 #include "config.h"
+#include "exclude_object_panel.h"
 #include "finetune_panel.h"
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
 #include "config.h"
-
 
 LV_IMG_DECLARE(extruder);
 LV_IMG_DECLARE(speed_up_img);
@@ -19,6 +19,7 @@ LV_IMG_DECLARE(fan);
 LV_IMG_DECLARE(layers_img);
 
 LV_IMG_DECLARE(fine_tune_img);
+LV_IMG_DECLARE(delete_img);
 LV_IMG_DECLARE(pause_img);
 LV_IMG_DECLARE(resume);
 LV_IMG_DECLARE(cancel);
@@ -33,10 +34,12 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   : NotifyConsumer(lock)
   , ws(websocket_client)
   , finetune_panel(websocket_client, lock)
+  , exclude_object_panel(websocket_client, lock)
   , mini_print_status(mini_parent, &PrintStatusPanel::_handle_callback, this)
   , status_cont(lv_obj_create(lv_scr_act()))
   , buttons_cont(lv_obj_create(status_cont))
   , finetune_btn(buttons_cont, &fine_tune_img, "Fine Tune", &PrintStatusPanel::_handle_callback, this)
+  , objects_btn(buttons_cont, &delete_img, "Objects", &PrintStatusPanel::_handle_callback, this)
   , pause_btn(buttons_cont, &pause_img, "Pause", &PrintStatusPanel::_handle_callback, this)
   , resume_btn(buttons_cont, &resume, "Resume", &PrintStatusPanel::_handle_callback, this)
   , cancel_btn(buttons_cont, &cancel, "Cancel", &PrintStatusPanel::_handle_callback, this,
@@ -108,9 +111,20 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   lv_obj_set_grid_dsc_array(status_cont, grid_main_col_dsc, grid_main_row_dsc);
 
   lv_obj_set_size(buttons_cont, LV_PCT(100), LV_PCT(40));
-  lv_obj_clear_flag(buttons_cont, LV_OBJ_FLAG_SCROLLABLE);  
+  lv_obj_clear_flag(buttons_cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_flex_flow(buttons_cont, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(buttons_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_row(buttons_cont, 8, 0);
+  lv_obj_set_style_pad_column(buttons_cont, 6, 0);
+
+  // Keep all seven actions on one row so Back remains on the far right.
+  lv_obj_set_width(finetune_btn.get_container(), LV_PCT(13));
+  lv_obj_set_width(objects_btn.get_container(), LV_PCT(13));
+  lv_obj_set_width(pause_btn.get_container(), LV_PCT(13));
+  lv_obj_set_width(resume_btn.get_container(), LV_PCT(13));
+  lv_obj_set_width(cancel_btn.get_container(), LV_PCT(13));
+  lv_obj_set_width(emergency_btn.get_container(), LV_PCT(13));
+  lv_obj_set_width(back_btn.get_container(), LV_PCT(13));
 
   lv_obj_set_style_pad_all(pbar_cont, 0, 0);
   lv_obj_set_size(pbar_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
@@ -220,6 +234,7 @@ void PrintStatusPanel::init(json &fan_cfgs) {
 
 void PrintStatusPanel::populate() {
   State* s = State::get_instance();
+  auto &pstate = s->get_data("/printer_state/print_stats/state"_json_pointer);
   json& printfile = s->get_data("/printer_state/print_stats/filename"_json_pointer);
   if (!printfile.is_null()) {
     const std::string fname = printfile.template get<std::string>();
@@ -232,7 +247,6 @@ void PrintStatusPanel::populate() {
     }
   }
 
-  auto& pstate = s->get_data("/printer_state/print_stats/state"_json_pointer);
   if (!pstate.is_null() && pstate.template get<std::string>() == "paused") {
     lv_obj_clear_flag(resume_btn.get_container(), LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(pause_btn.get_container(), LV_OBJ_FLAG_HIDDEN);
@@ -459,6 +473,8 @@ void PrintStatusPanel::handle_callback(lv_event_t *event) {
     ws.send_jsonrpc("printer.print.cancel");
   } else if (btn == finetune_btn.get_container()) {
     finetune_panel.foreground();
+  } else if (btn == objects_btn.get_container()) {
+    exclude_object_panel.foreground();
   } else if (btn == mini_print_status.get_container()) {
     foreground();
   }

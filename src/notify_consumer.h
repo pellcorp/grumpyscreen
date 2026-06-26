@@ -2,6 +2,7 @@
 #define __NOTIFY_CONSUMER_H__
 
 #include "hv/json.hpp"
+#include <mutex>
 
 using json = nlohmann::json;
 
