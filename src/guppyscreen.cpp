@@ -199,13 +199,38 @@ std::vector<float> GuppyScreen::load_calibration_coeff() {
 
   json j;
   f >> j;
-  if (!j.is_array()) {
+  if (!j.is_object()) {
+    LOG_INFO("discarding calibration data: legacy or invalid format");
+    return {};
+  }
+
+  if (!j.contains("display_rotate") || !j["display_rotate"].is_number_unsigned()) {
+    LOG_INFO("discarding calibration data: missing display_rotate");
+    return {};
+  }
+
+  Config *conf = Config::get_instance();
+  auto current_rotate = conf->get<std::uint32_t>("/ui/display_rotate");
+  auto saved_rotate = j["display_rotate"].get<std::uint32_t>();
+  if (saved_rotate != current_rotate) {
+    LOG_INFO("discarding calibration data: display_rotate changed from {} to {}", saved_rotate, current_rotate);
+    return {};
+  }
+
+  if (!j.contains("calibrations") || !j["calibrations"].is_array()) {
+    LOG_INFO("discarding calibration data: missing calibrations");
+    return {};
+  }
+
+  const auto& calibration_values = j["calibrations"];
+  if (calibration_values.size() != 6) {
+    LOG_INFO("discarding calibration data: expected 6 calibration coefficients, got {}", calibration_values.size());
     return {};
   }
 
   std::vector<float> coeffs;
-  coeffs.reserve(j.size());
-  for (const auto& v : j) {
+  coeffs.reserve(calibration_values.size());
+  for (const auto& v : calibration_values) {
     coeffs.push_back(v.get<float>());
   }
   return coeffs;
@@ -213,7 +238,11 @@ std::vector<float> GuppyScreen::load_calibration_coeff() {
 
 void GuppyScreen::save_calibration_coeff(lv_tc_coeff_t coeff) {
   auto config_path = fs::canonical("/proc/self/exe").parent_path() / "calibration.json";
-  json j = {coeff.a, coeff.b, coeff.c, coeff.d, coeff.e, coeff.f};
+  Config *conf = Config::get_instance();
+  json j = {
+    {"display_rotate", conf->get<std::uint32_t>("/ui/display_rotate")},
+    {"calibrations", {coeff.a, coeff.b, coeff.c, coeff.d, coeff.e, coeff.f}},
+  };
   std::ofstream f(config_path, std::ios::trunc);
   f << j.dump(2);
 }
