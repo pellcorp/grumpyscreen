@@ -10,16 +10,32 @@ GIT_REVISION=$(git rev-parse HEAD)
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 function docker_make() {
-    target_arg=""
-    if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
-        target_arg="GUPPY_SMALL_SCREEN=true GUPPY_CALIBRATE=true"
-    elif [ "$TARGET" = "rpi" ]; then
-        target_arg="GUPPY_CALIBRATE=true"
+    MISC_ARGS=""
+
+    if [ "$TARGET" = "mips" ] || [ "$TARGET" = "rpi" ]; then
+      MISC_ARGS+=" CROSS_COMPILE=$CROSS_COMPILE"
+
+      if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
+          MISC_ARGS+=" GUPPY_SMALL_SCREEN=true GUPPY_CALIBRATE=true"
+      elif [ "$TARGET" = "rpi" ]; then
+          MISC_ARGS+=" GUPPY_CALIBRATE=true"
+      fi
+    else
+      MISC_ARGS+=" GUPPY_WAYLAND=true"
+      MISC_ARGS+=" GUPPY_WAYLAND_WIDTH=480"
+
+      if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
+        MISC_ARGS+=" GUPPY_SMALL_SCREEN=true"
+
+        MISC_ARGS+=" GUPPY_WAYLAND_HEIGHT=272"
+      else
+        MISC_ARGS+=" GUPPY_WAYLAND_HEIGHT=400"
+      fi
     fi
 
     # this is just an easy way for me to test shit
     if [ "$COSMOS" = "true" ]; then
-      MISC_ARGS="UPDATE_CMD=cosmos_update_cmd"
+      MISC_ARGS+=" UPDATE_CMD=cosmos_update_cmd"
       MISC_ARGS+=" UPDATE_TEXT='Update\nCOSMOS'"
       MISC_ARGS+=" UPDATE_PROMPT='Are you sure you want to update COSMOS?\n\nThis will download and update to the latest version of COSMOS!'"
       MISC_ARGS+=" UPDATE_SUCCESS='Your printer will restart shortly!'"
@@ -34,16 +50,10 @@ function docker_make() {
       MISC_ARGS+=" FACTORY_RESET_PROMPT='Are you sure you want factory reset?\n\nThis will reset all printer setting but it will stay using COSMOS, it will not switch back to stock.'"
       MISC_ARGS+=" FACTORY_RESET_FAILURE='Failed to factory reset!'"
       MISC_ARGS+=" FACTORY_RESET_SUCCESS='Your printer will restart shortly!'"
-
-      echo "MISC_ARGS: $MISC_ARGS"
     fi
 
-    echo "Target Arguments: $target_arg"
-
-    # make sure we are building all the src changes
-    #[ -d $CURRENT_DIR/build/obj/src ] && rm $CURRENT_DIR/build/obj/src/*
-
-    docker run --name=grumpydev -ti --rm -v $PWD:$PWD pellcorp/guppydev /bin/bash -c "cd $PWD && $MISC_ARGS GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH $target_arg CROSS_COMPILE=$CROSS_COMPILE make $@"
+    echo "Args: $MISC_ARGS"
+    docker run --name=grumpydev -ti --rm --entrypoint /bin/bash -v $PWD:$PWD pellcorp/grumpydev -c "cd $PWD && $MISC_ARGS GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH make $@"
 }
 
 TARGET=
@@ -57,8 +67,8 @@ while true; do
         shift
         SETUP=true
         TARGET=$1
-        if [ "$TARGET" != "mips" ] && [ "$TARGET" != "rpi" ]; then
-          echo "ERROR: mips or rpi target must be specified"
+        if [ "$TARGET" != "mips" ] && [ "$TARGET" != "rpi" ] && [ "$TARGET" != "wayland" ]; then
+          echo "ERROR: mips or rpi or wayland target must be specified"
           exit 1
         fi
         shift
@@ -82,7 +92,9 @@ while true; do
 done
 
 if [ "$SETUP" = "true" ]; then
-  if [ "$TARGET" = "rpi" ]; then
+  if [ "$TARGET" = "wayland" ]; then
+    echo "wayland" > $CURRENT_DIR/.target.cfg
+  elif [ "$TARGET" = "rpi" ]; then
     echo "rpi" > $CURRENT_DIR/.target.cfg
     echo "username=$PI_USERNAME" >> $CURRENT_DIR/.target.cfg
   else
@@ -113,7 +125,7 @@ fi
 
 if [ "$TARGET" = "rpi" ]; then
   export CROSS_COMPILE=armv8-rpi3-linux-gnueabihf-
-else
+elif [ "$TARGET" = "mips" ]; then
   export CROSS_COMPILE=mipsel-buildroot-linux-musl-
 fi
 
@@ -126,6 +138,8 @@ if [ "$SETUP" = "true" ]; then
     docker_make wpaclient || exit $?
 else
     docker_make $1 || exit $?
+
+    cp $CURRENT_DIR/grumpyscreen.cfg build/bin/
 
     if [ -n "$PRINTER_IP" ] && [ -f build/bin/guppyscreen ]; then
         if [ "$TARGET" = "mips" ]; then

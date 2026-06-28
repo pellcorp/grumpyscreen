@@ -30,7 +30,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     container:
-      image: pellcorp/guppydev:latest
+      image: pellcorp/grumpydev:latest
       options: --user 1001
 
     env:

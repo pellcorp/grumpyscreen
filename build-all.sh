@@ -26,17 +26,23 @@ function do_release() {
 
 [ -d ./releases/ ] && rm -rf ./releases
 
-echo "Building grumpyscreen ..."
-./build.sh > /dev/null --setup mips || exit $?
-./build.sh > /dev/null || exit $?
-do_release grumpyscreen
+if [ "$1" = "grumpyscreen" ] || [ -z "$1" ]; then
+  echo "Building grumpyscreen ..."
+  ./build.sh > /dev/null --setup mips || exit $?
+  ./build.sh > /dev/null || exit $?
+  do_release grumpyscreen
+fi
 
-echo "Building grumpyscreen-smallscreen ..."
-./build.sh --setup mips --small > /dev/null  || exit $?
-./build.sh  > /dev/null  || exit $?
-do_release grumpyscreen-smallscreen
+if [ "$1" = "grumpyscreen-smallscreen" ] || [ -z "$1" ]; then
+  echo "Building grumpyscreen-smallscreen ..."
+  ./build.sh --setup mips --small > /dev/null  || exit $?
+  ./build.sh  > /dev/null  || exit $?
+  do_release grumpyscreen-smallscreen
+fi
 
-echo "Building grumpyscreen-rpi ..."
-./build.sh --setup rpi > /dev/null  || exit $?
-./build.sh > /dev/null  || exit $?
-do_release grumpyscreen-rpi
+if [ "$1" = "grumpyscreen-rpi" ] || [ -z "$1" ]; then
+  echo "Building grumpyscreen-rpi ..."
+  ./build.sh --setup rpi > /dev/null  || exit $?
+  ./build.sh > /dev/null  || exit $?
+  do_release grumpyscreen-rpi
+fi

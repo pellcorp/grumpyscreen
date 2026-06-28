@@ -13,6 +13,8 @@ STRIP 	= $(CROSS_COMPILE)strip
 OBJCOPY 	= $(CROSS_COMPILE)objcopy
 endif
 
+STRIP ?= strip
+
 LVGL_DIR_NAME 	?= lvgl
 LVGL_DIR 		?= .
 
@@ -53,6 +55,30 @@ DEFINES			+= -D GUPPY_SMALL_SCREEN
 endif
 
 CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/$(ASSET_DIR)/*.c)
+
+ifdef GUPPY_WAYLAND
+WAYLAND_SCANNER := $(shell command -v wayland-scanner 2>/dev/null)
+WAYLAND_PROTOCOLS_BASE := $(shell pkg-config --variable=pkgdatadir wayland-protocols 2>/dev/null)
+WAYLAND_CFLAGS := $(shell pkg-config --cflags wayland-client wayland-cursor xkbcommon 2>/dev/null)
+WAYLAND_LIBS := $(shell pkg-config --libs wayland-client wayland-cursor xkbcommon 2>/dev/null)
+ifeq ($(strip $(WAYLAND_PROTOCOLS_BASE)),)
+WAYLAND_PROTOCOLS_BASE := $(shell test -d /usr/share/wayland-protocols && printf %s /usr/share/wayland-protocols)
+endif
+ifeq ($(strip $(WAYLAND_LIBS)),)
+WAYLAND_LIBS := -lwayland-client -lwayland-cursor -lxkbcommon
+endif
+GUPPY_WAYLAND_WIDTH ?= 800
+GUPPY_WAYLAND_HEIGHT ?= 480
+WAYLAND_XDG_PROTOCOL := $(WAYLAND_PROTOCOLS_BASE)/stable/xdg-shell/xdg-shell.xml
+WAYLAND_PROTOCOL_GEN_DIR := lv_drivers/wayland/protocols
+WAYLAND_PROTOCOL_GEN_C := $(WAYLAND_PROTOCOL_GEN_DIR)/wayland-xdg-shell-client-protocol.c
+WAYLAND_PROTOCOL_GEN_H := $(WAYLAND_PROTOCOL_GEN_DIR)/wayland-xdg-shell-client-protocol.h
+WAYLAND_PATCHED_SRC := $(BUILD_DIR)/wayland-src/wayland.c
+
+CSRCS			:= $(filter-out $(LVGL_DIR)/lv_drivers/wayland/wayland.c lv_drivers/wayland/wayland.c,$(CSRCS))
+CSRCS			+= $(WAYLAND_PATCHED_SRC)
+CSRCS			+= $(WAYLAND_PROTOCOL_GEN_C)
+endif
 
 ifdef GUPPYSCREEN_VERSION
 SHORT_GUPPYSCREEN_VERSION := $(shell printf "%s" "$(GUPPYSCREEN_VERSION)" | cut -c1-7)
@@ -129,6 +155,22 @@ LDLIBS	 			:= -lm
 
 DEFINES				+= -D _GNU_SOURCE -DSPDLOG_COMPILED_LIB
 
+ifdef GUPPY_WAYLAND
+ifeq ($(strip $(WAYLAND_SCANNER)),)
+$(error GUPPY_WAYLAND=1 requires wayland-scanner to be installed)
+endif
+ifeq ($(strip $(WAYLAND_PROTOCOLS_BASE)),)
+$(error GUPPY_WAYLAND=1 requires wayland-protocols; could not locate pkgdatadir)
+endif
+ifeq ($(wildcard $(WAYLAND_XDG_PROTOCOL)),)
+$(error GUPPY_WAYLAND=1 requires xdg-shell.xml at $(WAYLAND_XDG_PROTOCOL))
+endif
+LDFLAGS				:= $(filter-out -static,$(LDFLAGS))
+INC					+= -I./lv_drivers/wayland $(WAYLAND_CFLAGS)
+LDFLAGS				+= $(WAYLAND_LIBS)
+DEFINES				+= -D GUPPY_WAYLAND -D GUPPY_WAYLAND_WIDTH=$(GUPPY_WAYLAND_WIDTH) -D GUPPY_WAYLAND_HEIGHT=$(GUPPY_WAYLAND_HEIGHT) -D USE_WAYLAND=1 -D LV_WAYLAND_XDG_SHELL=1 -D LV_WAYLAND_WL_SHELL=1
+endif
+
 COMPILE_CC				= $(CC) $(CFLAGS) $(INC) $(DEFINES)
 COMPILE_CXX				= $(CC) $(CFLAGS) $(INC) $(DEFINES)
 
@@ -141,6 +183,20 @@ libhv.a:
 
 wpaclient:
 	$(MAKE) -C wpa_supplicant/wpa_supplicant -j$(nproc) libwpa_client.a
+
+ifdef GUPPY_WAYLAND
+$(WAYLAND_PROTOCOL_GEN_C) $(WAYLAND_PROTOCOL_GEN_H): $(WAYLAND_XDG_PROTOCOL)
+	@mkdir -p $(WAYLAND_PROTOCOL_GEN_DIR)
+	$(WAYLAND_SCANNER) client-header $< $(WAYLAND_PROTOCOL_GEN_H)
+	$(WAYLAND_SCANNER) private-code $< $(WAYLAND_PROTOCOL_GEN_C)
+
+$(WAYLAND_PATCHED_SRC): lv_drivers/wayland/wayland.c
+	@mkdir -p $(dir $@)
+	perl -0pe 's/app->xdg_wm = wl_registry_bind\(app->registry, name, &xdg_wm_base_interface, version\);/uint32_t bind_version = version;\n        if (bind_version > xdg_wm_base_interface.version)\n        {\n            bind_version = xdg_wm_base_interface.version;\n        }\n\n        app->xdg_wm = wl_registry_bind(app->registry, name, \&xdg_wm_base_interface, bind_version);/' $< > $@
+
+$(BUILD_OBJ_DIR)/$(WAYLAND_PATCHED_SRC:.c=.o): $(WAYLAND_PROTOCOL_GEN_H)
+$(BUILD_OBJ_DIR)/$(WAYLAND_PROTOCOL_GEN_C:.c=.o): $(WAYLAND_PROTOCOL_GEN_H)
+endif
 
 $(BUILD_OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)

@@ -1,6 +1,9 @@
 #include "lvgl/lvgl.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
+#ifdef GUPPY_WAYLAND
+#include "lv_drivers/wayland/wayland.h"
+#endif
 #ifdef GUPPY_CALIBRATE
 #include "lv_tc.h"
 #include "lv_tc_screen.h"
@@ -62,6 +65,21 @@ int main(void) {
 }
 
 static void hal_init(lv_color_t primary, lv_color_t secondary) {
+    lv_disp_t * disp = nullptr;
+
+#ifdef GUPPY_WAYLAND
+    lv_wayland_init();
+
+    disp = lv_wayland_create_window(
+        static_cast<lv_coord_t>(GUPPY_WAYLAND_WIDTH),
+        static_cast<lv_coord_t>(GUPPY_WAYLAND_HEIGHT),
+        const_cast<char *>("GrumpyScreen"),
+        nullptr);
+    if (disp == nullptr) {
+        LOG_ERROR("Failed to create Wayland window");
+        std::exit(1);
+    }
+#else
     /*A small buffer for LittlevGL to draw the screen's content*/
     static lv_color_t buf[DISP_BUF_SIZE];
     static lv_color_t buf2[DISP_BUF_SIZE];
@@ -91,13 +109,7 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
       disp_drv.rotated = rotate_value;
     }
 
-    lv_disp_t * disp = lv_disp_drv_register(&disp_drv);
-#ifdef GUPPY_SMALL_SCREEN
-    lv_theme_t * th = lv_theme_default_init(NULL, primary, secondary, true, &lv_font_montserrat_12);
-#else
-    lv_theme_t * th = lv_theme_default_init(NULL, primary, secondary, true, &lv_font_montserrat_20);
-#endif
-    lv_disp_set_theme(disp, th);
+    disp = lv_disp_drv_register(&disp_drv);
 
     const char *path = std::getenv("LVGL_EVDEV_DEV");
     if (path != nullptr && path[0] != '\0') {
@@ -115,4 +127,12 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     lv_tc_indev_drv_init(&indev_drv_1, evdev_read);
 #endif
     lv_indev_drv_register(&indev_drv_1);
+#endif
+
+#ifdef GUPPY_SMALL_SCREEN
+    lv_theme_t * th = lv_theme_default_init(disp, primary, secondary, true, &lv_font_montserrat_12);
+#else
+    lv_theme_t * th = lv_theme_default_init(disp, primary, secondary, true, &lv_font_montserrat_20);
+#endif
+    lv_disp_set_theme(disp, th);
 }
