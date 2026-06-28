@@ -7,11 +7,13 @@ ENV MOONRAKER_DIR=/home/developer/moonraker
 ENV PRINTER_DATA=/home/developer/printer_data
 ENV KLIPPY_ENV=/home/developer/klippy-env
 ENV FLUIDD_DIR=/home/developer/fluidd
+ENV SIMULAVR_DIR=/home/developer/simulavr
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash git sudo ca-certificates build-essential make gcc \
+    bash git sudo ca-certificates build-essential make gcc g++ cmake \
     python3 python3-dev python3-venv python3-pip \
-    libffi-dev libssl-dev libncurses-dev pkg-config \
+    libffi-dev libssl-dev libncurses-dev pkg-config swig \
+    avr-libc binutils-avr gcc-avr rst2pdf help2man texinfo \
     curl wget unzip iproute2 dbus nginx supervisor \
     && rm -rf /var/lib/apt/lists/*
 
@@ -21,6 +23,7 @@ RUN useradd -m -s /bin/bash developer \
 
 RUN git clone --depth=1 https://github.com/Klipper3d/klipper.git ${KLIPPER_DIR} \
     && git clone --depth=1 https://github.com/Arksine/moonraker.git ${MOONRAKER_DIR} \
+    && git clone https://git.savannah.nongnu.org/git/simulavr.git ${SIMULAVR_DIR} \
     && mkdir -p ${FLUIDD_DIR} \
     && wget -O /tmp/fluidd.zip https://github.com/fluidd-core/fluidd/releases/latest/download/fluidd.zip \
     && unzip /tmp/fluidd.zip -d ${FLUIDD_DIR} \
@@ -34,12 +37,17 @@ RUN ./scripts/install-moonraker.sh -z -x -d ${PRINTER_DATA}
 
 WORKDIR ${KLIPPER_DIR}
 
+COPY --chown=developer:developer simulavr.config ${KLIPPER_DIR}/.config
+
 RUN python3 -m venv ${KLIPPY_ENV} \
     && ${KLIPPY_ENV}/bin/pip install --upgrade pip wheel \
     && ${KLIPPY_ENV}/bin/pip install -r ${KLIPPER_DIR}/scripts/klippy-requirements.txt \
-    && printf '%s\n' 'CONFIG_MACH_LINUX=y' > .config \
-    && make olddefconfig \
     && make
+
+WORKDIR ${SIMULAVR_DIR}
+
+RUN make python \
+    && make build
 
 USER root
 
