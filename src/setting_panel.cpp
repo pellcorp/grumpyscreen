@@ -21,10 +21,19 @@ struct reset_ctx {
     std::string cmd;
 };
 
+static int call_command(const std::string &cmd) {
+    try {
+        return sp::call(cmd);
+    } catch (const std::exception &e) {
+        LOG_ERROR("Failed to execute command '{}': {}", cmd, e.what());
+        return -1;
+    }
+}
+
 static void run_factory_reset_cb(lv_timer_t * t) {
     reset_ctx * ctx = (reset_ctx *)t->user_data;
 
-    int ret = sp::call(ctx->cmd);
+    int ret = call_command(ctx->cmd);
 
     if (ret != 0) {
         simple_dialog_close(ctx->mbox);
@@ -106,21 +115,21 @@ lv_obj_t *SettingPanel::get_container() {
 }
 
 void SettingPanel::handle_callback(lv_event_t *event) {
-  if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
-    lv_obj_t *btn = lv_event_get_current_target(event);
+    if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
+      lv_obj_t *btn = lv_event_get_current_target(event);
     if (btn == wifi_btn.get_container()) {
       wifi_panel.foreground();
     } else if (btn == restart_klipper_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto restart_command = conf->get<std::string>("/commands/restart_klipper_cmd");
-      auto ret = sp::call(restart_command);
+      auto ret = call_command(restart_command);
       if (ret != 0) {
         create_simple_dialog(lv_scr_act(), "Restart Klipper Failed", "Failed to restart Klipper!", true, true);
       }
     } else if (btn == guppy_restart_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto restart_command = conf->get<std::string>("/commands/gui_restart_cmd");
-      auto ret = sp::call(restart_command);
+      auto ret = call_command(restart_command);
       if (ret != 0) {
         create_simple_dialog(lv_scr_act(), "Restart GUI Failed", "Failed to restart GUI!", true, true);
       }
@@ -128,7 +137,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     } else if (btn == update_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto update_cmd = conf->get<std::string>(std::string("/commands/") + UPDATE_BUTTON_CMD);
-      auto ret = sp::call(update_cmd);
+      auto ret = call_command(update_cmd);
       if (ret == 0) {
         create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Initiated", UPDATE_BUTTON_SUCCESS, false, false);
       } else {
@@ -139,7 +148,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       Config *conf = Config::get_instance();
       auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
       if (support_zip_cmd != "") {
-        auto ret = sp::call(support_zip_cmd);
+        auto ret = call_command(support_zip_cmd);
         if (ret == 0) {
           create_simple_dialog(lv_scr_act(), "Support ZIP Success", "The support.zip can be found in the config directory!", true, false);
         } else {
@@ -149,7 +158,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     } else if (btn == switch_to_stock_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
-      auto ret = sp::call(switch_to_stock_cmd);
+      auto ret = call_command(switch_to_stock_cmd);
       if (ret == 0) {
         create_simple_dialog(lv_scr_act(), SWITCH_TO_STOCK_BUTTON_TITLE " Initiated", SWITCH_TO_STOCK_BUTTON_SUCCESS, false, false);
       } else {

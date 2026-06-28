@@ -3,6 +3,9 @@
 #include "config.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
+#ifdef GUPPY_WAYLAND
+#include "lv_drivers/wayland/wayland.h"
+#endif
 #include "logger.h"
 #include "state.h"
 #ifdef GUPPY_CALIBRATE
@@ -60,8 +63,10 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   lv_init();
 
   /*Linux frame buffer device init*/
+#ifndef GUPPY_WAYLAND
   fbdev_init();
   fbdev_unblank();
+#endif
 
   hal_init(primary_color, secondary_color);
   lv_png_init();
@@ -104,6 +109,9 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
   lv_obj_set_size(screen_saver, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_bg_opa(screen_saver, LV_OPA_100, 0);
+#ifdef GUPPY_WAYLAND
+  lv_obj_set_style_bg_color(screen_saver, lv_color_black(), 0);
+#endif
   lv_obj_move_background(screen_saver);
 
 #ifdef GUPPY_CALIBRATE
@@ -136,18 +144,30 @@ void GuppyScreen::loop() {
     lv_lock.lock();
     lv_timer_handler();
 
+#ifdef GUPPY_WAYLAND
+    if (!lv_wayland_window_is_open(NULL)) {
+      lv_lock.unlock();
+      lv_wayland_deinit();
+      return;
+    }
+#endif
+
     if (display_sleep != -1) {
       if (lv_disp_get_inactive_time(NULL) > display_sleep) {
         if (!is_sleeping.load()) {
           LOG_DEBUG("putting display to sleeping");
+#ifndef GUPPY_WAYLAND
           fbdev_blank();
+#endif
           lv_obj_move_foreground(screen_saver);
           is_sleeping = true;
         }
       } else {
         if (is_sleeping.load()) {
           LOG_DEBUG("waking up display");
+#ifndef GUPPY_WAYLAND
           fbdev_unblank();
+#endif
           lv_obj_move_background(screen_saver);
           is_sleeping = false;
         }

@@ -14,7 +14,7 @@ RUN mkdir /toolchains && \
     rm /tmp/x-tools-armv8-rpi3-linux-gnueabihf-gcc12.tar.xz
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
-    apt-get install -y --no-install-recommends sudo && \
+    apt-get install -y --no-install-recommends sudo libwayland-dev libxkbcommon-dev libwayland-bin wayland-protocols && \
     apt-get clean all && \
     apt-get -y autoremove
 

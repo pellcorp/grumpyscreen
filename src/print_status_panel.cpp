@@ -193,6 +193,7 @@ void PrintStatusPanel::reset() {
   ((lv_img_t*)thumbnail)->src_type = LV_IMG_SRC_SYMBOL;
 
   mini_print_status.reset();
+  mini_print_status.hide();
 }
 
 void PrintStatusPanel::init(json &fan_cfgs) {
@@ -225,10 +226,12 @@ void PrintStatusPanel::init(json &fan_cfgs) {
     auto pstatus = pstat_state.template get<std::string>();
     if (pstatus != "printing" && pstatus != "paused") {
       mini_print_status.hide();
+    } else {
+      mini_print_status.show();
     }
     mini_print_status.update_status(pstatus);
   } else {
-    mini_print_status.show();
+    mini_print_status.hide();
   }
 }
 
