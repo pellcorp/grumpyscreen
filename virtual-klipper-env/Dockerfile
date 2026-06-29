@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash developer \
+    && usermod -aG dialout,tty,sudo developer \
     && echo 'developer ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/developer \
     && chmod 0440 /etc/sudoers.d/developer
 
@@ -51,7 +52,16 @@ RUN python3 -m venv ${KLIPPY_ENV} \
 WORKDIR ${SIMULAVR_DIR}
 
 RUN make python \
-    && make build
+    && make build \
+    && cp /home/developer/klipper/out/klipper.elf /home/developer/simulavr.elf
+
+COPY --chown=developer:developer linux.config ${KLIPPER_DIR}/.config
+
+WORKDIR ${KLIPPER_DIR}
+
+RUN make clean  \
+    && make \
+    && cp /home/developer/klipper/out/klipper.elf /home/developer/klipper_mcu.elf
 
 USER root
 
