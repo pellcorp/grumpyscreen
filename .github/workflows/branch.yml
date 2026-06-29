@@ -43,7 +43,7 @@ jobs:
       with:
         submodules: recursive
 
-    - name: set guppyscreen version
+    - name: set grumpyscreen version
       run: |
         echo "GUPPYSCREEN_BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "GUPPYSCREEN_VERSION=${{ github.sha }}" >> $GITHUB_ENV
@@ -64,7 +64,7 @@ jobs:
     - name: make libhv
       run: make libhv.a
 
-    - name: make guppyscreen
+    - name: make grumpyscreen
       run: make -j
 
     - name: package release

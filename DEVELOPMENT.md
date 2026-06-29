@@ -19,7 +19,7 @@ https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
 
 ## Building
 
-Clone the guppyscreen repo (and submodules) and apply a couple of patches locally.
+Clone the grumpyscreen repo (and submodules) and apply a couple of patches locally.
 
 1. `git clone --recursive https://github.com/pellcorp/grumpyscreen grumpyscreen && cd grumpyscreen`
 
