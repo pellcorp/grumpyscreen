@@ -22,14 +22,9 @@ function docker_make() {
       fi
     else
       MISC_ARGS+=" GUPPY_WAYLAND=true"
-      MISC_ARGS+=" GUPPY_WAYLAND_WIDTH=480"
 
       if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
         MISC_ARGS+=" GUPPY_SMALL_SCREEN=true"
-
-        MISC_ARGS+=" GUPPY_WAYLAND_HEIGHT=272"
-      else
-        MISC_ARGS+=" GUPPY_WAYLAND_HEIGHT=400"
       fi
     fi
 
@@ -136,47 +131,47 @@ if [ "$SETUP" = "true" ]; then
 
     docker_make libhv.a || exit $?
     docker_make wpaclient || exit $?
-else
-    docker_make $1 || exit $?
+fi
 
-    cp $CURRENT_DIR/grumpyscreen.cfg build/bin/
+docker_make $1 || exit $?
 
-    if [ -n "$PRINTER_IP" ] && [ -f build/bin/guppyscreen ]; then
-        if [ "$TARGET" = "mips" ]; then
-          password=creality_2023
-          if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
-            password=Creality2023
-          fi
-          sshpass -p $password scp build/bin/guppyscreen root@$PRINTER_IP:
-          sshpass -p $password ssh root@$PRINTER_IP "mv /root/guppyscreen /usr/data/grumpyscreen/grumpyscreen"
+cp $CURRENT_DIR/grumpyscreen.cfg build/bin/
 
-          cp grumpyscreen.cfg /tmp
-          if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
-            sed -i 's/display_rotate: 3/display_rotate: 1/g' /tmp/grumpyscreen.cfg
-          fi
-
-          if [ "$COSMOS" = "true" ]; then
-            if ! grep -q 'cosmos_update_cmd' /tmp/grumpyscreen.cfg; then
-                sed -i '/^\[commands\]/a cosmos_update_cmd: /bin/true' /tmp/grumpyscreen.cfg
-            fi
-          fi
-          sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
-          sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/grumpyscreen/grumpyscreen.cfg"
-          sshpass -p $password ssh root@$PRINTER_IP "/etc/init.d/S99grumpyscreen restart"
-        else # rpi
-          echo "Uploading to ${PI_USERNAME}@$PRINTER_IP ..."
-          cp grumpyscreen.cfg /tmp
-          scp build/bin/guppyscreen $PI_USERNAME@$PRINTER_IP:/tmp/
-          sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
-          sed -i '/S58factoryreset/d' /tmp/grumpyscreen.cfg
-          # rpi does not have switch to stock
-          sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' /tmp/grumpyscreen.cfg
-          # for now no support command for rpi either
-          sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/grumpyscreen.cfg
-          scp /tmp/grumpyscreen.cfg $PI_USERNAME@$PRINTER_IP:/tmp/
-          ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/guppyscreen /home/$PI_USERNAME/grumpyscreen/grumpyscreen"
-          ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/$PI_USERNAME/grumpyscreen/grumpyscreen.cfg"
-          ssh $PI_USERNAME@$PRINTER_IP "sudo systemctl restart grumpyscreen"
-        fi
+if [ -n "$PRINTER_IP" ] && [ -f build/bin/grumpyscreen ]; then
+  if [ "$TARGET" = "mips" ]; then
+    password=creality_2023
+    if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
+      password=Creality2023
     fi
+    sshpass -p $password scp build/bin/grumpyscreen root@$PRINTER_IP:
+    sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen /usr/data/grumpyscreen/grumpyscreen"
+
+    cp grumpyscreen.cfg /tmp
+    if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
+      sed -i 's/display_rotate: 3/display_rotate: 1/g' /tmp/grumpyscreen.cfg
+    fi
+
+    if [ "$COSMOS" = "true" ]; then
+      if ! grep -q 'cosmos_update_cmd' /tmp/grumpyscreen.cfg; then
+          sed -i '/^\[commands\]/a cosmos_update_cmd: /bin/true' /tmp/grumpyscreen.cfg
+      fi
+    fi
+    sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
+    sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/grumpyscreen/grumpyscreen.cfg"
+    sshpass -p $password ssh root@$PRINTER_IP "/etc/init.d/S99grumpyscreen restart"
+  else # rpi
+    echo "Uploading to ${PI_USERNAME}@$PRINTER_IP ..."
+    cp grumpyscreen.cfg /tmp
+    scp build/bin/grumpyscreen $PI_USERNAME@$PRINTER_IP:/tmp/
+    sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
+    sed -i '/S58factoryreset/d' /tmp/grumpyscreen.cfg
+    # rpi does not have switch to stock
+    sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' /tmp/grumpyscreen.cfg
+    # for now no support command for rpi either
+    sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/grumpyscreen.cfg
+    scp /tmp/grumpyscreen.cfg $PI_USERNAME@$PRINTER_IP:/tmp/
+    ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen /home/$PI_USERNAME/grumpyscreen/grumpyscreen"
+    ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/$PI_USERNAME/grumpyscreen/grumpyscreen.cfg"
+    ssh $PI_USERNAME@$PRINTER_IP "sudo systemctl restart grumpyscreen"
+  fi
 fi

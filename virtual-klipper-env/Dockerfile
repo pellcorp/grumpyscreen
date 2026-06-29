@@ -21,14 +21,18 @@ RUN useradd -m -s /bin/bash developer \
     && echo 'developer ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/developer \
     && chmod 0440 /etc/sudoers.d/developer
 
-RUN git clone --depth=1 https://github.com/Klipper3d/klipper.git ${KLIPPER_DIR} \
-    && git clone --depth=1 https://github.com/Arksine/moonraker.git ${MOONRAKER_DIR} \
-    && git clone https://git.savannah.nongnu.org/git/simulavr.git ${SIMULAVR_DIR} \
-    && mkdir -p ${FLUIDD_DIR} \
+RUN git clone --depth=1 https://github.com/pellcorp/klipper-rpi.git ${KLIPPER_DIR}
+
+RUN git clone --depth=1 https://github.com/Arksine/moonraker.git ${MOONRAKER_DIR}
+
+RUN  git clone https://git.savannah.nongnu.org/git/simulavr.git ${SIMULAVR_DIR}
+
+RUN mkdir -p ${FLUIDD_DIR} \
     && wget -O /tmp/fluidd.zip https://github.com/fluidd-core/fluidd/releases/latest/download/fluidd.zip \
     && unzip /tmp/fluidd.zip -d ${FLUIDD_DIR} \
-    && rm /tmp/fluidd.zip \
-    && chown -R developer:developer ${HOME}
+    && rm /tmp/fluidd.zip
+
+RUN chown -R developer:developer ${HOME}
 
 USER developer
 WORKDIR ${MOONRAKER_DIR}
@@ -67,6 +71,8 @@ COPY --chown=root:root nginx.conf /etc/nginx/nginx.conf
 COPY --chown=root:root supervisord.conf /etc/supervisor/conf.d/klipper-dev.conf
 
 RUN chown -R developer:developer ${HOME}
+
+WORKDIR ${HOME}
 
 EXPOSE 80 7125
 
