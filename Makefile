@@ -27,7 +27,7 @@ WARNINGS		:= -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wp
 					-Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-sign-compare
 CFLAGS 			?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
 LDFLAGS 		?= -static -lm -Llibhv/lib -l:libhv.a -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -l:libwpa_client.a -lstdc++fs
-BIN 			= guppyscreen
+BIN 			= grumpyscreen
 BUILD_DIR 		= ./build
 BUILD_OBJ_DIR 	= $(BUILD_DIR)/obj
 BUILD_BIN_DIR 	= $(BUILD_DIR)/bin
@@ -67,13 +67,13 @@ endif
 ifeq ($(strip $(WAYLAND_LIBS)),)
 WAYLAND_LIBS := -lwayland-client -lwayland-cursor -lxkbcommon
 endif
-GUPPY_WAYLAND_WIDTH ?= 800
-GUPPY_WAYLAND_HEIGHT ?= 480
 WAYLAND_XDG_PROTOCOL := $(WAYLAND_PROTOCOLS_BASE)/stable/xdg-shell/xdg-shell.xml
-WAYLAND_PROTOCOL_GEN_DIR := lv_drivers/wayland/protocols
+WAYLAND_PROTOCOL_GEN_DIR := $(BUILD_DIR)/wayland-src/protocols
 WAYLAND_PROTOCOL_GEN_C := $(WAYLAND_PROTOCOL_GEN_DIR)/wayland-xdg-shell-client-protocol.c
 WAYLAND_PROTOCOL_GEN_H := $(WAYLAND_PROTOCOL_GEN_DIR)/wayland-xdg-shell-client-protocol.h
 WAYLAND_PATCHED_SRC := $(BUILD_DIR)/wayland-src/wayland.c
+WAYLAND_PATCHED_OBJ := $(BUILD_OBJ_DIR)/$(patsubst ./%,%,$(WAYLAND_PATCHED_SRC:.c=.o))
+WAYLAND_PROTOCOL_OBJ := $(BUILD_OBJ_DIR)/$(patsubst ./%,%,$(WAYLAND_PROTOCOL_GEN_C:.c=.o))
 
 CSRCS			:= $(filter-out $(LVGL_DIR)/lv_drivers/wayland/wayland.c lv_drivers/wayland/wayland.c,$(CSRCS))
 CSRCS			+= $(WAYLAND_PATCHED_SRC)
@@ -166,9 +166,9 @@ ifeq ($(wildcard $(WAYLAND_XDG_PROTOCOL)),)
 $(error GUPPY_WAYLAND=1 requires xdg-shell.xml at $(WAYLAND_XDG_PROTOCOL))
 endif
 LDFLAGS				:= $(filter-out -static,$(LDFLAGS))
-INC					+= -I./lv_drivers/wayland $(WAYLAND_CFLAGS)
+INC					+= -I./lv_drivers/wayland -I./$(BUILD_DIR)/wayland-src $(WAYLAND_CFLAGS)
 LDFLAGS				+= $(WAYLAND_LIBS)
-DEFINES				+= -D GUPPY_WAYLAND -D GUPPY_WAYLAND_WIDTH=$(GUPPY_WAYLAND_WIDTH) -D GUPPY_WAYLAND_HEIGHT=$(GUPPY_WAYLAND_HEIGHT) -D USE_WAYLAND=1 -D LV_WAYLAND_XDG_SHELL=1 -D LV_WAYLAND_WL_SHELL=1
+DEFINES				+= -D GUPPY_WAYLAND -D USE_WAYLAND=1 -D LV_WAYLAND_XDG_SHELL=1 -D LV_WAYLAND_WL_SHELL=1
 endif
 
 COMPILE_CC				= $(CC) $(CFLAGS) $(INC) $(DEFINES)
@@ -190,12 +190,12 @@ $(WAYLAND_PROTOCOL_GEN_C) $(WAYLAND_PROTOCOL_GEN_H): $(WAYLAND_XDG_PROTOCOL)
 	$(WAYLAND_SCANNER) client-header $< $(WAYLAND_PROTOCOL_GEN_H)
 	$(WAYLAND_SCANNER) private-code $< $(WAYLAND_PROTOCOL_GEN_C)
 
-$(WAYLAND_PATCHED_SRC): lv_drivers/wayland/wayland.c
+$(WAYLAND_PATCHED_SRC): lv_drivers/wayland/wayland.c $(WAYLAND_PROTOCOL_GEN_H)
 	@mkdir -p $(dir $@)
-	perl -0pe 's/app->xdg_wm = wl_registry_bind\(app->registry, name, &xdg_wm_base_interface, version\);/uint32_t bind_version = version;\n        if (bind_version > xdg_wm_base_interface.version)\n        {\n            bind_version = xdg_wm_base_interface.version;\n        }\n\n        app->xdg_wm = wl_registry_bind(app->registry, name, \&xdg_wm_base_interface, bind_version);/' $< > $@
+	perl -0pe 's/app->xdg_wm = wl_registry_bind\(app->registry, name, &xdg_wm_base_interface, version\);/uint32_t bind_version = version;\n        if (bind_version > xdg_wm_base_interface.version)\n        {\n            bind_version = xdg_wm_base_interface.version;\n        }\n\n        app->xdg_wm = wl_registry_bind(app->registry, name, \&xdg_wm_base_interface, bind_version);/; s/xdg_toplevel_set_app_id\(window->xdg_toplevel, title\);/xdg_toplevel_set_app_id(window->xdg_toplevel, title);\n        xdg_toplevel_set_min_size(window->xdg_toplevel, width, height);\n        xdg_toplevel_set_max_size(window->xdg_toplevel, width, height);/; s/case OBJECT_BUTTON_MAXIMIZE:\n        if \(\(button == BTN_LEFT\) && \(state == WL_POINTER_BUTTON_STATE_RELEASED\)\)\n        \{\n            if \(window->xdg_toplevel\)\n            \{\n                if \(window->maximized\)\n                \{\n                    xdg_toplevel_unset_maximized\(window->xdg_toplevel\);\n                \}\n                else\n                \{\n                    xdg_toplevel_set_maximized\(window->xdg_toplevel\);\n                \}\n                window->maximized \^= true;\n                window->flush_pending = true;\n            \}\n        \}\n        break;/case OBJECT_BUTTON_MAXIMIZE:\n        break;/; s/case OBJECT_BUTTON_MAXIMIZE:\n        if \(window->xdg_toplevel\)\n        \{\n            if \(window->maximized\)\n            \{\n                xdg_toplevel_unset_maximized\(window->xdg_toplevel\);\n            \}\n            else\n            \{\n                xdg_toplevel_set_maximized\(window->xdg_toplevel\);\n            \}\n            window->maximized \^= true;\n        \}\n        break;/case OBJECT_BUTTON_MAXIMIZE:\n        break;/; s/case OBJECT_BUTTON_MAXIMIZE:\n        pos_x = parent->width - 2 \* \(BUTTON_MARGIN \+ BUTTON_SIZE\);\n        pos_y = -1 \* \(BUTTON_MARGIN \+ BUTTON_SIZE \+ \(BORDER_SIZE \/ 2\)\);\n        break;/case OBJECT_BUTTON_MAXIMIZE:\n        pos_x = parent->width + BORDER_SIZE;\n        pos_y = 0;\n        break;/; s/case OBJECT_BUTTON_MINIMIZE:\n        pos_x = parent->width - 3 \* \(BUTTON_MARGIN \+ BUTTON_SIZE\);\n        pos_y = -1 \* \(BUTTON_MARGIN \+ BUTTON_SIZE \+ \(BORDER_SIZE \/ 2\)\);\n        break;/case OBJECT_BUTTON_MINIMIZE:\n        pos_x = parent->width - 2 * \(BUTTON_MARGIN + BUTTON_SIZE\);\n        pos_y = -1 * \(BUTTON_MARGIN + BUTTON_SIZE + \(BORDER_SIZE \/ 2\)\);\n        break;/' $< > $@
 
-$(BUILD_OBJ_DIR)/$(WAYLAND_PATCHED_SRC:.c=.o): $(WAYLAND_PROTOCOL_GEN_H)
-$(BUILD_OBJ_DIR)/$(WAYLAND_PROTOCOL_GEN_C:.c=.o): $(WAYLAND_PROTOCOL_GEN_H)
+$(WAYLAND_PATCHED_OBJ): $(WAYLAND_PROTOCOL_GEN_H)
+$(WAYLAND_PROTOCOL_OBJ): $(WAYLAND_PROTOCOL_GEN_H)
 endif
 
 $(BUILD_OBJ_DIR)/%.o: %.cpp
@@ -212,7 +212,7 @@ default: $(TARGET)
 	@mkdir -p $(dir $(BUILD_BIN_DIR)/)
 	$(CXX) -o $(BUILD_BIN_DIR)/$(BIN) $(TARGET) $(LDFLAGS) $(LDLIBS)
 	@echo "CXX $<"
-	@$(STRIP) $(BUILD_BIN_DIR)/guppyscreen
+	@$(STRIP) $(BUILD_BIN_DIR)/grumpyscreen
 
 libhvclean:
 	$(MAKE) -C libhv clean

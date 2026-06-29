@@ -10,7 +10,7 @@ GIT_BRANCH=$3
 
 TIMESTAMP=$(date +%s)
 
-cp ./build/bin/guppyscreen $RELEASES_DIR/grumpyscreen
+cp ./build/bin/grumpyscreen $RELEASES_DIR/
 cp grumpyscreen.cfg $RELEASES_DIR/
 echo "GIT_SHA=${GIT_SHA:0:7}" > $RELEASES_DIR/release.info
 echo "GIT_BRANCH=$GIT_BRANCH" >> $RELEASES_DIR/release.info

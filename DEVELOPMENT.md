@@ -25,14 +25,41 @@ Clone the guppyscreen repo (and submodules) and apply a couple of patches locall
 
 ### Build for Creality OS (K1, K1M, Ender 3 V3 KE, etc) 
 
-1. `./build.sh --setup mips [--small]`
-2. `./build.sh --printer IP_ADDRESS_OF_PRINTER`
+```
+./build.sh --setup mips [--small] --printer IP_ADDRESS_OF_PRINTER
+```
 
 This will directly deploy it to your printer or dev box!
 
 ### Build for RPI
 
-1. `./build.sh --setup rpi [--small]`
-2. `./build.sh --printer IP_ADDRESS_OF_PRINTER`
+```
+./build.sh --setup rpi [--small] --printer IP_ADDRESS_OF_PRINTER
+```
 
 This will directly deploy it to your rpi based printer or dev box!
+
+### Build Locally (Wayland)
+
+Mostly this is about getting good screenshots for the moment but you can build grumpyscreen locally for wayland
+
+```
+./build.sh --setup wayland [--small]
+build/bin/grumpyscreen
+```
+
+#### Local Virtual Klipper
+
+Based on the https://github.com/mainsail-crew/virtual-klipper-printer the `virtual-klipper-env` docker fires up
+a very basic klipper, moonraker and fluidd environment.
+
+```
+docker build . --tag virtual-klipper-env
+docker run --rm -it -p 8080:80 -p 127.0.0.1:7125:7125 virtual-klipper-env
+```
+
+You can access fluidd via http://localhost:8080
+
+Some may ask, why not just use the virtual-klipper-printer directly, to be honest I found it overly complicated to
+setup and its not very well documented.  I need a basic printer setup to do basic testing for GrumpyScreen so this
+works for me.

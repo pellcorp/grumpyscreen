@@ -71,8 +71,13 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     lv_wayland_init();
 
     disp = lv_wayland_create_window(
-        static_cast<lv_coord_t>(GUPPY_WAYLAND_WIDTH),
-        static_cast<lv_coord_t>(GUPPY_WAYLAND_HEIGHT),
+#ifdef GUPPY_SMALL_SCREEN
+        static_cast<lv_coord_t>(480),
+        static_cast<lv_coord_t>(272),
+#else
+        static_cast<lv_coord_t>(800),
+        static_cast<lv_coord_t>(480),
+#endif
         const_cast<char *>("GrumpyScreen"),
         nullptr);
     if (disp == nullptr) {
