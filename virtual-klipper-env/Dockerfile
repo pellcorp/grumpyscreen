@@ -47,21 +47,22 @@ COPY --chown=developer:developer simulavr.config ${KLIPPER_DIR}/.config
 RUN python3 -m venv ${KLIPPY_ENV} \
     && ${KLIPPY_ENV}/bin/pip install --upgrade pip wheel \
     && ${KLIPPY_ENV}/bin/pip install -r ${KLIPPER_DIR}/scripts/klippy-requirements.txt \
-    && make
+    && make \
+    && cp /home/developer/klipper/out/klipper.elf /home/developer/simulavr.elf \
+    && cp /home/developer/klipper/out/klipper.dict /home/developer/simulavr.dict \
+    && make clean
 
 WORKDIR ${SIMULAVR_DIR}
 
 RUN make python \
-    && make build \
-    && cp /home/developer/klipper/out/klipper.elf /home/developer/simulavr.elf
+    && make build
 
 COPY --chown=developer:developer linux.config ${KLIPPER_DIR}/.config
 
 WORKDIR ${KLIPPER_DIR}
 
-RUN make clean  \
-    && make \
-    && cp /home/developer/klipper/out/klipper.elf /home/developer/klipper_mcu.elf
+RUN make \
+    && cp /home/developer/klipper/out/klipper.elf /home/developer/klipper_mcu
 
 USER root
 
