@@ -66,6 +66,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #ifdef UPDATE_BUTTON_CMD
   , update_btn(cont, &update_img, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
           UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive, true)
+#else
+  , shutdown_host_btn(cont, &emergency, "Shutdown Host", &SettingPanel::_handle_callback, this,
+          "Shutdown host?", "Do you want to shutdown the host?", ButtonContainer::PromptMode::Destructive)
 #endif
 {
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
@@ -104,6 +107,11 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 
 #ifdef UPDATE_BUTTON_CMD
   lv_obj_set_grid_cell(update_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 2, 1);
+#else
+  auto shutdown_host_cmd = conf->get<std::string>("/commands/shutdown_host_cmd");
+  if (shutdown_host_cmd != "") {
+    lv_obj_set_grid_cell(shutdown_host_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 2, 1);
+  }
 #endif
 }
 
@@ -148,6 +156,16 @@ void SettingPanel::handle_callback(lv_event_t *event) {
         create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Initiated", UPDATE_BUTTON_SUCCESS, false, false);
       } else {
         create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Failed", UPDATE_BUTTON_FAILURE, true, true);
+      }
+#else
+    } else if (btn == shutdown_host_btn.get_container()) {
+      Config *conf = Config::get_instance();
+      auto shutdown_host_cmd = conf->get<std::string>("/commands/shutdown_host_cmd");
+      auto ret = call_command(shutdown_host_cmd);
+      if (ret == 0) {
+        create_simple_dialog(lv_scr_act(), "Shutdown Host Initiated", "Shutdown of host has been initiated", false, false);
+      } else {
+        create_simple_dialog(lv_scr_act(), "Shutdown Host Failed", "Failed to shutdown host!", true, true);
       }
 #endif
     } else if (btn == support_zip_btn.get_container()) {

@@ -38,6 +38,8 @@ class SettingPanel {
   ButtonContainer factory_reset_btn;
 #ifdef UPDATE_BUTTON_CMD
   ButtonContainer update_btn;
+#else
+  ButtonContainer shutdown_host_btn;
 #endif
 };
 
