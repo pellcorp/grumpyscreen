@@ -37,6 +37,12 @@ namespace KUtils {
     return "";
   }
 
+  bool is_running_local() {
+    Config *conf = Config::get_instance();
+    std::string moonraker_host = conf->get<std::string>("/moonraker/host");
+    return moonraker_host == "localhost" || moonraker_host == "127.0.0.1";
+  }
+
   std::pair<std::string, size_t> get_thumbnail(const std::string &gcode_file, json &j, double scale) {
     auto &thumbs = j["/result/thumbnails"_json_pointer];
     if (!thumbs.is_null() && !thumbs.empty()) {
@@ -75,10 +81,32 @@ namespace KUtils {
       std::string moonraker_host = conf->get<std::string>("/moonraker/host");
       std::string fname = relative_path.substr(relative_path.find_last_of("/\\") + 1);
 
-      // download thumbnail
-      auto gcode_root = get_root_path("gcodes");
-      std::string fullpath = fmt::format("{}/{}", gcode_root, relative_path);
+      std::string fullpath;
+      if (is_running_local()) {
+        auto gcode_root = get_root_path("gcodes");
+        fullpath = fmt::format("{}/{}", gcode_root, relative_path);
+      } else { // download thumbnail
+        std::string thumbnail_path = conf->get<std::string>("/moonraker/thumbnail_path");
+        if (thumbnail_path == "") {
+          LOG_ERROR("Thumbnail path is not defined");
+          return std::make_pair("", 0);
+        } else {
+          if (fs::exists(fs::path(thumbnail_path))) {
+            fullpath = fmt::format("{}/{}", thumbnail_path, fname);
+            std::string thumb_url = fmt::format("http://{}:{}/server/files/gcodes/{}",
+                        moonraker_host,
+                        conf->get<uint32_t>("/moonraker/port"),
+                        HUrl::escape(relative_path, "/"));
 
+            LOG_DEBUG("Download thumb {} -> {}", thumb_url, fullpath);
+            auto size = requests::downloadFile(thumb_url.c_str(), fullpath.c_str());
+            LOG_TRACE("downloaded size {}", size);
+          } else {
+            LOG_ERROR("Thumbnail path {} does not exist", thumbnail_path);
+            return std::make_pair("", 0);
+          }
+        }
+      }
       return std::make_pair(fullpath, thumb_width);
     }
     return std::make_pair("", 0);
