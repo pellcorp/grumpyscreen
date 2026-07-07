@@ -37,12 +37,6 @@ namespace KUtils {
     return "";
   }
 
-  bool is_running_local() {
-    Config *conf = Config::get_instance();
-    std::string moonraker_host = conf->get<std::string>("/moonraker/host");
-    return moonraker_host == "localhost" || moonraker_host == "127.0.0.1";
-  }
-
   std::pair<std::string, size_t> get_thumbnail(const std::string &gcode_file, json &j, double scale) {
     auto &thumbs = j["/result/thumbnails"_json_pointer];
     if (!thumbs.is_null() && !thumbs.empty()) {
@@ -81,8 +75,12 @@ namespace KUtils {
       std::string moonraker_host = conf->get<std::string>("/moonraker/host");
       std::string fname = relative_path.substr(relative_path.find_last_of("/\\") + 1);
 
+      const bool is_running_local = moonraker_host == "localhost" || moonraker_host == "127.0.0.1";
+      const bool download_thumbs = Config::get_instance()->get<bool>("/moonraker/download_thumbs", false);
+      const bool local_thumb_images = is_running_local && !download_thumbs;
+
       std::string fullpath;
-      if (is_running_local()) {
+      if (local_thumb_images) {
         auto gcode_root = get_root_path("gcodes");
         fullpath = fmt::format("{}/{}", gcode_root, relative_path);
       } else { // download thumbnail

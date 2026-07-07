@@ -111,6 +111,8 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   auto shutdown_host_cmd = conf->get<std::string>("/commands/shutdown_host_cmd");
   if (shutdown_host_cmd != "") {
     lv_obj_set_grid_cell(shutdown_host_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 2, 1);
+  } else {
+    lv_obj_add_flag(shutdown_host_btn.get_container(), LV_OBJ_FLAG_HIDDEN);
   }
 #endif
 }
