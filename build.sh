@@ -164,11 +164,16 @@ if [ -n "$PRINTER_IP" ] && [ -f build/bin/grumpyscreen ]; then
     cp grumpyscreen.cfg /tmp
     scp build/bin/grumpyscreen $PI_USERNAME@$PRINTER_IP:/tmp/
     sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
-    sed -i '/S58factoryreset/d' /tmp/grumpyscreen.cfg
+    sed -i 's:/etc/init.d/S99grumpyscreen restart:sudo systemctl restart grumpyscreen:g' /tmp/grumpyscreen.cfg
+    sed -i 's:/etc/init.d/S55klipper_service restart:sudo systemctl restart klipper:g' /tmp/grumpyscreen.cfg
+    sed -i 's:/usr/data/pellcorp/tools/support.sh:/home/$PI_USERNAME/pellcorp/tools/support.sh:g' /tmp/grumpyscreen.cfg
+    sed -i 's:/sbin/halt:sudo systemctl poweroff:g' /tmp/grumpyscreen.cfg
+
+    # rpi does not have factory reset
+    sed -i 's:/etc/init.d/S58factoryreset reset::g' /tmp/grumpyscreen.cfg
     # rpi does not have switch to stock
     sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' /tmp/grumpyscreen.cfg
-    # for now no support command for rpi either
-    sed -i 's:/usr/data/pellcorp/tools/support.sh::g' /tmp/grumpyscreen.cfg
+
     scp /tmp/grumpyscreen.cfg $PI_USERNAME@$PRINTER_IP:/tmp/
     ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen /home/$PI_USERNAME/grumpyscreen/grumpyscreen"
     ssh $PI_USERNAME@$PRINTER_IP "mv /tmp/grumpyscreen.cfg /home/$PI_USERNAME/grumpyscreen/grumpyscreen.cfg"
