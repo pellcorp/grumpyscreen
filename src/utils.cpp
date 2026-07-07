@@ -76,33 +76,32 @@ namespace KUtils {
       std::string fname = relative_path.substr(relative_path.find_last_of("/\\") + 1);
 
       const bool is_running_local = moonraker_host == "localhost" || moonraker_host == "127.0.0.1";
-      const bool download_thumbs = Config::get_instance()->get<bool>("/moonraker/download_thumbs", false);
-      const bool local_thumb_images = is_running_local && !download_thumbs;
+      std::string thumbnail_path = conf->get<std::string>("/moonraker/thumbnail_path");
+
+      // if not running locally a thumbnail path is required
+      if (!is_running_local && thumbnail_path == "") {
+        LOG_ERROR("Thumbnail path is not defined");
+        return std::make_pair("", 0);
+      }
 
       std::string fullpath;
-      if (local_thumb_images) {
+      if (is_running_local && thumbnail_path == "") {
         auto gcode_root = get_root_path("gcodes");
         fullpath = fmt::format("{}/{}", gcode_root, relative_path);
       } else { // download thumbnail
-        std::string thumbnail_path = conf->get<std::string>("/moonraker/thumbnail_path");
-        if (thumbnail_path == "") {
-          LOG_ERROR("Thumbnail path is not defined");
-          return std::make_pair("", 0);
-        } else {
-          if (fs::exists(fs::path(thumbnail_path))) {
-            fullpath = fmt::format("{}/{}", thumbnail_path, fname);
-            std::string thumb_url = fmt::format("http://{}:{}/server/files/gcodes/{}",
-                        moonraker_host,
-                        conf->get<uint32_t>("/moonraker/port"),
-                        HUrl::escape(relative_path, "/"));
+        if (fs::exists(fs::path(thumbnail_path))) {
+          fullpath = fmt::format("{}/{}", thumbnail_path, fname);
+          std::string thumb_url = fmt::format("http://{}:{}/server/files/gcodes/{}",
+                      moonraker_host,
+                      conf->get<uint32_t>("/moonraker/port"),
+                      HUrl::escape(relative_path, "/"));
 
-            LOG_DEBUG("Download thumb {} -> {}", thumb_url, fullpath);
-            auto size = requests::downloadFile(thumb_url.c_str(), fullpath.c_str());
-            LOG_TRACE("downloaded size {}", size);
-          } else {
-            LOG_ERROR("Thumbnail path {} does not exist", thumbnail_path);
-            return std::make_pair("", 0);
-          }
+          LOG_DEBUG("Download thumb {} -> {}", thumb_url, fullpath);
+          auto size = requests::downloadFile(thumb_url.c_str(), fullpath.c_str());
+          LOG_TRACE("downloaded size {}", size);
+        } else {
+          LOG_ERROR("Thumbnail path {} does not exist", thumbnail_path);
+          return std::make_pair("", 0);
         }
       }
       return std::make_pair(fullpath, thumb_width);
