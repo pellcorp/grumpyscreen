@@ -60,14 +60,6 @@ SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
     settings.append("No Prompt\n\n");
   }
 
-  settings.append("\tZ Icon: ");
-  const bool invert_z_icon = conf->get<bool>("/ui/invert_z_icon");
-  if (invert_z_icon) {
-  	settings.append("Inverted\n\n");
-  } else {
-    settings.append("Not Inverted\n\n");
-  }
-
   lv_label_set_text(settings_label, settings.c_str());
 }
 
