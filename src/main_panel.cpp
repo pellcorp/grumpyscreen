@@ -44,7 +44,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , print_panel(ws, lock, print_status_panel)
   , numpad(Numpad(main_cont))
   , extruder_panel(ws, lock, numpad, sm)
-  , prompt_panel(websocket, lock, main_cont)
+  , prompt_panel(websocket, lock, main_cont, print_status_panel)
   , spoolman_panel(sm)
   , temp_cont(lv_obj_create(main_cont))
   , temp_chart(lv_chart_create(main_cont))

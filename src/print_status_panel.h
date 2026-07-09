@@ -24,6 +24,7 @@ class PrintStatusPanel : public NotifyConsumer {
   void populate();
   void foreground();
   void background();
+  bool is_foreground() const;
 
   void handle_metadata(const std::string &gcode_file, json &j);
   void handle_callback(lv_event_t *event);
@@ -90,6 +91,7 @@ class PrintStatusPanel : public NotifyConsumer {
 
   std::map<std::string, int> fan_speeds;
   std::string chamber_sensor_key_;
+  bool is_foreground_ = false;
 };
 
 #endif // __PRINT_STATUS_PANEL_H__

@@ -1,4 +1,5 @@
 #include "prompt_panel.h"
+#include "print_status_panel.h"
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
@@ -13,18 +14,16 @@ static lv_style_t style_btn_orange;
 static lv_style_t style_btn_dark_grey;
 static lv_style_t button_group_flex_style;
 
-PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, lv_obj_t *parent)
+PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, lv_obj_t *parent, PrintStatusPanel &print_status_panel)
     : NotifyConsumer(lock)
     , ws(websocket_client)
+    , print_status_panel(print_status_panel)
     , prompt_cont(lv_obj_create(lv_scr_act()))
     , flex(lv_obj_create(prompt_cont))
     , header(lv_label_create(prompt_cont))
     , footer_cont(lv_obj_create(prompt_cont))
-//  , back_btn(promptpanel_cont, &back, "Back", &PromptPanel::_handle_callback, this)
 {
   lv_obj_set_style_pad_all(prompt_cont, 0, 0);
-
-  // lv_obj_clear_flag(promptpanel_cont, LV_OBJ_FLAG_SCROLLABLE);
 
   static lv_coord_t grid_main_row_dsc_detail[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   // header, flex, buttons
@@ -140,7 +139,6 @@ PromptPanel::~PromptPanel() {
 }
 
 void PromptPanel::foreground() {
-  // shrink wrap
   lv_obj_move_foreground(prompt_cont);
 }
 
@@ -212,6 +210,7 @@ void PromptPanel::handle_macro_response(json &j) {
       LOG_DEBUG("action: {}", command);
 
       if (command.find("prompt_begin") == 0) {
+        restore_print_status_foreground_ = false;
         std::string prompt_header = command.substr(13);
         LOG_DEBUG("PROMPT_BEGIN: {}", prompt_header);
 
@@ -334,15 +333,21 @@ void PromptPanel::handle_macro_response(json &j) {
             LOG_DEBUG("type default");
             lv_obj_add_style(btn, &style_btn_dark_grey, 0);
           }
-          lv_obj_add_event_cb(btn, _handle_callback, LV_EVENT_PRESSED, this);
+          lv_obj_add_event_cb(btn, _handle_callback, LV_EVENT_CLICKED, this);
         }
       } else if (command.find("prompt_show") == 0) {
         LOG_DEBUG("PROMPT_SHOW");
+        restore_print_status_foreground_ = print_status_panel.is_foreground();
         check_height();
         foreground();
       } else if (command.find("prompt_end") == 0) {
         LOG_DEBUG("PROMPT_END");
         background();
+
+        if (restore_print_status_foreground_) {
+          print_status_panel.foreground();
+        }
+        restore_print_status_foreground_ = false;
 
         // remove buttons
         lv_obj_clean(footer_cont);

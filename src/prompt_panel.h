@@ -10,6 +10,8 @@
 #include <memory>
 #include <mutex>
 
+class PrintStatusPanel;
+
 struct SharedButton {
     SharedButton(lv_obj_t *bbtn) : btn(bbtn) {};
     lv_obj_t *btn;
@@ -17,7 +19,7 @@ struct SharedButton {
 
 class PromptPanel : public NotifyConsumer {
     public:
-        PromptPanel(KWebSocketClient &ws, std::mutex &lock, lv_obj_t *parent);
+        PromptPanel(KWebSocketClient &ws, std::mutex &lock, lv_obj_t *parent, PrintStatusPanel &print_status_panel);
         ~PromptPanel();
 
         void handle_macro_response(json &j);
@@ -39,6 +41,8 @@ class PromptPanel : public NotifyConsumer {
         void check_height();
 
         KWebSocketClient &ws;
+        PrintStatusPanel &print_status_panel;
+        bool restore_print_status_foreground_ = false;
         lv_obj_t *promptpanel_cont;
         lv_obj_t *prompt_cont;
         lv_obj_t *flex;

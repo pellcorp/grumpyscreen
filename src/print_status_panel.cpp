@@ -166,11 +166,24 @@ PrintStatusPanel::~PrintStatusPanel() {
 
 void PrintStatusPanel::foreground() {
   // populate();
+
+  // if there was a filament runout on resume we need to re-enable resume button
+  State* s = State::get_instance();
+  auto &pstate = s->get_data("/printer_state/print_stats/state"_json_pointer);
+  if (!pstate.is_null() && pstate.template get<std::string>() == "paused") {
+    resume_btn.enable();
+  }
+  is_foreground_ = true;
   lv_obj_move_foreground(status_cont);
 }
 
 void PrintStatusPanel::background() {
+  is_foreground_ = false;
   lv_obj_move_background(status_cont);
+}
+
+bool PrintStatusPanel::is_foreground() const {
+  return is_foreground_;
 }
 
 void PrintStatusPanel::reset() {
@@ -324,10 +337,10 @@ void PrintStatusPanel::consume(json &j) {
     foreground(); // auto move to front when print is detected
   }
 
-//  LOG_INFO("{}", j.dump());
   auto& pstate = j["/params/0/print_stats/state"_json_pointer];
   if (!pstate.is_null()) {
     auto print_status = pstate.template get<std::string>();
+
     if (print_status != "printing" && print_status != "paused") {
       mini_print_status.hide();
       if (print_status != "standby") {
@@ -461,8 +474,7 @@ void PrintStatusPanel::consume(json &j) {
 void PrintStatusPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
   if (btn == back_btn.get_container()) {
-    lv_obj_move_background(status_cont);
-
+    background();
   } else if (btn == emergency_btn.get_container()) {
     ws.send_jsonrpc("printer.emergency_stop");
   } else if (btn == pause_btn.get_container()) {
