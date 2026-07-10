@@ -139,6 +139,12 @@ void GuppyScreen::loop() {
   std::atomic_bool is_sleeping(false);
   Config *conf = Config::get_instance();
   int32_t display_sleep = conf->get<int32_t>("/ui/display_sleep_sec") * 1000;
+  uint32_t inactive_baseline = lv_disp_get_inactive_time(NULL);
+  uint32_t last_inactive = inactive_baseline;
+
+  LOG_DEBUG("Display sleep timeout: {} ms, starting inactivity baseline: {} ms",
+           display_sleep,
+           inactive_baseline);
 
   while (1) {
     lv_lock.lock();
@@ -153,9 +159,16 @@ void GuppyScreen::loop() {
 #endif
 
     if (display_sleep != -1) {
-      if (lv_disp_get_inactive_time(NULL) > display_sleep) {
+      const uint32_t current_inactive = lv_disp_get_inactive_time(NULL);
+      if (current_inactive < last_inactive) {
+        inactive_baseline = current_inactive;
+      }
+      last_inactive = current_inactive;
+
+      const uint32_t effective_inactive = current_inactive - inactive_baseline;
+      if (effective_inactive > static_cast<uint32_t>(display_sleep)) {
         if (!is_sleeping.load()) {
-          LOG_DEBUG("putting display to sleeping");
+          LOG_DEBUG("putting display to sleeping after {} ms effective inactivity", effective_inactive);
 #ifndef GUPPY_WAYLAND
           fbdev_blank();
 #endif
@@ -272,16 +285,16 @@ void GuppyScreen::save_calibration_coeff(lv_tc_coeff_t coeff) {
 uint32_t custom_tick_get(void) {
   static uint64_t start_ms = 0;
   if (start_ms == 0) {
-    struct timeval tv_start;
-    gettimeofday(&tv_start, NULL);
-    start_ms = (tv_start.tv_sec * 1000000 + tv_start.tv_usec) / 1000;
+    struct timespec ts_start;
+    clock_gettime(CLOCK_MONOTONIC, &ts_start);
+    start_ms = static_cast<uint64_t>(ts_start.tv_sec) * 1000ULL +
+               static_cast<uint64_t>(ts_start.tv_nsec) / 1000000ULL;
   }
 
-  struct timeval tv_now;
-  gettimeofday(&tv_now, NULL);
-  uint64_t now_ms;
-  now_ms = (tv_now.tv_sec * 1000000 + tv_now.tv_usec) / 1000;
+  struct timespec ts_now;
+  clock_gettime(CLOCK_MONOTONIC, &ts_now);
+  const uint64_t now_ms = static_cast<uint64_t>(ts_now.tv_sec) * 1000ULL +
+                          static_cast<uint64_t>(ts_now.tv_nsec) / 1000000ULL;
 
-  uint32_t time_ms = now_ms - start_ms;
-  return time_ms;
+  return static_cast<uint32_t>(now_ms - start_ms);
 }
