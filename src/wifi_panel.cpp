@@ -113,6 +113,7 @@ WifiPanel::WifiPanel(std::mutex &l)
 }
 
 WifiPanel::~WifiPanel() {
+  stop_ip_poll();
   if (cont != NULL) {
     lv_obj_del(cont);
     cont = NULL;
@@ -121,6 +122,7 @@ WifiPanel::~WifiPanel() {
 
 void WifiPanel::foreground() {
   LOG_TRACE("wifi panel fg");
+  stop_ip_poll();
   lv_obj_move_foreground(cont);
   lv_obj_clear_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   wpa_event.send_command("SCAN");
@@ -130,6 +132,7 @@ void WifiPanel::handle_back_btn(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
   if(code == LV_EVENT_CLICKED) {
     LOG_TRACE("wifi panel bg");
+    stop_ip_poll();
     lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_background(cont);
@@ -177,18 +180,15 @@ void WifiPanel::handle_callback(lv_event_t *e) {
     }
 
     if (cur_network.length() > 0 && cur_network == selected_network) {
-      auto ip = KUtils::interface_ip(KUtils::get_wifi_interface());
-      if (ip != "0.0.0.0") {
-        lv_label_set_text(wifi_label, fmt::format("Connected to {}\n\nIP: {}", selected_network, ip).c_str());
-      } else {
-        lv_label_set_text(wifi_label, fmt::format("Connecting to {}", selected_network).c_str());
-      }
+      update_connection_status_label(selected_network);
       lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
     } else if (list_networks.count(selected_network)) {
+      stop_ip_poll();
       auto nid = list_networks.find(selected_network)->second;
       wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid));
       wpa_event.send_command("SAVE_CONFIG");
     } else {
+      stop_ip_poll();
       lv_label_set_text(wifi_label, fmt::format("Connect to {}\n\nPassword:", selected_network).c_str());
       lv_obj_clear_flag(password_input, LV_OBJ_FLAG_HIDDEN);
       entering_password = true;
@@ -242,12 +242,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
             lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_WIFI);
           } else if (cur_network.length() > 0) {
             lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_OK "    " LV_SYMBOL_WIFI);
-            auto ip = KUtils::interface_ip(KUtils::get_wifi_interface());
-            if (ip != "0.0.0.0") {
-              lv_label_set_text(wifi_label, fmt::format("Connected to {}\n\nIP: {}", cur_network, ip).c_str());
-            } else {
-              lv_label_set_text(wifi_label, fmt::format("Connecting to {}", cur_network).c_str());
-            }
+            update_connection_status_label(cur_network);
             lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
           }
@@ -280,12 +275,8 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
           lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_WIFI);
         } else if (cur_network.length() > 0) {
           lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_OK "    " LV_SYMBOL_WIFI);
-          auto ip = KUtils::interface_ip(KUtils::get_wifi_interface());
-          if (ip != "0.0.0.0") {
-            lv_label_set_text(wifi_label, fmt::format("Connected to {}\n\nIP: {}", cur_network, ip).c_str());
-          } else {
-            lv_label_set_text(wifi_label, fmt::format("Connecting to {}", cur_network).c_str());
-          }
+          update_connection_status_label(cur_network);
+          start_ip_poll();
           lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
         }
@@ -296,8 +287,65 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       lv_obj_clear_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
       lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
     } else {
+      stop_ip_poll();
       lv_label_set_text(wifi_label, "");
     }
+  } else if (event.rfind("<3>CTRL-EVENT-DISCONNECTED", 0) == 0) {
+    stop_ip_poll();
+  }
+}
+
+void WifiPanel::start_ip_poll() {
+  waiting_for_ip = true;
+
+  if (cur_network.empty()) {
+    stop_ip_poll();
+    return;
+  }
+
+  auto iface = KUtils::get_wifi_interface();
+  auto ip = iface.empty() ? "0.0.0.0" : KUtils::interface_ip(iface);
+  if (ip != "0.0.0.0") {
+    stop_ip_poll();
+    update_connection_status_label(cur_network);
+    return;
+  }
+
+  if (ip_poll_timer == nullptr) {
+    ip_poll_timer = lv_timer_create(&WifiPanel::_handle_ip_poll_timer, 500, this);
+  }
+}
+
+void WifiPanel::stop_ip_poll() {
+  waiting_for_ip = false;
+  if (ip_poll_timer != nullptr) {
+    lv_timer_del(ip_poll_timer);
+    ip_poll_timer = nullptr;
+  }
+}
+
+void WifiPanel::update_connection_status_label(const std::string &network_name) {
+  auto iface = KUtils::get_wifi_interface();
+  auto ip = iface.empty() ? "0.0.0.0" : KUtils::interface_ip(iface);
+  if (ip != "0.0.0.0") {
+    lv_label_set_text(wifi_label, fmt::format("Connected to {}\n\nIP: {}", network_name, ip).c_str());
+  } else {
+    lv_label_set_text(wifi_label, fmt::format("Connecting to {}", network_name).c_str());
+  }
+}
+
+void WifiPanel::handle_ip_poll_timer() {
+  if (!waiting_for_ip || cur_network.empty()) {
+    stop_ip_poll();
+    return;
+  }
+
+  update_connection_status_label(cur_network);
+
+  auto iface = KUtils::get_wifi_interface();
+  auto ip = iface.empty() ? "0.0.0.0" : KUtils::interface_ip(iface);
+  if (ip != "0.0.0.0") {
+    stop_ip_poll();
   }
 }
 

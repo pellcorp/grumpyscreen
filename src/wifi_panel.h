@@ -25,6 +25,10 @@ class WifiPanel {
   void handle_kb_input(lv_event_t *e);
   void connect(const char *);
   bool find_current_network();
+  void start_ip_poll();
+  void stop_ip_poll();
+  void update_connection_status_label(const std::string &network_name);
+  void handle_ip_poll_timer();
 
   static void _handle_back_btn(lv_event_t *event) {
     WifiPanel *panel = (WifiPanel*)event->user_data;
@@ -51,9 +55,15 @@ class WifiPanel {
     panel->remove_network(e);
   };
 
+  static void _handle_ip_poll_timer(lv_timer_t *timer) {
+    WifiPanel *panel = static_cast<WifiPanel *>(timer->user_data);
+    panel->handle_ip_poll_timer();
+  }
+
  private:
   std::mutex &lv_lock;
   WpaEvent wpa_event;
+  lv_timer_t *ip_poll_timer = nullptr;
   lv_obj_t *cont;
   lv_obj_t *spinner;
   lv_obj_t *top_cont;
@@ -70,6 +80,7 @@ class WifiPanel {
   std::map<std::string, std::string> list_networks;
   std::map<std::string, int> wifi_name_db;
   bool entering_password = false;
+  bool waiting_for_ip = false;
 
 };
 
