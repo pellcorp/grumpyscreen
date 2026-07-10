@@ -34,11 +34,6 @@ SensorContainer::SensorContainer(KWebSocketClient &c,
     lv_obj_set_style_border_side(sensor_cont, LV_BORDER_SIDE_LEFT, LV_PART_MAIN);
     lv_obj_set_style_border_width(sensor_cont, 5, LV_PART_MAIN);
 
-    // auto cont_width = (double)lv_disp_get_physical_hor_res(NULL) * 0.4125;
-    // cont_width = cont_width > 330 ? 330 : cont_width;
-    // auto cont_height = (double)lv_disp_get_physical_ver_res(NULL) * 0.125;
-    // cont_height = cont_height > 60 ? 60 : cont_height;
-
     auto width_scale = (double)lv_disp_get_physical_hor_res(NULL) / 800.0;
     auto height_scale = (double)lv_disp_get_physical_ver_res(NULL) / 480.0;
     lv_obj_set_size(sensor_cont, 330 * width_scale, 60 * height_scale);
@@ -75,8 +70,7 @@ SensorContainer::SensorContainer(KWebSocketClient &c,
       lv_obj_set_style_radius(target_label, 6, LV_PART_MAIN);
       lv_obj_set_style_border_color(target_label, lv_palette_darken(LV_PALETTE_GREY, 1), LV_PART_MAIN);
 
-      LOG_DEBUG("sensor cb registered name {}, cont {}, this {}, np {}",
-		    id, fmt::ptr(sensor_cont), fmt::ptr(this), fmt::ptr(&np));
+      LOG_DEBUG("sensor cb registered name {}", id);
       lv_obj_add_event_cb(sensor_cont, &SensorContainer::_handle_edit, LV_EVENT_CLICKED, this);
     } 
 }
