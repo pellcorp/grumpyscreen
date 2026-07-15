@@ -4,7 +4,7 @@ Grumpyscreen is a fork of GuppyScreen specifically for Simple AF
 
 ## Features
 
-:white_check_mark: Setup Wifi 
+:white_check_mark: Setup Wifi  
 :white_check_mark: Print Status  
 :white_check_mark: Extrude/Retract  
 :white_check_mark: Temperature Control  
