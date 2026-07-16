@@ -71,12 +71,9 @@ WAYLAND_XDG_PROTOCOL := $(WAYLAND_PROTOCOLS_BASE)/stable/xdg-shell/xdg-shell.xml
 WAYLAND_PROTOCOL_GEN_DIR := $(BUILD_DIR)/wayland-src/protocols
 WAYLAND_PROTOCOL_GEN_C := $(WAYLAND_PROTOCOL_GEN_DIR)/wayland-xdg-shell-client-protocol.c
 WAYLAND_PROTOCOL_GEN_H := $(WAYLAND_PROTOCOL_GEN_DIR)/wayland-xdg-shell-client-protocol.h
-WAYLAND_PATCHED_SRC := $(BUILD_DIR)/wayland-src/wayland.c
-WAYLAND_PATCHED_OBJ := $(BUILD_OBJ_DIR)/$(patsubst ./%,%,$(WAYLAND_PATCHED_SRC:.c=.o))
 WAYLAND_PROTOCOL_OBJ := $(BUILD_OBJ_DIR)/$(patsubst ./%,%,$(WAYLAND_PROTOCOL_GEN_C:.c=.o))
+WAYLAND_SRC_OBJ := $(BUILD_OBJ_DIR)/lv_drivers/wayland/wayland.o
 
-CSRCS			:= $(filter-out $(LVGL_DIR)/lv_drivers/wayland/wayland.c lv_drivers/wayland/wayland.c,$(CSRCS))
-CSRCS			+= $(WAYLAND_PATCHED_SRC)
 CSRCS			+= $(WAYLAND_PROTOCOL_GEN_C)
 endif
 
@@ -190,11 +187,7 @@ $(WAYLAND_PROTOCOL_GEN_C) $(WAYLAND_PROTOCOL_GEN_H): $(WAYLAND_XDG_PROTOCOL)
 	$(WAYLAND_SCANNER) client-header $< $(WAYLAND_PROTOCOL_GEN_H)
 	$(WAYLAND_SCANNER) private-code $< $(WAYLAND_PROTOCOL_GEN_C)
 
-$(WAYLAND_PATCHED_SRC): lv_drivers/wayland/wayland.c $(WAYLAND_PROTOCOL_GEN_H)
-	@mkdir -p $(dir $@)
-	perl -0pe 's/app->xdg_wm = wl_registry_bind\(app->registry, name, &xdg_wm_base_interface, version\);/uint32_t bind_version = version;\n        if (bind_version > xdg_wm_base_interface.version)\n        {\n            bind_version = xdg_wm_base_interface.version;\n        }\n\n        app->xdg_wm = wl_registry_bind(app->registry, name, \&xdg_wm_base_interface, bind_version);/; s/xdg_toplevel_set_app_id\(window->xdg_toplevel, title\);/xdg_toplevel_set_app_id(window->xdg_toplevel, title);\n        xdg_toplevel_set_min_size(window->xdg_toplevel, width, height);\n        xdg_toplevel_set_max_size(window->xdg_toplevel, width, height);/; s/case OBJECT_BUTTON_MAXIMIZE:\n        if \(\(button == BTN_LEFT\) && \(state == WL_POINTER_BUTTON_STATE_RELEASED\)\)\n        \{\n            if \(window->xdg_toplevel\)\n            \{\n                if \(window->maximized\)\n                \{\n                    xdg_toplevel_unset_maximized\(window->xdg_toplevel\);\n                \}\n                else\n                \{\n                    xdg_toplevel_set_maximized\(window->xdg_toplevel\);\n                \}\n                window->maximized \^= true;\n                window->flush_pending = true;\n            \}\n        \}\n        break;/case OBJECT_BUTTON_MAXIMIZE:\n        break;/; s/case OBJECT_BUTTON_MAXIMIZE:\n        if \(window->xdg_toplevel\)\n        \{\n            if \(window->maximized\)\n            \{\n                xdg_toplevel_unset_maximized\(window->xdg_toplevel\);\n            \}\n            else\n            \{\n                xdg_toplevel_set_maximized\(window->xdg_toplevel\);\n            \}\n            window->maximized \^= true;\n        \}\n        break;/case OBJECT_BUTTON_MAXIMIZE:\n        break;/; s/case OBJECT_BUTTON_MAXIMIZE:\n        pos_x = parent->width - 2 \* \(BUTTON_MARGIN \+ BUTTON_SIZE\);\n        pos_y = -1 \* \(BUTTON_MARGIN \+ BUTTON_SIZE \+ \(BORDER_SIZE \/ 2\)\);\n        break;/case OBJECT_BUTTON_MAXIMIZE:\n        pos_x = parent->width + BORDER_SIZE;\n        pos_y = 0;\n        break;/; s/case OBJECT_BUTTON_MINIMIZE:\n        pos_x = parent->width - 3 \* \(BUTTON_MARGIN \+ BUTTON_SIZE\);\n        pos_y = -1 \* \(BUTTON_MARGIN \+ BUTTON_SIZE \+ \(BORDER_SIZE \/ 2\)\);\n        break;/case OBJECT_BUTTON_MINIMIZE:\n        pos_x = parent->width - 2 * \(BUTTON_MARGIN + BUTTON_SIZE\);\n        pos_y = -1 * \(BUTTON_MARGIN + BUTTON_SIZE + \(BORDER_SIZE \/ 2\)\);\n        break;/' $< > $@
-
-$(WAYLAND_PATCHED_OBJ): $(WAYLAND_PROTOCOL_GEN_H)
+$(WAYLAND_SRC_OBJ): $(WAYLAND_PROTOCOL_GEN_H)
 $(WAYLAND_PROTOCOL_OBJ): $(WAYLAND_PROTOCOL_GEN_H)
 endif
 
