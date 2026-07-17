@@ -26,8 +26,6 @@ RUN git clone --depth=1 https://github.com/pellcorp/klipper-rpi.git ${KLIPPER_DI
 
 RUN git clone --depth=1 https://github.com/Arksine/moonraker.git ${MOONRAKER_DIR}
 
-RUN  git clone https://git.savannah.nongnu.org/git/simulavr.git ${SIMULAVR_DIR}
-
 RUN mkdir -p ${FLUIDD_DIR} \
     && wget -O /tmp/fluidd.zip https://github.com/fluidd-core/fluidd/releases/latest/download/fluidd.zip \
     && unzip /tmp/fluidd.zip -d ${FLUIDD_DIR} \
@@ -42,20 +40,16 @@ RUN ./scripts/install-moonraker.sh -z -x -d ${PRINTER_DATA}
 
 WORKDIR ${KLIPPER_DIR}
 
-COPY --chown=developer:developer simulavr.config ${KLIPPER_DIR}/.config
-
 RUN python3 -m venv ${KLIPPY_ENV} \
     && ${KLIPPY_ENV}/bin/pip install --upgrade pip wheel \
-    && ${KLIPPY_ENV}/bin/pip install -r ${KLIPPER_DIR}/scripts/klippy-requirements.txt \
-    && make \
-    && cp /home/developer/klipper/out/klipper.elf /home/developer/simulavr.elf \
-    && cp /home/developer/klipper/out/klipper.dict /home/developer/simulavr.dict \
-    && make clean
+    && ${KLIPPY_ENV}/bin/pip install -r ${KLIPPER_DIR}/scripts/klippy-requirements.txt
 
-WORKDIR ${SIMULAVR_DIR}
+COPY --chown=developer:developer printer_simulator/requirements.txt /home/developer/printer_simulator/requirements.txt
+RUN ${KLIPPY_ENV}/bin/pip install --no-cache-dir -r /home/developer/printer_simulator/requirements.txt
+COPY --chown=developer:developer printer_simulator /home/developer/printer_simulator
 
-RUN make python \
-    && make build
+WORKDIR /home/developer/printer_simulator
+RUN make
 
 COPY --chown=developer:developer linux.config ${KLIPPER_DIR}/.config
 
