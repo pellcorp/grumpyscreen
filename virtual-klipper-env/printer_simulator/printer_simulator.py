@@ -3,6 +3,7 @@ from printer_hardware.heatbed import Heatbed
 from printer_hardware.input_pin import InputPin
 from printer_hardware.output_pin import OutputPin
 from printer_hardware.pin_handler import PinHandler
+from printer_hardware.probe import BedSurface, Probe
 from printer_hardware.server import FakeHardwareServer
 from printer_hardware.single_extruder import Extruder
 from printer_hardware.state_io import STATE_FILE_PATH
@@ -51,6 +52,22 @@ extruder = Extruder(
     heater_pin="chip4_gpio3",
     sensor_pin="analog1",
 )
+probe = Probe(
+    name="probe",
+    pin="chip5_gpio0",
+    x_axis=axis[0],
+    y_axis=axis[1],
+    z_axis=axis[2],
+    z_offset=0.5,
+    bed_surface=BedSurface(
+        tilt_x=0.0008,
+        tilt_y=-0.0004,
+        bump_x=150.0,
+        bump_y=150.0,
+        bump_height=0.3,
+        bump_radius=80.0,
+    ),
+)
 io_pins: list[PinHandler] = [
     InputPin(name="filament_sensor", pin="chip6_gpio3", initial_value=1),
     OutputPin(name="fan", pin="chip6_gpio0"),
@@ -61,7 +78,7 @@ io_pins: list[PinHandler] = [
 
 if __name__ == "__main__":
     fake_server = FakeHardwareServer(
-        hardware_components=axis + [heatbed, extruder] + io_pins,
+        hardware_components=axis + [heatbed, extruder, probe] + io_pins,
         state_file_path=STATE_FILE_PATH,
     )
     fake_server.run()
