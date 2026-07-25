@@ -14,6 +14,10 @@
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 
+namespace {
+constexpr double calibration_version = 1.0;
+}
+
 GuppyScreen *GuppyScreen::instance = NULL;
 lv_style_t GuppyScreen::style_container;
 lv_style_t GuppyScreen::style_imgbtn_default;
@@ -237,6 +241,14 @@ std::vector<float> GuppyScreen::load_calibration_coeff() {
     return {};
   }
 
+  // we want to be able to switch between branches so use the version field to do this, for version 1.0
+  // a missing version field is acceptable and we do not want to recalibrate in that case, only where
+  // its specified and not equal to 1.0
+  if (j.contains("version") && j["version"].get<double>() != calibration_version) {
+    LOG_INFO("discarding calibration data: missing or unsupported version (expected {})", calibration_version);
+    return {};
+  }
+
   if (!j.contains("display_rotate") || !j["display_rotate"].is_number_unsigned()) {
     LOG_INFO("discarding calibration data: missing display_rotate");
     return {};
@@ -274,6 +286,7 @@ void GuppyScreen::save_calibration_coeff(lv_tc_coeff_t coeff) {
   auto config_path = fs::canonical("/proc/self/exe").parent_path() / "calibration.json";
   Config *conf = Config::get_instance();
   json j = {
+    {"version", calibration_version},
     {"display_rotate", conf->get<std::uint32_t>("/ui/display_rotate")},
     {"calibrations", {coeff.a, coeff.b, coeff.c, coeff.d, coeff.e, coeff.f}},
   };
