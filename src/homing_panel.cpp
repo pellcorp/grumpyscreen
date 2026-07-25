@@ -175,9 +175,15 @@ void HomingPanel::handle_callback(lv_event_t *event) {
   const char * distance = lv_btnmatrix_get_btn_text(distance_selector.get_selector(),
 						    distance_selector.get_selected_idx());
   if (btn == home_all_btn.get_container()) {
+    if (!home_all_btn.start_pressed_transition(1000)) {
+      return;
+    }
     LOG_DEBUG("home all pressed");
     ws.gcode_script("G28");
   } else if (btn == home_xy_btn.get_container()) {
+    if (!home_xy_btn.start_pressed_transition(1000)) {
+      return;
+    }
     LOG_DEBUG("home xy pressed");
     ws.gcode_script("G28 X Y");
   } else if (btn == y_up_btn.get_container()) {
