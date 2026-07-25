@@ -15,7 +15,7 @@
 namespace fs = std::experimental::filesystem;
 
 namespace {
-constexpr double calibration_version = 1.0;
+constexpr double calibration_version = 2.0;
 }
 
 GuppyScreen *GuppyScreen::instance = NULL;
@@ -241,10 +241,8 @@ std::vector<float> GuppyScreen::load_calibration_coeff() {
     return {};
   }
 
-  // we want to be able to switch between branches so use the version field to do this, for version 1.0
-  // a missing version field is acceptable and we do not want to recalibrate in that case, only where
-  // its specified and not equal to 1.0
-  if (j.contains("version") && j["version"].get<double>() != calibration_version) {
+  if (!j.contains("version") || !j["version"].is_number() ||
+      j["version"].get<double>() != calibration_version) {
     LOG_INFO("discarding calibration data: missing or unsupported version (expected {})", calibration_version);
     return {};
   }
