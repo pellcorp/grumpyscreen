@@ -54,6 +54,9 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
 }
 
 ButtonContainer::~ButtonContainer() {
+  if (pressed_transition_timer != nullptr) {
+    lv_timer_del(pressed_transition_timer);
+  }
 }
 
 lv_obj_t *ButtonContainer::get_container() {
@@ -78,6 +81,28 @@ void ButtonContainer::enable() {
 
 void ButtonContainer::hide() {
   lv_obj_add_flag(btn_cont, LV_OBJ_FLAG_HIDDEN);
+}
+
+bool ButtonContainer::start_pressed_transition(uint32_t duration_ms) {
+  if (pressed_transition_timer != nullptr) {
+    return false;
+  }
+
+  lv_imgbtn_set_state(btn, LV_IMGBTN_STATE_PRESSED);
+  lv_obj_clear_flag(btn, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_clear_flag(btn_cont, LV_OBJ_FLAG_CLICKABLE);
+  pressed_transition_timer = lv_timer_create(&ButtonContainer::_handle_pressed_transition_timer,
+                                             duration_ms, this);
+  lv_timer_set_repeat_count(pressed_transition_timer, 1);
+  return true;
+}
+
+void ButtonContainer::_handle_pressed_transition_timer(lv_timer_t *timer) {
+  ButtonContainer *button_container = static_cast<ButtonContainer *>(timer->user_data);
+  button_container->pressed_transition_timer = nullptr;
+  lv_imgbtn_set_state(button_container->btn, LV_IMGBTN_STATE_RELEASED);
+  lv_obj_add_flag(button_container->btn, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_flag(button_container->btn_cont, LV_OBJ_FLAG_CLICKABLE);
 }
 
 void ButtonContainer::set_image(const void *img) {

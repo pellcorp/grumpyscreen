@@ -27,6 +27,8 @@ class ButtonContainer {
   void disable();
   void enable();
   void hide();
+  // Keep the pressed visual visible and ignore input until the delay expires.
+  bool start_pressed_transition(uint32_t duration_ms);
 
   void set_image(const void *img);
 
@@ -48,6 +50,9 @@ class ButtonContainer {
   PromptMode prompt_mode;
   bool prompt_multiline;
   bool dispatch_confirmed_click = false;
+  lv_timer_t *pressed_transition_timer = nullptr;
+
+  static void _handle_pressed_transition_timer(lv_timer_t *timer);
 };
 
 #endif // __BUTTON_CONTAINER_H__
