@@ -8,6 +8,7 @@
 #include "notify_consumer.h"
 
 #include <mutex>
+#include <string>
 
 class HomingPanel : public NotifyConsumer {
  public:
@@ -31,6 +32,8 @@ class HomingPanel : public NotifyConsumer {
   };
 
  private:
+  void update_homing_controls(const std::string &homed_axes);
+
   KWebSocketClient &ws;
   lv_obj_t *homing_cont;
   ButtonContainer home_all_btn;

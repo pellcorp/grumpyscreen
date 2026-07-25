@@ -71,34 +71,53 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
 HomingPanel::~HomingPanel() {
 }
 
+void HomingPanel::update_homing_controls(const std::string &homed_axes) {
+  const bool x_axis_homed = homed_axes.find("x") != std::string::npos;
+  const bool y_axis_homed = homed_axes.find("y") != std::string::npos;
+  const bool z_axis_homed = homed_axes.find("z") != std::string::npos;
+
+  if (x_axis_homed && y_axis_homed && z_axis_homed) {
+    home_all_btn.disable();
+    home_xy_btn.disable();
+  } else {
+    home_all_btn.enable();
+    home_xy_btn.enable();
+  }
+
+  if (x_axis_homed) {
+    x_up_btn.enable();
+    x_down_btn.enable();
+  } else {
+    x_up_btn.disable();
+    x_down_btn.disable();
+  }
+
+  if (y_axis_homed) {
+    y_up_btn.enable();
+    y_down_btn.enable();
+  } else {
+    y_up_btn.disable();
+    y_down_btn.disable();
+  }
+
+  if (z_axis_homed) {
+    z_up_btn.enable();
+    z_down_btn.enable();
+  } else {
+    z_up_btn.disable();
+    z_down_btn.disable();
+  }
+}
+
 void HomingPanel::consume(json &j) {
   std::lock_guard<std::mutex> lock(lv_lock);
   auto v = j["/params/0/toolhead/homed_axes"_json_pointer];
   if (!v.is_null()) {
     std::string homed_axes = v.template get<std::string>();
-    if (homed_axes.find("x") != std::string::npos) {
-      x_up_btn.enable();
-      x_down_btn.enable();
-    } else {
-      x_up_btn.disable();
-      x_down_btn.disable();
-    }
 
-    if (homed_axes.find("y") != std::string::npos) {
-      y_up_btn.enable();
-      y_down_btn.enable();
-    } else {
-      y_up_btn.disable();
-      y_down_btn.disable();
-    }
+    LOG_INFO("homed_axes is {}", homed_axes);
 
-    if (homed_axes.find("z") != std::string::npos) {
-      z_up_btn.enable();
-      z_down_btn.enable();
-    } else {
-      z_up_btn.disable();
-      z_down_btn.disable();
-    }
+    update_homing_controls(homed_axes);
   }
 
   json &pstat_state = j["/params/0/print_stats/state"_json_pointer];
@@ -125,36 +144,9 @@ void HomingPanel::foreground() {
   auto v = State::get_instance()->get_data("/printer_state/toolhead/homed_axes"_json_pointer);
   if (!v.is_null()) {
     std::string homed_axes = v.template get<std::string>();
-    if (homed_axes.find("x") != std::string::npos) {
-      x_up_btn.enable();
-      x_down_btn.enable();
-    } else {
-      x_up_btn.disable();
-      x_down_btn.disable();
-    }
 
-    if (homed_axes.find("y") != std::string::npos) {
-      y_up_btn.enable();
-      y_down_btn.enable();
-    } else {
-      y_up_btn.disable();
-      y_down_btn.disable();
-    }
-
-    //Set the Z axis buttons
-    z_up_btn.set_image(&z_farther);
-    z_down_btn.set_image(&z_closer);
-
-    if (homed_axes.find("z") != std::string::npos) {
-      z_up_btn.enable();
-      z_down_btn.enable();
-    } else {
-      z_up_btn.disable();
-      z_down_btn.disable();
-    }
+    update_homing_controls(homed_axes);
   }
-
-  //Set the Z axis buttons
 
   const bool inverted = Config::get_instance()->get<bool>("/ui/invert_z_icon");
   if (inverted) {
@@ -175,15 +167,9 @@ void HomingPanel::handle_callback(lv_event_t *event) {
   const char * distance = lv_btnmatrix_get_btn_text(distance_selector.get_selector(),
 						    distance_selector.get_selected_idx());
   if (btn == home_all_btn.get_container()) {
-    if (!home_all_btn.start_pressed_transition(1000)) {
-      return;
-    }
     LOG_DEBUG("home all pressed");
     ws.gcode_script("G28");
   } else if (btn == home_xy_btn.get_container()) {
-    if (!home_xy_btn.start_pressed_transition(1000)) {
-      return;
-    }
     LOG_DEBUG("home xy pressed");
     ws.gcode_script("G28 X Y");
   } else if (btn == y_up_btn.get_container()) {

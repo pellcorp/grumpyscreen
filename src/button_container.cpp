@@ -68,15 +68,24 @@ lv_obj_t *ButtonContainer::get_button() {
 }
 
 void ButtonContainer::disable() {
-  lv_obj_add_state(btn, LV_STATE_DISABLED);
+  // lv_imgbtn_set_state() owns the state bits on image buttons.  Using the
+  // generic lv_obj_add_state() is overwritten by a later
+  // lv_imgbtn_set_state(...RELEASED) call (such as the pressed transition).
+  if (pressed_transition_timer != nullptr) {
+    lv_timer_del(pressed_transition_timer);
+    pressed_transition_timer = nullptr;
+  }
+  lv_imgbtn_set_state(btn, LV_IMGBTN_STATE_DISABLED);
   lv_obj_add_state(btn_cont, LV_STATE_DISABLED);
   lv_obj_add_state(label, LV_STATE_DISABLED);
 }
 
 void ButtonContainer::enable() {
-  lv_obj_clear_state(btn, LV_STATE_DISABLED);
+  lv_imgbtn_set_state(btn, LV_IMGBTN_STATE_RELEASED);
   lv_obj_clear_state(btn_cont, LV_STATE_DISABLED);
   lv_obj_clear_state(label, LV_STATE_DISABLED);
+  lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_flag(btn_cont, LV_OBJ_FLAG_CLICKABLE);
 }
 
 void ButtonContainer::hide() {
