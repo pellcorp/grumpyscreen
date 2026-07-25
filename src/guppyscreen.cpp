@@ -244,6 +244,7 @@ std::vector<float> GuppyScreen::load_calibration_coeff() {
 
   Config *conf = Config::get_instance();
   auto current_rotate = conf->get<std::uint32_t>("/ui/display_rotate");
+
   auto saved_rotate = j["display_rotate"].get<std::uint32_t>();
   if (saved_rotate != current_rotate) {
     LOG_INFO("discarding calibration data: display_rotate changed from {} to {}", saved_rotate, current_rotate);

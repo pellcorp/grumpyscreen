@@ -147,8 +147,9 @@ if [ -n "$PRINTER_IP" ] && [ -f build/bin/grumpyscreen ]; then
     sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen /usr/data/grumpyscreen/grumpyscreen"
 
     cp grumpyscreen.cfg /tmp
+    # this assumes a Ender 3 V3 KE Nebula pad configuration
     if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
-      sed -i 's/display_rotate: 3/display_rotate: 1/g' /tmp/grumpyscreen.cfg
+      sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
     fi
 
     if [ "$COSMOS" = "true" ]; then

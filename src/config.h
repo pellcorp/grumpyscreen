@@ -33,7 +33,13 @@ public:
         const json& v = j_.at(jp);
         if constexpr (std::is_same_v<T, std::string>) return v.is_string() ? v.get<std::string>() : def;
         else if constexpr (std::is_same_v<T, bool>)   return v.is_boolean() ? v.get<bool>() : def;
-        else if constexpr (std::is_integral_v<T>)     return v.is_number_integer() ? static_cast<T>(v.get<long long>()) : def;
+        else if constexpr (std::is_integral_v<T>) {
+            if (v.is_number_integer()) return static_cast<T>(v.get<long long>());
+            // The INI parser accepts 0 and 1 as boolean literals. Allow an
+            // integral setting such as ui.display_rotate to use those values.
+            if (v.is_boolean()) return static_cast<T>(v.get<bool>());
+            return def;
+        }
         else static_assert(!sizeof(T*), "unsupported T");
     }
 

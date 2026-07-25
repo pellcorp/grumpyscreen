@@ -23,10 +23,12 @@ port: 7125
 
 [display]
 brightness: 90
-rotate: 3
+rotate: 1
 sleep_sec: 600
 
 [ui]
+numeric_true: 1
+numeric_false: 0
 extruder_temp_presets: 190, 220, 245
 extruder_temp_default: 245
 extruder_length_presets: 5, 25
@@ -91,8 +93,10 @@ value: ignored
     assert(conf->get<std::string>("/moonraker/host") == "moonraker.local");
     assert(conf->get<int32_t>("/moonraker/port") == 7125);
     assert(conf->get<int32_t>("/display/brightness") == 90);
-    assert(conf->get<int32_t>("/display/rotate") == 3);
+    assert(conf->get<int32_t>("/display/rotate") == 1);
     assert(conf->get<int32_t>("/display/sleep_sec") == 600);
+    assert(conf->get<bool>("/ui/numeric_true"));
+    assert(!conf->get<bool>("/ui/numeric_false"));
     assert(conf->get<std::string>("/ui/extruder_temp_presets") == "190, 220, 245");
     assert(conf->get<int32_t>("/ui/extruder_temp_default") == 250);
     assert(conf->get<std::string>("/ui/extruder_length_presets") == "5, 25");
