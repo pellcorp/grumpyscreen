@@ -12,13 +12,13 @@ extern "C" {
 #if defined CONFIG_USE_CUSTOM_LV_TC_START_MSG
 #define LV_TC_START_MSG CONFIG_LV_TC_START_MSG
 #else
-#define LV_TC_START_MSG                         "Precisely touch the cursors (using a touch pen) to perform the calibration."
+#define LV_TC_START_MSG                         "Touch the crosshairs as precisely as possible to perform calibration."
 #endif
 
 #if defined CONFIG_USE_CUSTOM_LV_TC_READY_MSG
 #define LV_TC_READY_MSG CONFIG_LV_TC_READY_MSG
 #else
-#define LV_TC_READY_MSG                         "Calibration completed. You can check it by moving the cursor around on the screen."
+#define LV_TC_READY_MSG                         "Calibration completed. You can check it by moving the crosshairs around on the screen."
 #endif
 
 #if defined CONFIG_USE_CUSTOM_LV_TC_RECALIBRATE_TXT
