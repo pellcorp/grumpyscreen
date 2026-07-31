@@ -1,5 +1,6 @@
 /*.log
 build/
+build-bootstrap/
 *.d
 *.o
 *.a

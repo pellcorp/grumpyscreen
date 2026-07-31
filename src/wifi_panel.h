@@ -4,15 +4,23 @@
 #include "wpa_event.h"
 #include "button_container.h"
 #include "lvgl/lvgl.h"
+#include <functional>
 #include <mutex>
 
 #include <map>
 #include <set>
 #include <string>
 
+struct WifiPanelOptions {
+  lv_obj_t *parent = nullptr;
+  bool show_back_button = true;
+  const char *footer_text = nullptr;
+  std::function<void()> on_back;
+};
+
 class WifiPanel {
  public:
-  WifiPanel(std::mutex &l);
+  WifiPanel(std::mutex &l, const WifiPanelOptions &options = {});
   
   ~WifiPanel();
 
@@ -72,6 +80,8 @@ class WifiPanel {
   lv_obj_t *prompt_cont;
   lv_obj_t *wifi_label;
   lv_obj_t *password_input;
+  lv_obj_t *footer_label;
+  std::function<void()> on_back;
   ButtonContainer back_btn;
   ButtonContainer refresh_btn;
   lv_obj_t *kb;

@@ -1,6 +1,5 @@
 #include "wifi_panel.h"
 #include "utils.h"
-#include "config.h"
 #include "logger.h"
 
 #include <sstream>
@@ -25,9 +24,9 @@ static void draw_part_event_cb(lv_event_t * e) {
   }
 }
 
-WifiPanel::WifiPanel(std::mutex &l)
+WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   : lv_lock(l)
-  , cont(lv_obj_create(lv_scr_act()))
+  , cont(lv_obj_create(options.parent != nullptr ? options.parent : lv_scr_act()))
   , spinner(lv_spinner_create(cont, 1000, 60))
   , top_cont(lv_obj_create(cont))
   , wifi_table(lv_table_create(top_cont))
@@ -35,6 +34,8 @@ WifiPanel::WifiPanel(std::mutex &l)
   , prompt_cont(wifi_right)
   , wifi_label(lv_label_create(prompt_cont))
   , password_input(lv_textarea_create(prompt_cont))
+  , footer_label(options.footer_text != nullptr ? lv_label_create(cont) : nullptr)
+  , on_back(options.on_back)
   , back_btn(cont, &back, "Back", &WifiPanel::_handle_back_btn, this)
   , refresh_btn(cont, &refresh_img, "Refresh", &WifiPanel::_handle_refresh_btn, this)
   , kb(lv_keyboard_create(cont))
@@ -52,6 +53,10 @@ WifiPanel::WifiPanel(std::mutex &l)
   lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -20);
   lv_obj_add_flag(refresh_btn.get_container(), LV_OBJ_FLAG_FLOATING);
   lv_obj_align(refresh_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, -100, -20);
+  if (!options.show_back_button) {
+    back_btn.hide();
+    lv_obj_align(refresh_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -20);
+  }
   
   lv_obj_set_flex_grow(top_cont, 1);
   lv_obj_set_flex_flow(top_cont, LV_FLEX_FLOW_ROW);
@@ -106,6 +111,13 @@ WifiPanel::WifiPanel(std::mutex &l)
   lv_obj_move_background(cont);
   lv_obj_move_foreground(spinner);
 
+  if (footer_label != nullptr) {
+    lv_label_set_text(footer_label, options.footer_text);
+    lv_obj_add_flag(footer_label, LV_OBJ_FLAG_FLOATING);
+    lv_obj_set_style_text_color(footer_label, lv_palette_darken(LV_PALETTE_GREY, 1), 0);
+    lv_obj_align(footer_label, LV_ALIGN_BOTTOM_LEFT, 8, -8);
+  }
+
   wpa_event.register_callback("WifiPanel",
       [this](const std::string &event) { this->handle_wpa_event(event); });
 
@@ -133,6 +145,10 @@ void WifiPanel::handle_back_btn(lv_event_t *e) {
   if(code == LV_EVENT_CLICKED) {
     LOG_TRACE("wifi panel bg");
     stop_ip_poll();
+    if (on_back) {
+      on_back();
+      return;
+    }
     lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_background(cont);

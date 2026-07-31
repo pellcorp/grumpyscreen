@@ -10,6 +10,14 @@ GIT_REVISION=$(git rev-parse HEAD)
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 function docker_make() {
+    local makefile_type=$1
+
+    makefile_arg=""
+    if [ -n "$makefile_type" ] && [ -f "Makefile.${makefile_type}" ]; then
+      makefile_arg="-f Makefile.${makefile_type}"
+      shift
+    fi
+
     MISC_ARGS=""
 
     if [ "$TARGET" = "mips" ] || [ "$TARGET" = "rpi" ]; then
@@ -48,7 +56,7 @@ function docker_make() {
     fi
 
     echo "Args: $MISC_ARGS"
-    docker run --name=grumpydev -ti --rm --entrypoint /bin/bash -v $PWD:$PWD pellcorp/grumpydev -c "cd $PWD && $MISC_ARGS GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH make $@"
+    docker run --name=grumpydev -ti --rm --entrypoint /bin/bash -v $PWD:$PWD pellcorp/grumpydev -c "cd $PWD && $MISC_ARGS GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH make $makefile_arg $@"
 }
 
 TARGET=
@@ -127,13 +135,14 @@ fi
 if [ "$SETUP" = "true" ]; then
     docker_make libhvclean || exit $?
     docker_make wpaclean || exit $?
-    docker_make clean || exit $?
+    docker_make "bootstrap" clean || exit $?
 
     docker_make libhv.a || exit $?
     docker_make wpaclient || exit $?
 fi
 
 docker_make $1 || exit $?
+docker_make "bootstrap" $1 || exit $?
 
 cp $CURRENT_DIR/grumpyscreen.cfg build/bin/
 
