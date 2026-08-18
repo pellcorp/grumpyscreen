@@ -133,6 +133,7 @@ elif [ "$TARGET" = "mips" ]; then
 fi
 
 if [ "$SETUP" = "true" ]; then
+    docker_make clean || exit $?
     docker_make libhvclean || exit $?
     docker_make wpaclean || exit $?
     docker_make "bootstrap" clean || exit $?
