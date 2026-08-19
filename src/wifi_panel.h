@@ -37,6 +37,7 @@ class WifiPanel {
   void stop_ip_poll();
   void update_connection_status_label(const std::string &network_name);
   void handle_ip_poll_timer();
+  void restart_wifi();
 
   static void _handle_back_btn(lv_event_t *event) {
     WifiPanel *panel = (WifiPanel*)event->user_data;
@@ -91,6 +92,7 @@ class WifiPanel {
   std::map<std::string, int> wifi_name_db;
   bool entering_password = false;
   bool waiting_for_ip = false;
+  std::string restart_wifi_from_network;
 
 };
 

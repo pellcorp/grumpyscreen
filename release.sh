@@ -30,6 +30,7 @@ elif [ "$ASSET_NAME" = "grumpyscreen-rpi" ]; then
   sed -i 's:/etc/init.d/S58factoryreset reset::g' $RELEASES_DIR/grumpyscreen.cfg
   # rpi does not have switch to stock
   sed -i 's:/usr/data/pellcorp/k1/switch-to-stock.sh::g' $RELEASES_DIR/grumpyscreen.cfg
-
+  # rpi does not have a restart wifi tool
+  sed -i 's:/usr/data/pellcorp/k1/tools/restart_wifi.sh::g' $RELEASES_DIR/grumpyscreen.cfg
 fi
 tar czf $ASSET_NAME.tar.gz -C releases .

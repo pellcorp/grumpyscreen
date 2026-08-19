@@ -1,12 +1,16 @@
 #include "wifi_panel.h"
+#include "config.h"
 #include "utils.h"
 #include "logger.h"
+#include "subprocess.hpp"
 
 #include <sstream>
 #include <iostream>
 #include <vector>
 #include <utility>
 #include <algorithm>
+
+namespace sp = subprocess;
 
 LV_IMG_DECLARE(back);
 LV_IMG_DECLARE(refresh_img);
@@ -195,16 +199,25 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       LOG_TRACE("handle callback - current network {}", cur_network);
     }
 
+    const bool switching_network = !cur_network.empty() && cur_network != selected_network;
+    restart_wifi_from_network.clear();
+
     if (cur_network.length() > 0 && cur_network == selected_network) {
       update_connection_status_label(selected_network);
       lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
     } else if (list_networks.count(selected_network)) {
       stop_ip_poll();
+      if (switching_network) {
+        restart_wifi_from_network = cur_network;
+      }
       auto nid = list_networks.find(selected_network)->second;
       wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid));
       wpa_event.send_command("SAVE_CONFIG");
     } else {
       stop_ip_poll();
+      if (switching_network) {
+        restart_wifi_from_network = cur_network;
+      }
       lv_label_set_text(wifi_label, fmt::format("Connect to {}\n\nPassword:", selected_network).c_str());
       lv_obj_clear_flag(password_input, LV_OBJ_FLAG_HIDDEN);
       entering_password = true;
@@ -272,6 +285,9 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
   } else if (event.rfind("<3>CTRL-EVENT-CONNECTED", 0) == 0) {
     if (find_current_network()) {
       LOG_TRACE("handle wpa event connected - current network {}", cur_network);
+      if (!restart_wifi_from_network.empty() && cur_network == selected_network) {
+        restart_wifi();
+      }
       std::vector<std::pair<std::string, int>> pairs;
       for (auto it = wifi_name_db.begin(); it != wifi_name_db.end(); ++it) {
 	      pairs.push_back(*it);
@@ -405,6 +421,29 @@ void WifiPanel::connect(const char *password) {
     wpa_event.send_command(fmt::format("ENABLE_NETWORK {}", nid));
     wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid));
     wpa_event.send_command("SAVE_CONFIG");
+  } else {
+    restart_wifi_from_network.clear();
+  }
+}
+
+void WifiPanel::restart_wifi() {
+  const std::string previous_network = std::move(restart_wifi_from_network);
+  restart_wifi_from_network.clear();
+
+  const auto cmd = Config::get_instance()->get<std::string>("/commands/restart_wifi_cmd");
+  if (cmd.empty()) {
+    LOG_DEBUG("WiFi restart command is not configured");
+    return;
+  }
+
+  LOG_INFO("Restarting WiFi after switching from {} to {}", previous_network, selected_network);
+  try {
+    const int ret = sp::call(cmd);
+    if (ret != 0) {
+      LOG_ERROR("WiFi restart command '{}' exited with status {}", cmd, ret);
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Failed to execute WiFi restart command '{}': {}", cmd, e.what());
   }
 }
 
