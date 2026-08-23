@@ -54,21 +54,21 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , wifi_panel(l)
   , wifi_btn(cont, &network_img, "WIFI", &SettingPanel::_handle_callback, this)
   , restart_klipper_btn(cont, &refresh_img, "Restart Klipper", &SettingPanel::_handle_callback, this,
-        "Restart Klipper?", "Do you want to restart klipper?", ButtonContainer::PromptMode::Destructive)
+        "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
   , restart_firmware_btn(cont, &refresh_img, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
-        "Firmware Restart?", "Do you want to perform a firmware restart?", ButtonContainer::PromptMode::Destructive)
+        "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
   , guppy_restart_btn(cont, &refresh_img, "Restart GUI", &SettingPanel::_handle_callback, this)
   , support_zip_btn(cont, &sd_img, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
   , switch_to_stock_btn(cont, &emergency, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-          SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive, true)
+          SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"}, true)
   , factory_reset_btn(cont, &emergency, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-    		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive, true)
+		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"}, true)
 #ifdef UPDATE_BUTTON_CMD
   , update_btn(cont, &update_img, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-          UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, ButtonContainer::PromptMode::Destructive, true)
+          UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, {"Back", "Update"}, true)
 #else
   , shutdown_host_btn(cont, &emergency, "Shutdown Host", &SettingPanel::_handle_callback, this,
-          "Shutdown host?", "Do you want to shutdown the host?", ButtonContainer::PromptMode::Destructive)
+          "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
 #endif
 {
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);

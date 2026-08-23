@@ -15,14 +15,14 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
 				 void* user_data,
 				 const std::string &title,
 				 const std::string &prompt,
-				 const PromptMode mode,
+				 const std::array<std::string, 2> &buttons,
 				 const bool multiline_prompt)
   : btn_cont(lv_obj_create(parent))
   , btn(lv_imgbtn_create(btn_cont))
   , label(lv_label_create(btn_cont))
   , title_text(title)
   , prompt_text(prompt)
-  , prompt_mode(mode)
+  , prompt_buttons(buttons)
   , prompt_multiline(multiline_prompt)
 {
   lv_obj_set_style_pad_all(btn_cont, 0, 0);
@@ -131,14 +131,12 @@ void ButtonContainer::handle_callback(lv_event_t *e) {
 }
 
 void ButtonContainer::handle_prompt() {
-  static const char *destructive_btns[] = {"No", "Yes", ""};
-  static const char *btns[] = {"Yes", "No", ""};
+  prompt_button_map = {prompt_buttons[0].c_str(), prompt_buttons[1].c_str(), ""};
 
-  const bool destructive = prompt_mode == PromptMode::Destructive;
   SimpleDialogOptions options{};
-  options.buttons = destructive ? destructive_btns : btns;
-  options.error = destructive;
-  options.highlighted_button_idx = destructive ? 1 : -1;
+  options.buttons = prompt_button_map.data();
+  options.error = true;
+  options.highlighted_button_idx = 1;
   options.multiline_message = prompt_multiline;
   options.result_cb = handle_button_container_dialog_result;
   options.user_data = this;
@@ -146,10 +144,7 @@ void ButtonContainer::handle_prompt() {
 }
 
 void ButtonContainer::handle_prompt_result(uint32_t clicked_btn) {
-  const bool destructive = prompt_mode == PromptMode::Destructive;
-  const uint32_t confirm_idx = destructive ? 1 : 0;
-
-  if (clicked_btn == confirm_idx) {
+  if (clicked_btn == 1) {
     dispatch_confirmed_click = true;
     lv_event_send(btn_cont, LV_EVENT_CLICKED, NULL);
     dispatch_confirmed_click = false;

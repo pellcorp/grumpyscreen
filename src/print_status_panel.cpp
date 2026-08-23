@@ -43,10 +43,10 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , pause_btn(buttons_cont, &pause_img, "Pause", &PrintStatusPanel::_handle_callback, this)
   , resume_btn(buttons_cont, &resume, "Resume", &PrintStatusPanel::_handle_callback, this)
   , cancel_btn(buttons_cont, &cancel, "Cancel", &PrintStatusPanel::_handle_callback, this,
-	       "Cancel Print?", "Do you want to cancel the print?", ButtonContainer::PromptMode::Destructive)
+	       "Cancel Print", "Do you want to cancel the print?", {"Back", "Cancel Print"})
   , emergency_btn(buttons_cont, &emergency, "Stop", &PrintStatusPanel::_handle_callback, this,
 		  "Emergency Stop", Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
-                  ButtonContainer::PromptMode::Destructive)
+                  {"Back", "Emergency Stop"})
   , back_btn(buttons_cont, &back, "Back", &PrintStatusPanel::_handle_callback, this)
   , thumbnail_cont(lv_obj_create(status_cont))
   , thumbnail(lv_img_create(thumbnail_cont))

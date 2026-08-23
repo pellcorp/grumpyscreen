@@ -3,14 +3,10 @@
 
 #include "lvgl/lvgl.h"
 
+#include <array>
 #include <string>
 class ButtonContainer {
  public:
-  enum class PromptMode {
-    Standard,
-    Destructive,
-  };
-
   ButtonContainer(lv_obj_t *parent,
 		  const void *btn_img,
 		  const char *text,
@@ -18,7 +14,7 @@ class ButtonContainer {
 		  void *user_data,
 		  const std::string &title_text = {},
 		  const std::string &prompt_text = {},
-		  const PromptMode prompt_mode = PromptMode::Standard,
+		  const std::array<std::string, 2> &prompt_buttons = {},
 		  const bool prompt_multiline = false);
   ~ButtonContainer();
 
@@ -47,7 +43,8 @@ class ButtonContainer {
   lv_obj_t *label;
   std::string title_text;
   std::string prompt_text;
-  PromptMode prompt_mode;
+  std::array<std::string, 2> prompt_buttons;
+  std::array<const char *, 3> prompt_button_map;
   bool prompt_multiline;
   bool dispatch_confirmed_click = false;
   lv_timer_t *pressed_transition_timer = nullptr;
