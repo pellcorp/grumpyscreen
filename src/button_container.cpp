@@ -131,8 +131,8 @@ void ButtonContainer::handle_callback(lv_event_t *e) {
 }
 
 void ButtonContainer::handle_prompt() {
-  static const char *destructive_btns[] = {"Cancel", "Confirm", ""};
-  static const char *btns[] = {"Confirm", "Cancel", ""};
+  static const char *destructive_btns[] = {"No", "Yes", ""};
+  static const char *btns[] = {"Yes", "No", ""};
 
   const bool destructive = prompt_mode == PromptMode::Destructive;
   SimpleDialogOptions options{};
