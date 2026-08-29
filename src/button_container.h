@@ -23,6 +23,7 @@ class ButtonContainer {
   void disable();
   void enable();
   void hide();
+  void show();
   // Keep the pressed visual visible and ignore input until the delay expires.
   bool start_pressed_transition(uint32_t duration_ms);
 

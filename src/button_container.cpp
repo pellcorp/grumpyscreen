@@ -92,6 +92,10 @@ void ButtonContainer::hide() {
   lv_obj_add_flag(btn_cont, LV_OBJ_FLAG_HIDDEN);
 }
 
+void ButtonContainer::show() {
+  lv_obj_clear_state(btn_cont, LV_OBJ_FLAG_HIDDEN);
+}
+
 bool ButtonContainer::start_pressed_transition(uint32_t duration_ms) {
   if (pressed_transition_timer != nullptr) {
     return false;

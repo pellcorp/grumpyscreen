@@ -77,15 +77,15 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   Config *conf = Config::get_instance();
   auto switch_to_stock_cmd = conf->get<std::string>("/commands/switch_to_stock_cmd");
   if (switch_to_stock_cmd == "") {
-    switch_to_stock_btn.disable();
+    switch_to_stock_btn.hide();
   }
   auto factory_reset_cmd = conf->get<std::string>("/commands/factory_reset_cmd");
   if (factory_reset_cmd == "") {
-    factory_reset_btn.disable();
+    factory_reset_btn.hide();
   }
   auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
   if (support_zip_cmd == "") {
-    support_zip_btn.disable();
+    support_zip_btn.hide();
   }
 
   static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(2), LV_GRID_FR(5), LV_GRID_FR(5), LV_GRID_TEMPLATE_LAST};
