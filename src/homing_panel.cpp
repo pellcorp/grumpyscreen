@@ -115,7 +115,7 @@ void HomingPanel::consume(json &j) {
   if (!v.is_null()) {
     std::string homed_axes = v.template get<std::string>();
 
-    LOG_INFO("homed_axes is {}", homed_axes);
+    LOG_DEBUG("homed_axes is {}", homed_axes);
 
     update_homing_controls(homed_axes);
   }

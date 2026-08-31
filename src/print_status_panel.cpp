@@ -521,6 +521,17 @@ int PrintStatusPanel::max_layer(json &info) {
     }
   }
 
+  // Status notifications are patches, so print_stats.info is normally absent
+  // from updates unrelated to a layer change.  State retains the last value
+  // reported by SET_PRINT_STATS_INFO.
+  auto &stats_info = State::get_instance()->get_data("/printer_state/print_stats/info"_json_pointer);
+  if (!stats_info.is_null()) {
+    auto v = stats_info["/total_layer"_json_pointer];
+    if (!v.is_null()) {
+      return v.template get<int>();
+    }
+  }
+
   if (!current_file.is_null()) {
     auto v = current_file["/layer_count"_json_pointer];
     if (!v.is_null()) {
@@ -542,6 +553,16 @@ int PrintStatusPanel::max_layer(json &info) {
 int PrintStatusPanel::current_layer(json &info) {
   if (!info.is_null()) {
     auto v = info["/current_layer"_json_pointer];
+    if (!v.is_null()) {
+      return v.template get<int>();
+    }
+  }
+
+  // See max_layer(): use the persisted slicer-reported layer before falling
+  // back to an estimate derived from the current Z position.
+  auto &stats_info = State::get_instance()->get_data("/printer_state/print_stats/info"_json_pointer);
+  if (!stats_info.is_null()) {
+    auto v = stats_info["/current_layer"_json_pointer];
     if (!v.is_null()) {
       return v.template get<int>();
     }
