@@ -14,15 +14,25 @@ class ButtonContainer {
 		  void *user_data,
 		  const std::string &title_text = {},
 		  const std::string &prompt_text = {},
-		  const std::array<std::string, 2> &prompt_buttons = {},
-		  const bool prompt_multiline = false);
+		  const std::array<std::string, 2> &prompt_buttons = {});
   ~ButtonContainer();
 
   lv_obj_t *get_container();
   lv_obj_t *get_button();
+  // Wear the shared card look: a tappable tile, like an MMU slot. The icon
+  // then fits itself to the cell the tile is given, so tiles never clip.
+  void use_card();
+  // the same tile without the card: no box, icon turns the accent when pressed
+  void use_plain();
+  // A card tile pinned to the parent's bottom-right corner, over the content:
+  // the Back button on panels whose content is a list rather than a grid.
+  void float_bottom_right();
+  static int float_w();  // the width of such a tile
   void disable();
   void enable();
   void hide();
+  // an icon-only tile: the label takes no room
+  void hide_label();
   void show();
   // Keep the pressed visual visible and ignore input until the delay expires.
   bool start_pressed_transition(uint32_t duration_ms);
@@ -46,10 +56,11 @@ class ButtonContainer {
   std::string prompt_text;
   std::array<std::string, 2> prompt_buttons;
   std::array<const char *, 3> prompt_button_map;
-  bool prompt_multiline;
   bool dispatch_confirmed_click = false;
   lv_timer_t *pressed_transition_timer = nullptr;
 
+  void stack();
+  void fit_icon();
   static void _handle_pressed_transition_timer(lv_timer_t *timer);
 };
 

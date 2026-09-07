@@ -16,6 +16,7 @@ class Selector {
 	   lv_event_cb_t cb,
 	   void *cb_data);
 
+  // no size of its own: fills the cell the parent stretches it into
   Selector(lv_obj_t *parent,
 	   const char *label_text,
 	   std::vector<const char*> map,

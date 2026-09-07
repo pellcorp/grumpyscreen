@@ -18,8 +18,6 @@ class SysInfoPanel {
   lv_obj_t *cont;
   lv_obj_t *left_cont;
   lv_obj_t *right_cont;
-  lv_obj_t *network_label;
-  lv_obj_t *settings_label;
 
   static std::vector<std::string> log_levels;
 };

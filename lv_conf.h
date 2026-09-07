@@ -99,11 +99,10 @@ extern uint32_t custom_tick_get(void);
 
 /*Default Dot Per Inch. Used to initialize default sizes such as widgets sized, style paddings.
  *(Not so important, you can adjust it to modify default sizes and spaces)*/
-#ifdef GUPPY_SMALL_SCREEN
-  #define LV_DPI_DEF 90     /*[px/inch]*/
-#else
-  #define LV_DPI_DEF 130     /*[px/inch]*/
-#endif
+/* The 480x272 design baseline. hal_init() scales the display driver's dpi from
+ * this by the attached resolution, so LVGL's own default paddings follow the
+ * screen the same way Theme::scale_*() does. */
+#define LV_DPI_DEF 90     /*[px/inch]*/
 /*=======================
  * FEATURE CONFIGURATION
  *=======================*/
@@ -343,9 +342,17 @@ extern uint32_t custom_tick_get(void);
 #define LV_FONT_MONTSERRAT_18 1
 #define LV_FONT_MONTSERRAT_20 1
 #define LV_FONT_MONTSERRAT_22 1
+/* the large sizes only ever get picked on screens wider than 480 (see
+ * Theme::scale_font), so the small-screen build leaves them out of flash */
+#ifdef GUPPY_SMALL_SCREEN
 #define LV_FONT_MONTSERRAT_24 0
 #define LV_FONT_MONTSERRAT_26 0
 #define LV_FONT_MONTSERRAT_28 0
+#else
+#define LV_FONT_MONTSERRAT_24 1
+#define LV_FONT_MONTSERRAT_26 1
+#define LV_FONT_MONTSERRAT_28 1
+#endif
 #define LV_FONT_MONTSERRAT_30 0
 #define LV_FONT_MONTSERRAT_32 0
 #define LV_FONT_MONTSERRAT_34 0

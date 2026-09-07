@@ -28,7 +28,7 @@ class WifiPanel {
   void handle_back_btn(lv_event_t *event);
   void handle_refresh_btn(lv_event_t *event);
   void handle_callback(lv_event_t *event);
-  void remove_network(lv_event_t *event);
+  void remove_network(uint32_t btn_idx);
   void handle_wpa_event(const std::string &events);
   void handle_kb_input(lv_event_t *e);
   void connect(const char *);
@@ -59,9 +59,8 @@ class WifiPanel {
     panel->handle_kb_input(e);
   };
 
-  static void _remove_network(lv_event_t *e) {
-    WifiPanel *panel = (WifiPanel*)e->user_data;
-    panel->remove_network(e);
+  static void _remove_network(lv_obj_t *, uint32_t btn_idx, void *user_data) {
+    static_cast<WifiPanel *>(user_data)->remove_network(btn_idx);
   };
 
   static void _handle_ip_poll_timer(lv_timer_t *timer) {

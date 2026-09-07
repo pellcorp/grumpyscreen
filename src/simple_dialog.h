@@ -2,6 +2,9 @@
 #define SIMPLE_DIALOG_H
 
 #include "lvgl.h"
+#include "theme.h"
+
+#include <algorithm>
 typedef void (*simple_dialog_result_cb_t)(lv_obj_t *mbox, uint32_t button_idx, void *user_data);
 
 struct SimpleDialogOptions {
@@ -9,7 +12,6 @@ struct SimpleDialogOptions {
     bool error = false;
     bool auto_close = true;
     bool with_overlay = true;
-    bool multiline_message = false;
     int32_t highlighted_button_idx = -1;
     simple_dialog_result_cb_t result_cb = nullptr;
     void *user_data = nullptr;
@@ -32,9 +34,9 @@ static inline void simple_dialog_btnm_draw_part_cb(lv_event_t *e) {
     if (dsc == nullptr || dsc->part != LV_PART_ITEMS) return;
     if (static_cast<int32_t>(dsc->id) != ctx->highlighted_button_idx) return;
 
-    dsc->rect_dsc->bg_color = lv_palette_main(LV_PALETTE_RED);
+    dsc->rect_dsc->bg_color = Theme::col(Theme::DANGER);
     dsc->rect_dsc->bg_opa = LV_OPA_COVER;
-    dsc->label_dsc->color = lv_color_white();
+    dsc->label_dsc->color = Theme::col(Theme::ON_PRIMARY);
 }
 
 static inline bool simple_dialog_has_overlay(lv_obj_t *overlay) {
@@ -81,8 +83,7 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
         lv_obj_t * overlay = lv_obj_create(parent);
         lv_obj_remove_style_all(overlay);
         lv_obj_set_size(overlay, LV_PCT(100), LV_PCT(100));
-        lv_obj_set_style_bg_color(overlay, lv_color_black(), 0);
-        lv_obj_set_style_bg_opa(overlay, LV_OPA_60, 0);
+        lv_obj_add_style(overlay, &Theme::styles().popout, 0);
         lv_obj_add_flag(overlay, LV_OBJ_FLAG_CLICKABLE);      // eat clicks/taps
         lv_obj_add_flag(overlay, LV_OBJ_FLAG_USER_1);
         lv_obj_clear_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);   // no scroll
@@ -92,12 +93,13 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
     lv_obj_t * mbox = lv_msgbox_create(dialog_parent, title, message, options.buttons, false);
     lv_obj_center(mbox);
     lv_obj_set_flex_flow(mbox, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_all(mbox, 0, 0);
-    lv_obj_set_style_pad_row(mbox, 0, 0);
+    // the popout box look: surface, hairline, gap()*1.5 padding, capped at the
+    // screen minus a gap each side
+    lv_obj_add_style(mbox, &Theme::styles().popout_box, 0);
 
     const lv_color_t title_bg = options.error
-        ? lv_palette_main(LV_PALETTE_RED)
-        : lv_theme_get_color_primary(mbox);
+        ? Theme::col(Theme::DANGER)
+        : Theme::theme_primary();
 
     lv_obj_t * title_label = lv_msgbox_get_title(mbox);
     lv_obj_t *content = lv_msgbox_get_content(mbox);
@@ -107,19 +109,37 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
     lv_obj_set_style_border_width(title_label, 0, 0);
     lv_obj_set_style_outline_width(title_label, 0, 0);
     lv_obj_set_style_radius(title_label, 0, 0);
-    lv_obj_set_style_pad_top(title_label, 10, 0);
-    lv_obj_set_style_pad_bottom(title_label, 10, 0);
-    lv_obj_set_style_pad_left(title_label, 12, 0);
-    lv_obj_set_style_pad_right(title_label, 12, 0);
-    lv_obj_set_style_text_color(title_label, lv_color_white(), 0);
+    lv_obj_set_style_pad_ver(title_label, Theme::gap(), 0);
+    lv_obj_set_style_pad_hor(title_label, Theme::gap() * 3 / 2, 0);
+    lv_obj_set_style_text_font(title_label, Theme::scale_font(18), 0);
+    // the accent and the danger colour both take the on-primary text
+    lv_obj_set_style_text_color(title_label, Theme::col(Theme::ON_PRIMARY), 0);
     lv_obj_set_style_text_align(title_label, LV_TEXT_ALIGN_CENTER, 0);
 
     lv_obj_set_width(content, LV_PCT(100));
     lv_obj_set_style_bg_opa(content, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_pad_top(content, 12, 0);
-    lv_obj_set_style_pad_bottom(content, 12, 0);
-    lv_obj_set_style_pad_left(content, 12, 0);
-    lv_obj_set_style_pad_right(content, 12, 0);
+    lv_obj_set_style_pad_all(content, Theme::gap(), 0);
+    // the text area grows with the message but never past what the screen
+    // can show with the title and buttons still visible: beyond that it
+    // scrolls. Box padding is gap()*1.5 top and bottom, the two row gaps are
+    // one gap() each, the title is its line plus a gap() each side.
+    const lv_coord_t button_h = Theme::touch_h();
+    lv_obj_set_style_max_height(content,
+        Theme::popout_max_h() - 2 * Theme::popout_pad() - 2 * Theme::gap()
+        - (lv_font_get_line_height(Theme::scale_font(18)) + 2 * Theme::gap())
+        - button_h, 0);
+
+    // The box hugs its message: short text makes a small box with even air all
+    // round it, long text wraps at the box's maximum width. Measured up front,
+    // because percent-sized children (title bar, button row) cannot size a
+    // content-sized parent.
+    const lv_coord_t box_max_w = std::min(Theme::popout_w(), Theme::scale_w(400));
+    const lv_coord_t side_pad = 2 * Theme::popout_pad() + 2 * Theme::gap();
+    lv_point_t text_size, title_size;
+    lv_txt_get_size(&text_size, message, Theme::scale_font(16), 0, 0, box_max_w - side_pad, LV_TEXT_FLAG_NONE);
+    lv_txt_get_size(&title_size, title, Theme::scale_font(18), 0, 0, box_max_w - side_pad, LV_TEXT_FLAG_NONE);
+    const lv_coord_t box_w = std::clamp<lv_coord_t>(std::max(text_size.x, title_size.x) + side_pad,
+                                                    Theme::scale_w(260), box_max_w);  // 260: two buttons
 
     lv_obj_t * text_label = lv_msgbox_get_text(mbox);
     lv_obj_set_style_text_align(text_label, LV_TEXT_ALIGN_CENTER, 0);
@@ -127,24 +147,14 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
 
     const bool has_buttons = options.buttons != nullptr;
     if (has_buttons) {
-        constexpr lv_coord_t button_bottom_padding = 8;
+        // the key look comes from the theme callback; only the highlighted
+        // button is CHECKED (the draw callback then paints it the danger
+        // colour), the rest stay plain keys
         lv_obj_t *btnm = lv_msgbox_get_btns(mbox);
-        uint32_t btn_count = 0;
-        while (options.buttons[btn_count] != nullptr && options.buttons[btn_count][0] != '\0') {
-            ++btn_count;
+        if (options.highlighted_button_idx >= 0) {
+            lv_btnmatrix_set_btn_ctrl(btnm, options.highlighted_button_idx, LV_BTNMATRIX_CTRL_CHECKED);
         }
-        for (uint32_t i = 0; i < btn_count; ++i) {
-            lv_btnmatrix_set_btn_ctrl(btnm, i, LV_BTNMATRIX_CTRL_CHECKED);
-        }
-        lv_obj_set_style_bg_opa(btnm, LV_OPA_TRANSP, LV_PART_MAIN);
-        lv_obj_set_style_border_width(btnm, 0, LV_PART_MAIN);
-        lv_obj_set_style_outline_width(btnm, 0, LV_PART_MAIN);
-        lv_obj_set_style_pad_all(btnm, 0, LV_PART_MAIN);
-        lv_obj_add_flag(btnm, LV_OBJ_FLAG_FLOATING);
-        lv_obj_align(btnm, LV_ALIGN_BOTTOM_MID, 0, -button_bottom_padding);
-
-        auto hscale = (double)lv_disp_get_physical_ver_res(nullptr) / 480.0;
-        lv_obj_set_size(btnm, LV_PCT(90), 50 * hscale);
+        lv_obj_set_size(btnm, LV_PCT(100), button_h);
 
         SimpleDialogContext *ctx = new SimpleDialogContext{
             options.result_cb,
@@ -165,23 +175,12 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
             ctx);
     }
 
-#ifdef GUPPY_SMALL_SCREEN
-    if (has_buttons) {
-        lv_obj_set_size(mbox, LV_PCT(95), options.multiline_message ? LV_PCT(70) : LV_PCT(50));
-    } else {
-        lv_obj_set_size(mbox, LV_PCT(95), options.multiline_message ? LV_PCT(50) : LV_PCT(35));
-    }
-    lv_obj_set_style_text_font(mbox, &lv_font_montserrat_16, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(title_label, &lv_font_montserrat_18, 0);
-#else
-    if (has_buttons) {
-        lv_obj_set_size(mbox, LV_PCT(95), options.multiline_message ? LV_PCT(52) : LV_PCT(40));
-    } else {
-        lv_obj_set_size(mbox, LV_PCT(95), options.multiline_message ? LV_PCT(35) : LV_PCT(25));
-    }
-    lv_obj_set_style_text_font(mbox, &lv_font_montserrat_20, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(title_label, &lv_font_montserrat_22, 0);
-#endif
+    // The box is as tall as the message it holds, capped so it always fits.
+    // That replaces two hand-tuned sets of height percentages picked by screen
+    // size: the text scales, so the box follows it at any resolution and for
+    // any amount of text.
+    lv_obj_set_size(mbox, box_w, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_font(mbox, Theme::scale_font(16), LV_STATE_DEFAULT);
 
     return mbox;
 }

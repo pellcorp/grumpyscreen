@@ -1,25 +1,29 @@
 #include "exclude_object_panel.h"
 
 #include "logger.h"
+#include "theme.h"
+
+using namespace Theme;
 #include "simple_dialog.h"
 #include "state.h"
+#include "icons.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <sstream>
 
-LV_IMG_DECLARE(back);
-
 namespace {
-  static const lv_coord_t MARGIN = 12;
+  // the bed drawing sits two gaps in from the canvas edge
+  lv_coord_t margin() { return 2 * gap(); }
 
+  // a square filling the height of the screen's content area (the screen
+  // style pads by gap() all round), capped at half its width so the legend
+  // column keeps the other half
   lv_coord_t calc_canvas_dim() {
-    lv_coord_t screen_w = lv_disp_get_physical_hor_res(NULL);
-    lv_coord_t screen_h = lv_disp_get_physical_ver_res(NULL);
-    lv_coord_t half_screen = screen_w / 2;
-    lv_coord_t max_height = screen_h - 32;
-    return std::min(half_screen, max_height);
+    lv_coord_t content_w = lv_disp_get_physical_hor_res(NULL) - 2 * gap();
+    lv_coord_t content_h = lv_disp_get_physical_ver_res(NULL) - 2 * gap();
+    return std::min<lv_coord_t>(content_w / 2, content_h);
   }
 
   void handle_exclude_dialog_result(lv_obj_t *, uint32_t button_idx, void *user_data) {
@@ -92,49 +96,45 @@ namespace {
 ExcludeObjectPanel::ExcludeObjectPanel(KWebSocketClient &websocket_client, std::mutex &l)
   : NotifyConsumer(l)
   , ws(websocket_client)
-  , panel_cont(lv_obj_create(lv_scr_act()))
+  , panel_cont(create_screen(NULL))
   , canvas(lv_canvas_create(panel_cont))
   , canvas_dim(calc_canvas_dim())
+  // true colour, so 230KB at 480x272: a smaller format would need a palette
+  // for the theme colours and the recolours; left as is
   , canvas_buf(static_cast<lv_color_t *>(malloc(LV_CANVAS_BUF_SIZE_TRUE_COLOR(canvas_dim, canvas_dim))))
-  , info_cont(lv_obj_create(panel_cont))
+  , info_cont(create_row(panel_cont))
   , status_label(lv_label_create(info_cont))
-  , back_btn(info_cont, &back, "Back", &ExcludeObjectPanel::_handle_callback, this)
+  , back_btn(panel_cont, Icons::BACK, "Back", &ExcludeObjectPanel::_handle_callback, this)
 {
   lv_obj_move_background(panel_cont);
-  lv_obj_clear_flag(panel_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(panel_cont, LV_PCT(100), LV_PCT(100));
-  lv_obj_set_style_pad_all(panel_cont, 6, 0);
+  // canvas on the left, the legend column filling the rest, one gap apart
+  lv_obj_set_flex_flow(panel_cont, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(panel_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
+  // no radius: a canvas paints its whole buffer, so rounded corners would
+  // only show the bitmap outside the border
   lv_canvas_set_buffer(canvas, canvas_buf, canvas_dim, canvas_dim, LV_IMG_CF_TRUE_COLOR);
-  lv_obj_align(canvas, LV_ALIGN_LEFT_MID, 4, 0);
-  lv_obj_set_style_border_width(canvas, 2, 0);
-  lv_obj_set_style_border_color(canvas, lv_palette_darken(LV_PALETTE_GREY, 2), 0);
-  lv_obj_set_style_radius(canvas, 4, 0);
-  lv_canvas_fill_bg(canvas, lv_color_make(30, 30, 30), LV_OPA_COVER);
+  lv_obj_set_style_border_width(canvas, 1, 0);
+  lv_obj_set_style_border_color(canvas, col(BORDER), 0);
+  lv_canvas_fill_bg(canvas, col(SURFACE), LV_OPA_COVER);
 
   lv_obj_add_flag(panel_cont, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(panel_cont, &ExcludeObjectPanel::_handle_canvas_click, LV_EVENT_RELEASED, this);
 
-  lv_obj_set_style_border_width(info_cont, 0, 0);
-  lv_obj_set_style_bg_opa(info_cont, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_pad_all(info_cont, 4, 0);
-  lv_obj_set_style_pad_top(info_cont, 24, 0);
-  lv_obj_set_style_pad_bottom(info_cont, 48, 0);
-  lv_obj_clear_flag(info_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(info_cont, LV_PCT(48), LV_PCT(100));
-  lv_obj_align(info_cont, LV_ALIGN_RIGHT_MID, 0, 0);
+  // legend at the top of the column so the floating Back tile below never
+  // sits on it
+  lv_obj_set_size(info_cont, 0, LV_PCT(100));
+  lv_obj_set_flex_grow(info_cont, 1);
   lv_obj_set_flex_flow(info_cont, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(info_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
   lv_label_set_recolor(status_label, true);
   lv_label_set_long_mode(status_label, LV_LABEL_LONG_WRAP);
   lv_obj_set_width(status_label, LV_PCT(100));
+  lv_obj_set_style_text_font(status_label, scale_font(14), 0);
   lv_obj_set_style_text_align(status_label, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_style_pad_top(status_label, 0, 0);
 
-  lv_obj_set_parent(back_btn.get_container(), panel_cont);
-  lv_obj_set_width(back_btn.get_container(), LV_PCT(18));
-  lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, -8, -8);
+  back_btn.float_bottom_right();
 
   ws.register_notify_update(this);
 }
@@ -210,10 +210,10 @@ void ExcludeObjectPanel::load_bed_bounds() {
 lv_point_t ExcludeObjectPanel::to_px(double mx, double my) {
   double bw = bed_max_x - bed_min_x;
   double bh = bed_max_y - bed_min_y;
-  double avail = canvas_dim - 2 * MARGIN;
+  double avail = canvas_dim - 2 * margin();
   double scale = avail / std::max(bw, bh);
-  double ox = MARGIN + (avail - bw * scale) / 2.0;
-  double oy = MARGIN + (avail - bh * scale) / 2.0;
+  double ox = margin() + (avail - bw * scale) / 2.0;
+  double oy = margin() + (avail - bh * scale) / 2.0;
 
   lv_point_t p;
   p.x = static_cast<lv_coord_t>(std::lround(ox + (mx - bed_min_x) * scale));
@@ -223,7 +223,7 @@ lv_point_t ExcludeObjectPanel::to_px(double mx, double my) {
 
 void ExcludeObjectPanel::redraw() {
   obj_boxes.clear();
-  lv_canvas_fill_bg(canvas, lv_color_make(30, 30, 30), LV_OPA_COVER);
+  lv_canvas_fill_bg(canvas, col(SURFACE), LV_OPA_COVER);
 
   lv_point_t bl = to_px(bed_min_x, bed_min_y);
   lv_point_t tr = to_px(bed_max_x, bed_max_y);
@@ -231,8 +231,8 @@ void ExcludeObjectPanel::redraw() {
   lv_draw_rect_dsc_t bed_dsc;
   lv_draw_rect_dsc_init(&bed_dsc);
   bed_dsc.bg_opa = LV_OPA_TRANSP;
-  bed_dsc.border_color = lv_palette_darken(LV_PALETTE_GREY, 2);
-  bed_dsc.border_width = 2;
+  bed_dsc.border_color = col(BORDER_DIM);
+  bed_dsc.border_width = scale_r(2);
   bed_dsc.border_opa = LV_OPA_COVER;
   lv_canvas_draw_rect(canvas, tr.x, tr.y, bl.x - tr.x, bl.y - tr.y, &bed_dsc);
 
@@ -279,9 +279,9 @@ void ExcludeObjectPanel::redraw() {
       n_excluded++;
     }
 
-    lv_color_t color = excl ? lv_palette_darken(LV_PALETTE_RED, 2)
-                            : (cur ? lv_palette_main(LV_PALETTE_GREEN)
-                                   : lv_palette_main(LV_PALETTE_BLUE));
+    // theme roles: a fault colour for excluded, the accent for the object
+    // being printed, the secondary accent for the rest
+    lv_color_t color = excl ? col(DANGER) : (cur ? theme_primary() : theme_secondary());
 
     std::vector<lv_point_t> pts;
     if (obj.contains("polygon") && obj["polygon"].is_array() && !obj["polygon"].empty()) {
@@ -318,7 +318,7 @@ void ExcludeObjectPanel::redraw() {
     lv_draw_line_dsc_t line;
     lv_draw_line_dsc_init(&line);
     line.color = color;
-    line.width = 3;
+    line.width = scale_r(3);
     line.opa = LV_OPA_COVER;
     for (size_t i = 0; i < pts.size(); i++) {
       lv_point_t seg[2] = {pts[i], pts[(i + 1) % pts.size()]};
@@ -327,7 +327,7 @@ void ExcludeObjectPanel::redraw() {
 
     lv_coord_t cx = (x0 + x1) / 2;
     lv_coord_t cy = (y0 + y1) / 2;
-    lv_coord_t diameter = 24;
+    lv_coord_t diameter = scale_r(24);
     lv_coord_t radius = diameter / 2;
     obj_boxes.push_back({name, idx + 1, x0, y0, x1, y1, cx, cy, radius, excl, pts});
 
@@ -336,7 +336,7 @@ void ExcludeObjectPanel::redraw() {
     marker.bg_color = color;
     marker.bg_opa = excl ? LV_OPA_30 : LV_OPA_70;
     marker.border_color = color;
-    marker.border_width = 2;
+    marker.border_width = scale_r(2);
     marker.border_opa = LV_OPA_COVER;
     marker.radius = LV_RADIUS_CIRCLE;
     lv_canvas_draw_rect(canvas, cx - radius, cy - radius, diameter, diameter, &marker);
@@ -350,17 +350,22 @@ void ExcludeObjectPanel::redraw() {
 
     lv_draw_label_dsc_t lbl;
     lv_draw_label_dsc_init(&lbl);
-    lbl.color = lv_color_white();
-    lbl.font = &lv_font_montserrat_14;
-    lv_canvas_draw_text(canvas, cx - 6, cy - 8, 20, &lbl, std::to_string(idx + 1).c_str());
+    lbl.color = col(ON_PRIMARY);
+    lbl.font = scale_font(14);
+    lbl.align = LV_TEXT_ALIGN_CENTER;
+    // the number centred on the marker: a marker-wide box, one line high
+    lv_canvas_draw_text(canvas, cx - radius, cy - lv_font_get_line_height(lbl.font) / 2, diameter, &lbl,
+                        std::to_string(idx + 1).c_str());
     idx++;
   }
 
+  auto hex = [](lv_color_t c) { return fmt::format("{:06x}", lv_color_to32(c) & 0xffffff); };
   lv_label_set_text(status_label,
-                    fmt::format("#4caf50 Printing now#\n"
-                                "#2196f3 Tap to exclude#\n"
-                                "#b71c1c Excluded#\n\n"
+                    fmt::format("#{} Printing now#\n"
+                                "#{} Tap to exclude#\n"
+                                "#{} Excluded#\n\n"
                                 "{} object(s), {} excluded",
+                                hex(theme_primary()), hex(theme_secondary()), hex(col(DANGER)),
                                 static_cast<int>(objects.size()), n_excluded).c_str());
 }
 
@@ -419,7 +424,6 @@ void ExcludeObjectPanel::confirm_exclude(const ObjBox &obj) {
   options.buttons = btns;
   options.error = true;
   options.auto_close = true;
-  options.multiline_message = true;
   options.highlighted_button_idx = 1;
   options.result_cb = handle_exclude_dialog_result;
   options.user_data = this;

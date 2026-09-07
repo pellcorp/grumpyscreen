@@ -1,9 +1,11 @@
 #include "file_panel.h"
+#include "theme.h"
 #include "config.h"
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
 
+#include <algorithm>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -12,29 +14,32 @@
 
 namespace fs = std::experimental::filesystem;
 
-#define THUMBSCALE = 0.78
-
 FilePanel::FilePanel(lv_obj_t *parent)
   : file_cont(lv_obj_create(parent))
   , thumbnail(lv_img_create(file_cont))
   , fname_label(lv_label_create(file_cont))
   , detail_label(lv_label_create(file_cont))
 {
+  // a panel: thumbnail on top, then the name, then the details, all centred
+  lv_obj_add_style(file_cont, &Theme::styles().panel, 0);
   lv_obj_set_size(file_cont, LV_PCT(100), LV_PCT(100));
-  lv_obj_clear_flag(file_cont, LV_OBJ_FLAG_SCROLLABLE);  
-  lv_obj_align(file_cont, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_set_width(fname_label, LV_PCT(90));
-  lv_label_set_long_mode(fname_label, LV_LABEL_LONG_SCROLL);
+  lv_obj_clear_flag(file_cont, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_flex_flow(file_cont, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(file_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_row(file_cont, Theme::gap(), 0);
+
+  // REAL: the object is the zoomed bitmap, so the labels below never get
+  // overdrawn; refresh_view() picks the zoom that fits the space left over
+  lv_img_set_size_mode(thumbnail, LV_IMG_SIZE_MODE_REAL);
+  lv_obj_set_width(fname_label, LV_PCT(100));
+  lv_label_set_long_mode(fname_label, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_font(fname_label, Theme::scale_font(14), 0);
   lv_obj_set_style_text_align(fname_label, LV_TEXT_ALIGN_CENTER, 0);
-
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(3), LV_GRID_FR(2), LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-
-  lv_obj_set_grid_dsc_array(file_cont, grid_main_col_dsc, grid_main_row_dsc);
-
-  lv_obj_set_grid_cell(thumbnail, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(fname_label, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 1, 1);
-  lv_obj_set_grid_cell(detail_label, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_label_set_text(fname_label, "");
+  lv_obj_add_style(detail_label, &Theme::styles().dim_label, 0);
+  lv_obj_set_style_text_font(detail_label, Theme::scale_font(14), 0);
+  lv_obj_set_style_text_align(detail_label, LV_TEXT_ALIGN_CENTER, 0);
+  lv_label_set_text(detail_label, "");
 }
 
 FilePanel::~FilePanel() {
@@ -68,15 +73,18 @@ void FilePanel::refresh_view(json &j, const std::string &gcode_path) {
 				   eta > 0 ? KUtils::eta_string(eta) : "(unknown)",
 				   KUtils::bytes_to_mb(j["result"]["size"].template get<size_t>()));
 
-  auto width_scale = (double)lv_disp_get_physical_hor_res(NULL) / 800.0;
-  auto thumb_detail = KUtils::get_thumbnail(gcode_path, j, width_scale);
-  std::string fullpath = thumb_detail.first;    
+  lv_label_set_text(detail_label, detail.c_str());
+  auto thumb_detail = KUtils::get_thumbnail(gcode_path, j, Theme::scale_w(180));
+  std::string fullpath = thumb_detail.first;
   if (fullpath.length() > 0) {
-    lv_label_set_text(detail_label, detail.c_str());
-    auto screen_width = lv_disp_get_physical_hor_res(NULL);
-    uint32_t normalized_thumb_scale = ((0.29 * (double)screen_width) / (double)thumb_detail.second) * 256;
     lv_img_set_src(thumbnail, ("A:" + fullpath).c_str());
-    lv_img_set_zoom(thumbnail, normalized_thumb_scale);
+    // fit the bitmap to the slot the labels leave it, both ways; a small
+    // thumbnail may grow to fill it, but no further than 2x or it blurs
+    lv_obj_update_layout(file_cont);
+    const lv_coord_t slot_w = lv_obj_get_content_width(file_cont);
+    const lv_coord_t slot_h = lv_obj_get_content_height(file_cont) - lv_obj_get_height(fname_label)
+                              - lv_obj_get_height(detail_label) - 2 * lv_obj_get_style_pad_row(file_cont, 0);
+    Theme::fit_img(thumbnail, slot_w, slot_h, 2 * LV_IMG_ZOOM_NONE);
   } else {
     // free src
     lv_img_set_src(thumbnail, NULL);

@@ -33,10 +33,14 @@ class SpoolmanPanel {
   };
 
  private:
+  // sort by id and redraw. caller must hold lv_lock
+  void repopulate();
+
   KWebSocketClient &ws;
   std::mutex &lv_lock;
   lv_obj_t *cont;
   lv_obj_t *spool_table;
+  lv_obj_t *empty_box;  // "No spools", shown in the table's place
   lv_obj_t *controls;
   lv_obj_t *switch_cont;
   lv_obj_t *show_archived;

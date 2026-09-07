@@ -1,6 +1,7 @@
 #include "guppyscreen.h"
 
 #include "config.h"
+#include "theme.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
 #ifdef GUPPY_WAYLAND
@@ -20,9 +21,6 @@ constexpr double calibration_version = 2.0;
 
 GuppyScreen *GuppyScreen::instance = NULL;
 lv_style_t GuppyScreen::style_container;
-lv_style_t GuppyScreen::style_imgbtn_default;
-lv_style_t GuppyScreen::style_imgbtn_pressed;
-lv_style_t GuppyScreen::style_imgbtn_disabled;
 lv_theme_t GuppyScreen::th_new;
 
 lv_obj_t *GuppyScreen::screen_saver = NULL;
@@ -63,14 +61,11 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   auto ll = conf->get<std::string>("/ui/log_level");
   set_log_level(ll);
 
-  auto theme_primary_color = conf->get<std::string>("/theme/primary_colour", "0x2196F3");
-  auto theme_secondary_color = conf->get<std::string>("/theme/secondary_colour", "0xF44336");
-  auto primary_color = lv_color_hex(std::stoul(theme_primary_color, nullptr, 16));
-  auto secondary_color = lv_color_hex(std::stoul(theme_secondary_color, nullptr, 16));
+  auto primary_color = Theme::cfg_col("primary_colour", lv_color_hex(0x2196F3));
+  auto secondary_color = Theme::cfg_col("secondary_colour", lv_color_hex(0xF44336));
 
   LOG_INFO("GrumpyScreen Version: {}-{}", GUPPYSCREEN_BRANCH, GUPPYSCREEN_VERSION);
 
-  LOG_INFO("DPI: {}", LV_DPI_DEF);
   /*LittlevGL init*/
   lv_init();
 
@@ -87,13 +82,6 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   lv_style_set_border_width(&style_container, 0);
   lv_style_set_radius(&style_container, 0);
 
-  lv_style_init(&style_imgbtn_pressed);
-  lv_style_set_img_recolor_opa(&style_imgbtn_pressed, LV_OPA_100);
-  lv_style_set_img_recolor(&style_imgbtn_pressed, primary_color);
-
-  lv_style_init(&style_imgbtn_disabled);
-  lv_style_set_img_recolor_opa(&style_imgbtn_disabled, LV_OPA_100);
-  lv_style_set_img_recolor(&style_imgbtn_disabled, lv_palette_darken(LV_PALETTE_GREY, 1));
 
   // Initia1ize the new theme from the current theme
   lv_theme_t *th_act = lv_disp_get_theme(NULL);
@@ -121,9 +109,7 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
   lv_obj_set_size(screen_saver, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_bg_opa(screen_saver, LV_OPA_100, 0);
-#ifdef GUPPY_WAYLAND
   lv_obj_set_style_bg_color(screen_saver, lv_color_black(), 0);
-#endif
   lv_obj_move_background(screen_saver);
 
 #ifdef GUPPY_CALIBRATE
@@ -222,9 +208,53 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
     lv_obj_add_style(obj, &style_container, 0);
   }
 
-  if (lv_obj_check_type(obj, &lv_imgbtn_class)) {
-    lv_obj_add_style(obj, &style_imgbtn_pressed, LV_STATE_PRESSED);
-    lv_obj_add_style(obj, &style_imgbtn_disabled, LV_STATE_DISABLED);
+  // Widget looks by class: a panel never styles a keyboard, entry or table
+  // itself, so retuning [theme] reaches all of them. Panels may still add a
+  // style on top for a genuinely different role (the console log is a panel).
+  // Screens are skipped: the first one is created before there is an active
+  // screen to read the primary colour from, and styles() would hang on it.
+  if (lv_obj_get_parent(obj) == NULL) return;
+  Theme::Styles &s = Theme::styles();
+  // every text button is a flat button; the tap feedback comes with it
+  if (lv_obj_check_type(obj, &lv_btn_class)) {
+    lv_obj_add_style(obj, &s.btn, LV_PART_MAIN);
+    lv_obj_add_style(obj, &s.btn_pressed, LV_PART_MAIN | LV_STATE_PRESSED);
+  }
+  // button matrices (selectors, dialog button rows) and keyboards share the
+  // key look; the one difference is what CHECKED means
+  if (lv_obj_check_type(obj, &lv_btnmatrix_class) || lv_obj_check_type(obj, &lv_keyboard_class)) {
+    lv_obj_add_style(obj, &s.key_tray, LV_PART_MAIN);
+    lv_obj_add_style(obj, &s.key, LV_PART_ITEMS);
+    lv_obj_add_style(obj, &s.key_pressed, LV_PART_ITEMS | LV_STATE_PRESSED);
+    // a matrix's checked key is the chosen value: accent. A keyboard's checked
+    // keys are its control keys: plain.
+    lv_obj_add_style(obj, lv_obj_check_type(obj, &lv_keyboard_class) ? &s.key : &s.key_pressed,
+                     LV_PART_ITEMS | LV_STATE_CHECKED);
+  }
+  if (lv_obj_check_type(obj, &lv_textarea_class)) {
+    lv_obj_add_style(obj, &s.input, LV_PART_MAIN);
+    lv_obj_add_style(obj, &s.input_placeholder, LV_PART_TEXTAREA_PLACEHOLDER);
+  }
+  if (lv_obj_check_type(obj, &lv_table_class)) {
+    lv_obj_add_style(obj, &s.table, LV_PART_MAIN);
+    lv_obj_add_style(obj, &s.table_cell, LV_PART_ITEMS);
+  }
+  // sliders, bars, switches, arcs, spinners: groove in the raised grey, the
+  // filled part in the accent, knobs in the text colour
+  if (lv_obj_check_type(obj, &lv_arc_class) || lv_obj_check_type(obj, &lv_spinner_class)) {
+    lv_obj_add_style(obj, &s.arc_track, LV_PART_MAIN);
+    lv_obj_add_style(obj, &s.arc_fill, LV_PART_INDICATOR);
+  } else if (lv_obj_check_type(obj, &lv_slider_class) || lv_obj_check_type(obj, &lv_bar_class) ||
+             lv_obj_check_type(obj, &lv_switch_class)) {
+    lv_obj_add_style(obj, &s.track, LV_PART_MAIN);
+    lv_obj_add_style(obj, &s.fill, LV_PART_INDICATOR);
+    if (lv_obj_check_type(obj, &lv_switch_class)) {
+      // a switch shows the accent only once it is on
+      lv_obj_remove_style(obj, &s.fill, LV_PART_INDICATOR);
+      lv_obj_add_style(obj, &s.track, LV_PART_INDICATOR);
+      lv_obj_add_style(obj, &s.fill, LV_PART_INDICATOR | LV_STATE_CHECKED);
+    }
+    lv_obj_add_style(obj, &s.knob, LV_PART_KNOB);
   }
 }
 

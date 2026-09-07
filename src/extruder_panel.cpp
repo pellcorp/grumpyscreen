@@ -2,19 +2,14 @@
 #include "state.h"
 #include "config.h"
 #include "logger.h"
+#include "icons.h"
+#include "theme.h"
+
+using namespace Theme;
 
 #include <algorithm>
 #include <cctype>
 #include <limits>
-
-LV_IMG_DECLARE(back);
-LV_IMG_DECLARE(spoolman_img);
-LV_IMG_DECLARE(extrude_img);
-LV_IMG_DECLARE(retract_img);
-LV_IMG_DECLARE(unload_filament_img);
-LV_IMG_DECLARE(load_filament_img);
-LV_IMG_DECLARE(extruder);
-LV_IMG_DECLARE(cooldown_img);
 
 namespace {
 
@@ -102,7 +97,7 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 			     SpoolmanPanel &sm)
   : NotifyConsumer(lock)
   , ws(websocket_client)
-  , panel_cont(lv_obj_create(lv_scr_act()))
+  , panel_cont(create_screen(NULL))
   , spoolman_panel(sm)
   , temp_options(load_selector_options("/ui/extruder_temp_presets", 8))
   , temp_option_map(build_selector_map(temp_options))
@@ -113,60 +108,49 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , speed_options(load_selector_options("/ui/extruder_speed_presets", 8))
   , speed_option_map(build_selector_map(speed_options))
   , speed_default_idx(resolve_default_idx("/ui/extruder_speed_default", speed_options))
-  , extruder_temp(ws, panel_cont, &extruder, 150,
-	  "Extruder", lv_palette_main(LV_PALETTE_RED), false, true, numpad, "extruder", NULL, NULL)
+  , extruder_temp(ws, panel_cont, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
+                  "extruder", NULL, NULL)
   , temp_selector(panel_cont, "Extruder Temperature (C)",
 		  temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
   , length_selector(panel_cont, "Extrude Length (mm)",
 		    length_option_map, length_default_idx, &ExtruderPanel::_handle_callback, this)
   , speed_selector(panel_cont, "Extrude Speed (mm/s)",
 		   speed_option_map, speed_default_idx, &ExtruderPanel::_handle_callback, this)
-  , rightside_btns_cont(lv_obj_create(panel_cont))
-  , leftside_btns_cont(lv_obj_create(panel_cont))
-  , load_btn(leftside_btns_cont, &load_filament_img, "Load", &ExtruderPanel::_handle_callback, this)
-  , unload_btn(leftside_btns_cont, &unload_filament_img, "Unload", &ExtruderPanel::_handle_callback, this)
-  , cooldown_btn(leftside_btns_cont, &cooldown_img, "Cooldown", &ExtruderPanel::_handle_callback, this)
-  , spoolman_btn(rightside_btns_cont, &spoolman_img, "Spoolman", &ExtruderPanel::_handle_callback, this)
-  , extrude_btn(rightside_btns_cont, &extrude_img, "Extrude", &ExtruderPanel::_handle_callback, this)
-  , retract_btn(rightside_btns_cont, &retract_img, "Retract", &ExtruderPanel::_handle_callback, this)
-  , back_btn(rightside_btns_cont, &back, "Back", &ExtruderPanel::_handle_callback, this)
+  , load_btn(panel_cont, Icons::LOAD_FILAMENT_IMG, "Load", &ExtruderPanel::_handle_callback, this)
+  , unload_btn(panel_cont, Icons::UNLOAD_FILAMENT_IMG, "Unload", &ExtruderPanel::_handle_callback, this)
+  , cooldown_btn(panel_cont, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
+  , spoolman_btn(create_flat_btn(panel_cont, "Spoolman", &ExtruderPanel::_handle_callback, this))
+  , extrude_btn(panel_cont, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
+  , retract_btn(panel_cont, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
+  , back_btn(panel_cont, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
 {
   lv_obj_move_background(panel_cont);
-  lv_obj_clear_flag(panel_cont, LV_OBJ_FLAG_SCROLLABLE);  
-  lv_obj_set_size(panel_cont, LV_PCT(100), LV_PCT(100));
-  lv_obj_set_style_pad_all(panel_cont, 0, 0);
 
-  lv_obj_set_size(rightside_btns_cont, LV_PCT(20), LV_PCT(100));  
-  lv_obj_set_flex_flow(rightside_btns_cont, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(rightside_btns_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_clear_flag(rightside_btns_cont, LV_OBJ_FLAG_SCROLLABLE);
-
-  lv_obj_set_size(leftside_btns_cont, LV_PCT(20), LV_SIZE_CONTENT);
-  lv_obj_set_style_pad_row(leftside_btns_cont, 15, 0);
-  lv_obj_set_flex_flow(leftside_btns_cont, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(leftside_btns_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_clear_flag(leftside_btns_cont, LV_OBJ_FLAG_SCROLLABLE);
-  
-  spoolman_btn.disable();  
-
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(3), LV_GRID_FR(6), LV_GRID_FR(6), LV_GRID_FR(6),
+  // header: the readout across the left, Spoolman on the right, sized to the
+  // readout; then three equal rows of tiles | selectors | tiles. Eight presets
+  // in the middle column make ~29px keys at 480 wide: the grid cannot widen
+  // that without starving the tiles, so it stays.
+  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_CONTENT, LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
     LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(2), LV_GRID_FR(7), LV_GRID_FR(2), LV_GRID_TEMPLATE_LAST};
-  
-  lv_obj_clear_flag(panel_cont, LV_OBJ_FLAG_SCROLLABLE);
-  
   lv_obj_set_grid_dsc_array(panel_cont, grid_main_col_dsc, grid_main_row_dsc);
-  lv_obj_add_flag(extruder_temp.get_sensor(), LV_OBJ_FLAG_FLOATING);
-  lv_obj_align(extruder_temp.get_sensor(), LV_ALIGN_TOP_LEFT, 50, 0);
 
-  lv_obj_set_grid_cell(leftside_btns_cont, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 1, 3);
-  
-  // col 1
-  lv_obj_set_grid_cell(speed_selector.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(length_selector.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(temp_selector.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 3, 1);
-  
-  lv_obj_set_grid_cell(rightside_btns_cont, LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_START, 0, 4);
+  // the readout keeps its own row height; Spoolman matches it
+  lv_obj_set_grid_cell(extruder_temp.get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(spoolman_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  set_action_btn(spoolman_btn, false, theme_primary());
+
+  ButtonContainer *left[] = {&load_btn, &unload_btn, &cooldown_btn};
+  ButtonContainer *right[] = {&extrude_btn, &retract_btn, &back_btn};
+  Selector *mid[] = {&speed_selector, &length_selector, &temp_selector};
+  for (int r = 0; r < 3; r++) {
+    left[r]->use_card();
+    right[r]->use_card();
+    lv_obj_set_grid_cell(left[r]->get_container(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, r + 1, 1);
+    // the selector panels fill their rows too, so their gaps match the tiles'
+    lv_obj_set_grid_cell(mid[r]->get_container(), LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, r + 1, 1);
+    lv_obj_set_grid_cell(right[r]->get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, r + 1, 1);
+  }
 
   ws.register_notify_update(this);    
 }
@@ -183,7 +167,7 @@ void ExtruderPanel::foreground() {
 }
 
 void ExtruderPanel::enable_spoolman() {
-  spoolman_btn.enable();
+  set_action_btn(spoolman_btn, true, theme_primary());
 }
 
 void ExtruderPanel::consume(json& j) {
@@ -299,7 +283,7 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       ws.gcode_script(cooldown_macro);
     }
 
-    if (btn == spoolman_btn.get_container()) {
+    if (btn == spoolman_btn) {
       spoolman_panel.foreground();
     }
   }

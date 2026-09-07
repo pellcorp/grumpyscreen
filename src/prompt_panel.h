@@ -38,8 +38,6 @@ class PromptPanel : public NotifyConsumer {
 
     private:
 
-        void check_height();
-
         KWebSocketClient &ws;
         PrintStatusPanel &print_status_panel;
         bool restore_print_status_foreground_ = false;

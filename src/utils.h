@@ -27,7 +27,8 @@ namespace KUtils {
   std::string get_root_path(const std::string root_name);
 
   // path, width
-  std::pair<std::string, size_t> get_thumbnail(const std::string &gcode_file, json &j, double scale);
+  // picks the embedded thumbnail closest to target_width px
+  std::pair<std::string, size_t> get_thumbnail(const std::string &gcode_file, json &j, int target_width);
 
   std::vector<std::string> get_interfaces();
   std::string interface_ip(const std::string &interface);

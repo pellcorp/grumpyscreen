@@ -27,9 +27,6 @@ class GuppyScreen {
  private:
   static GuppyScreen *instance;
   static lv_style_t style_container;
-  static lv_style_t style_imgbtn_default;
-  static lv_style_t style_imgbtn_pressed;
-  static lv_style_t style_imgbtn_disabled;
   static lv_theme_t th_new;
   static lv_obj_t *screen_saver;
   static std::mutex lv_lock;

@@ -26,6 +26,8 @@ class LedPanel : public NotifyConsumer {
   void handle_callback(lv_event_t *event);
   void handle_led_update(lv_event_t *event);
   void handle_led_update_generic(lv_event_t *event);
+  // the gcode that sets one led to a fraction, by the kind of object it is
+  std::string led_gcode(const std::string &key, double fraction);
 
   static void _handle_callback(lv_event_t *event) {
     LedPanel *panel = (LedPanel*)event->user_data;
@@ -49,6 +51,9 @@ class LedPanel : public NotifyConsumer {
   KWebSocketClient &ws;
   lv_obj_t *ledpanel_cont;
   lv_obj_t *leds_cont;
+  lv_obj_t *side_cont;
+  ButtonContainer all_on_btn;
+  ButtonContainer all_off_btn;
   std::map<std::string, std::shared_ptr<SliderContainer>> leds;
   ButtonContainer back_btn;
   std::string single_led_id;

@@ -25,6 +25,8 @@ class FanPanel : public NotifyConsumer {
   void handle_fan_update(lv_event_t *event);
   void handle_fan_update_part_fan(lv_event_t *event);
   void handle_fan_update_generic(lv_event_t *event);
+  // the gcode that sets one fan to a fraction, by the kind of object it is
+  std::string fan_gcode(const std::string &key, double fraction);
 
   static void _handle_callback(lv_event_t *event) {
     FanPanel *panel = (FanPanel*)event->user_data;
@@ -51,6 +53,9 @@ class FanPanel : public NotifyConsumer {
   KWebSocketClient &ws;
   lv_obj_t *fanpanel_cont;
   lv_obj_t *fans_cont;
+  lv_obj_t *side_cont;
+  ButtonContainer all_on_btn;
+  ButtonContainer all_off_btn;
   std::map<std::string, std::shared_ptr<SliderContainer>> fans;
   /* SliderContainer fan0; */
   /* SliderContainer fan1; */
