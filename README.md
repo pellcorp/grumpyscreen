@@ -1,6 +1,6 @@
 # Grumpy Screen for Klipper
 
-Grumpyscreen is a fork of GuppyScreen specifically for Simple AF
+Grumpyscreen is a fork of GuppyScreen specifically for Simple AF and OpenCentauri Cosmos
 
 ## Features
 
@@ -13,7 +13,8 @@ Grumpyscreen is a fork of GuppyScreen specifically for Simple AF
 :white_check_mark: Start a Print from Usb or Reprint  
 :white_check_mark: Exclude Object  
 :white_check_mark: Console Logging  
-:white_check_mark: Spoolman Integration   
+:white_check_mark: Spoolman Integration  
+:white_check_mark: MMU support (AFC now, HH later)
 
 ## Credits
 
