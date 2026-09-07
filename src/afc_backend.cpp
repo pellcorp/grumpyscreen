@@ -236,21 +236,10 @@ void AfcBackend::set_colour(int slot, const std::string &hex) {
   ws.gcode_script(fmt::format("SET_COLOR LANE={} COLOR={}", lane_id(slot), hex));
 }
 
-// Klipper splits extended gcode parameters with shlex, so a value containing
-// whitespace, a comment character or a quote has to be quoted to survive
-static std::string quote_value(const std::string &value) {
-  if (value.find_first_of(" \t#;'\"") == std::string::npos) return value;
-  std::string out = "\"";
-  for (char c : value) {
-    if (c != '"' && c != '\\') out += c;  // shlex would eat these, drop them
-  }
-  return out + "\"";
-}
-
 void AfcBackend::set_material(int slot, const std::string &material) {
   if (!valid(slot)) return;
   ws.gcode_script(fmt::format("SET_MATERIAL LANE={} MATERIAL={}",
-                              lane_id(slot), quote_value(material)));
+                              lane_id(slot), quote_gcode_arg(material)));
 }
 
 void AfcBackend::set_backup(int slot, int backup) {

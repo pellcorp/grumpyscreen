@@ -37,12 +37,18 @@ GuppyScreen::GuppyScreen()
 #ifdef MMU_BACKEND_AFC
   , afc_backend(ws)
 #endif
+#ifdef MMU_BACKEND_HH
+  , hh_backend(ws)
+#endif
   , main_panel(ws, lv_lock, spoolman_panel, mmu_panel)
   , init_panel(main_panel, lv_lock)
 {
-  // the id here is the value accepted by /mmu/backend
+  // the ids here are the values accepted by /mmu/backend
 #ifdef MMU_BACKEND_AFC
   mmu_panel.add_backend("afc", &afc_backend);
+#endif
+#ifdef MMU_BACKEND_HH
+  mmu_panel.add_backend("hh", &hh_backend);
 #endif
   main_panel.create_panel();
 }

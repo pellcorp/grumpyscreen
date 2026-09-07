@@ -41,12 +41,14 @@ MAINSRC = 		$(wildcard $(LVGL_DIR)/src/*.cpp)
 # Vendor drivers for the MMU panel, one file each. A build carries only the
 # ones named here; grumpyscreen.cfg's [mmu] backend then picks between them at
 # runtime. Leave it empty for a build with the panel but no vendor support:
-#   make MMU_BACKENDS="afc"     just AFC (the default)
+#   make MMU_BACKENDS="afc hh"  AFC and Happy Hare (the default)
+#   make MMU_BACKENDS="afc"     just AFC
 #   make MMU_BACKENDS=""        no vendor driver at all
-MMU_BACKENDS 	?= afc
+MMU_BACKENDS 	?= afc hh
 MMU_BACKEND_SRC = $(foreach b,$(MMU_BACKENDS),$(LVGL_DIR)/src/$(b)_backend.cpp)
 MAINSRC 		:= $(filter-out $(filter %_backend.cpp,$(MAINSRC)),$(MAINSRC)) $(MMU_BACKEND_SRC)
-DEFINES 		+= $(foreach b,$(MMU_BACKENDS),-D MMU_BACKEND_$(shell echo $(b) | tr 'a-z' 'A-Z'))
+MMU_BACKEND_DEFS = $(foreach b,$(MMU_BACKENDS),-D MMU_BACKEND_$(shell echo $(b) | tr 'a-z' 'A-Z'))
+DEFINES 		+= $(MMU_BACKEND_DEFS)
 
 include $(LVGL_DIR)/lvgl/lvgl.mk
 include $(LVGL_DIR)/lv_drivers/lv_drivers.mk
@@ -238,7 +240,7 @@ test: libhv.a
 	$(BUILD_DIR)/test_config
 # the backend fixture stubs State and the websocket client, so it links
 # only the backend under test (libhv for the client's base class)
-	g++ -std=gnu++17 -O2 -I./src -I./fmt/include -Ilibhv/include/ $(MMU_BACKEND_SRC) \
+	g++ -std=gnu++17 -O2 -I./src -I./fmt/include -Ilibhv/include/ $(MMU_BACKEND_DEFS) $(MMU_BACKEND_SRC) \
 		tests/test_backends.cpp src/notify_consumer.cpp -o $(BUILD_DIR)/test_backends \
 		-Llibhv/lib -l:libhv.a -lpthread
 	$(BUILD_DIR)/test_backends

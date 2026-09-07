@@ -13,6 +13,9 @@
 #include <vector>
 
 #include "afc_backend.h"
+#ifdef MMU_BACKEND_HH
+#include "hh_backend.h"
+#endif
 #include "state.h"
 #include "websocket_client.h"
 
@@ -523,6 +526,333 @@ static void test_hostile_status(KWebSocketClient &ws) {
   CHECK(gone.slots.empty());
 }
 
+#ifdef MMU_BACKEND_HH
+// ---------------------------------------------------------------------------
+// synthetic Happy Hare status: one "mmu" object with per-gate arrays
+// ---------------------------------------------------------------------------
+static json hh_status() {
+  json mmu = {
+    {"enabled", true}, {"num_gates", 4}, {"print_state", "ready"},
+    {"tool", -1}, {"gate", -1}, {"next_tool", -1},
+    {"filament", "Unloaded"}, {"action", "Idle"}, {"reason_for_pause", ""},
+    {"spoolman_support", "off"},
+    {"ttg_map", {0, 1, 2, 3}},
+    {"gate_status", {1, 0, -1, 2}},  // available, empty, unknown, from buffer
+    {"gate_material", {"PLA", "", "PETG", "ABS"}},
+    {"gate_color", {"ff0000", "", "indigo", "00ff00"}},
+    {"gate_color_rgb", {{1.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.294, 0.0, 0.51}, {0.0, 1.0, 0.0}}},
+    {"gate_spool_id", {-1, -1, -1, -1}},
+    {"gate_temperature", {210, 200, 240, 250}},
+    {"endless_spool_groups", {0, 1, 2, 3}},
+    {"endless_spool_enabled", true},
+  };
+  json j;
+  j["printer_objs"]["objects"] = {"mmu", "toolhead"};
+  j["printer_state"]["mmu"] = mmu;
+  return j;
+}
+
+static void test_hh_gate_mapping(KWebSocketClient &ws) {
+  json j = hh_status();
+  json &mmu = j["printer_state"]["mmu"];
+  mmu["ttg_map"] = {0, 0, 2, 3};             // T0 and T1 both on gate 0, gate 1 unmapped
+  mmu["gate"] = 0;
+  mmu["tool"] = 0;
+  mmu["filament"] = "Loaded";
+  mmu["endless_spool_groups"] = {0, 0, 1, 1};
+  load_state(j);
+
+  HhBackend hh(ws);
+  CHECK(hh.detect());
+  hh.refresh();
+
+  CHECK_EQ(hh.slots.size(), (size_t)4);
+  if (hh.slots.size() != 4) return;
+
+  CHECK_EQ(hh.slots[0].name, std::string("Gate 0"));
+  CHECK_EQ(hh.slots[0].map, std::string("T0,T1"));
+  CHECK_EQ(hh.slots[1].map, std::string(""));
+  CHECK_EQ(hh.slots[2].map, std::string("T2"));
+
+  CHECK_EQ(hh.slots[0].colour, std::string("FF0000"));
+  CHECK_EQ(hh.slots[1].colour, std::string(""));       // unset stays unset, not black
+  CHECK_EQ(hh.slots[2].colour, std::string("4B0082")); // w3c name via the rgb tuple
+  CHECK_EQ(hh.slots[3].colour, std::string("00FF00"));
+  CHECK_EQ(hh.slots[2].material, std::string("PETG"));
+
+  CHECK(hh.slots[0].prepped && hh.slots[0].ready && hh.slots[0].tool_loaded);
+  CHECK(!hh.slots[1].prepped && !hh.slots[1].ready);
+  CHECK(hh.slots[2].prepped && !hh.slots[2].ready);   // GATE_UNKNOWN: present, unconfirmed
+  CHECK(hh.slots[3].prepped && hh.slots[3].ready);
+  CHECK_EQ(hh.loaded_slot, 0);
+
+  // endless spool groups pair off into per-slot backups
+  CHECK_EQ(hh.slots[0].backup, 1);
+  CHECK_EQ(hh.slots[1].backup, 0);
+  CHECK_EQ(hh.slots[2].backup, 3);
+  CHECK(!hh.spoolman);
+  CHECK(hh.slots[0].can_configure);
+  CHECK(!hh.error && hh.message.empty() && !hh.bypass);
+
+  // endless spool off: groups are stored but inert, so no backups
+  mmu["endless_spool_enabled"] = false;
+  load_state(j);
+  hh.refresh();
+  CHECK_EQ(hh.slots[0].backup, -1);
+
+  // no rgb tuple published: fall back to a hex gate_color
+  mmu.erase("gate_color_rgb");
+  load_state(j);
+  hh.refresh();
+  CHECK_EQ(hh.slots[0].colour, std::string("ff0000"));
+  CHECK_EQ(hh.slots[2].colour, std::string(""));       // a bare name cannot be resolved
+
+  // spoolman pull: the database owns the gate map, so edits are refused
+  mmu["spoolman_support"] = "pull";
+  load_state(j);
+  hh.refresh();
+  CHECK(hh.spoolman);
+  CHECK(!hh.slots[0].can_configure);
+  mmu["spoolman_support"] = "push";
+  load_state(j);
+  hh.refresh();
+  CHECK(hh.spoolman && hh.slots[0].can_configure);
+}
+
+static void test_hh_activity(KWebSocketClient &ws) {
+  struct Case { const char *action; MmuActivity activity; };
+  const Case cases[] = {
+    {"Idle", MmuActivity::Idle},
+    {"Loading", MmuActivity::Loading},
+    {"Loading Ext", MmuActivity::Loading},
+    {"Unloading", MmuActivity::Unloading},
+    {"Exiting Ext", MmuActivity::Unloading},
+    {"Forming Tip", MmuActivity::Moving},
+    {"Heating", MmuActivity::Moving},
+    {"Selecting", MmuActivity::Moving},
+    {"Unknown", MmuActivity::Moving},
+  };
+  for (const Case &c : cases) {
+    json j = hh_status();
+    j["printer_state"]["mmu"]["action"] = c.action;
+    load_state(j);
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(hh.activity == c.activity);
+  }
+
+  // a toolchange in flight: `gate` already names the destination, so the
+  // incoming gate must not read as loaded
+  json j = hh_status();
+  json &mmu = j["printer_state"]["mmu"];
+  mmu["next_tool"] = 2;
+  mmu["gate"] = 2;
+  mmu["filament"] = "Loaded";
+  mmu["action"] = "Unloading";
+  load_state(j);
+  HhBackend hh(ws);
+  hh.refresh();
+  CHECK(hh.activity == MmuActivity::Swapping);
+  CHECK_EQ(hh.loaded_slot, -1);
+  CHECK(!hh.slots[2].tool_loaded);
+}
+
+static void test_hh_faults(KWebSocketClient &ws) {
+  json j = hh_status();
+  json &mmu = j["printer_state"]["mmu"];
+
+  // an MMU fault pauses the print and says why; RESUME is the way out
+  for (const char *state : {"paused", "pause_locked"}) {
+    mmu["print_state"] = state;
+    mmu["reason_for_pause"] = "Filament stuck in gate 1";
+    load_state(j);
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(hh.error && hh.message_error);
+    CHECK(hh.activity == MmuActivity::Error);
+    CHECK_EQ(hh.message, std::string("Filament stuck in gate 1"));
+    CHECK(!hh.can_load(0) && !hh.can_unload() && !hh.can_eject(0));
+    CHECK(hh.can_set_backup(0));
+    sent.clear();
+    hh.reset_failure();
+    CHECK_EQ(sent.size(), (size_t)1);
+    CHECK_EQ(sent[0], std::string("RESUME"));
+  }
+
+  // klipper's own job error is not an MMU fault: HH has nothing to reset
+  mmu["print_state"] = "error";
+  mmu["reason_for_pause"] = "";
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(!hh.error);
+    CHECK(hh.message.empty());
+    CHECK(hh.can_load(0));
+  }
+
+  // HH drives its own toolchanges during a print
+  mmu["print_state"] = "printing";
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(!hh.error);
+    CHECK(!hh.can_load(0) && !hh.can_eject(0));
+    CHECK(hh.can_set_backup(0));
+  }
+
+  // MMU ENABLE=0 refuses everything; say so without calling it a fault
+  mmu["print_state"] = "ready";
+  mmu["enabled"] = false;
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(!hh.error && !hh.message_error);
+    CHECK_EQ(hh.message, std::string("MMU disabled"));
+    CHECK(!hh.can_load(0));
+  }
+
+  // bypass with filament in the extruder: no gate may load until it is out
+  mmu["enabled"] = true;
+  mmu["tool"] = -2;
+  mmu["gate"] = -2;
+  mmu["filament"] = "Loaded";
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(hh.bypass);
+    CHECK_EQ(hh.loaded_slot, -1);
+    CHECK(!hh.can_load(0));
+    mmu["filament"] = "Unloaded";
+    load_state(j);
+    hh.refresh();
+    CHECK(hh.bypass && hh.can_load(0));
+  }
+}
+
+static void test_hh_verbs(KWebSocketClient &ws) {
+  json j = hh_status();
+  json &mmu = j["printer_state"]["mmu"];
+  mmu["ttg_map"] = {0, 0, 2, 3};   // gate 1 has no tool
+  load_state(j);
+  HhBackend hh(ws);
+  hh.refresh();
+
+  CHECK(hh.can_load(0) && !hh.can_load(1) && hh.can_load(2));  // gate 1 is empty
+  CHECK(!hh.can_unload());
+  CHECK(hh.can_eject(2) && !hh.can_eject(1));
+  CHECK(hh.can_clear_colour());
+
+  // a mapped gate goes through the full toolchange
+  sent.clear();
+  hh.load(0);
+  CHECK_EQ(sent.size(), (size_t)1);
+  CHECK_EQ(sent[0], std::string("MMU_CHANGE_TOOL TOOL=0"));
+
+  // an unmapped gate is selected by hand
+  sent.clear();
+  hh.load(1);
+  CHECK_EQ(sent[0], std::string("MMU_UNLOAD\nMMU_SELECT GATE=1\nMMU_LOAD"));
+
+  sent.clear();
+  hh.unload();
+  CHECK_EQ(sent[0], std::string("MMU_UNLOAD"));
+
+  sent.clear();
+  hh.eject(2);
+  CHECK_EQ(sent[0], std::string("MMU_EJECT GATE=2"));
+
+  // gate map edits carry the gate's temperature so HH does not reset it
+  sent.clear();
+  hh.set_colour(0, "1A2B3C");
+  CHECK_EQ(sent[0], std::string("MMU_GATE_MAP GATE=0 COLOR=1A2B3C TEMP=210"));
+
+  sent.clear();
+  hh.set_colour(1, "");
+  CHECK_EQ(sent[0], std::string("MMU_GATE_MAP GATE=1 COLOR= TEMP=200"));
+
+  sent.clear();
+  hh.set_material(2, "PLA Silk");
+  CHECK_EQ(sent[0], std::string("MMU_GATE_MAP GATE=2 MATERIAL=\"PLA Silk\" TEMP=240"));
+
+  sent.clear();
+  hh.set_material(99, "PLA");
+  CHECK_EQ(sent.size(), (size_t)0);
+
+  mmu.erase("gate_temperature");
+  load_state(j);
+  sent.clear();
+  hh.set_material(2, "PETG");
+  CHECK_EQ(sent[0], std::string("MMU_GATE_MAP GATE=2 MATERIAL=PETG"));
+
+  // backups become endless spool groups, and turning one on enables the feature
+  sent.clear();
+  hh.set_backup(0, 2);
+  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=0,1,0,3"));
+
+  // the next edit before klipper echoes the first builds on what was sent
+  sent.clear();
+  hh.set_backup(1, 3);
+  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=0,1,0,1"));
+
+  // clearing moves the slot to a fresh group and leaves its partners together
+  sent.clear();
+  hh.set_backup(0, -1);
+  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=2,1,0,1"));
+
+  // klipper echoes the groups: the pending set retires and state is read again
+  mmu["endless_spool_groups"] = {2, 1, 0, 1};
+  load_state(j);
+  hh.refresh();
+  CHECK_EQ(hh.slots[1].backup, 3);
+  CHECK_EQ(hh.slots[2].backup, -1);
+  sent.clear();
+  hh.set_backup(2, 0);
+  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=0,1,0,1"));
+}
+
+static void test_hh_hostile_status(KWebSocketClient &ws) {
+  const char *fields[] = {"num_gates", "ttg_map", "gate_status", "gate_material",
+                          "gate_color", "gate_color_rgb", "gate_spool_id",
+                          "gate_temperature", "endless_spool_groups",
+                          "endless_spool_enabled", "gate", "tool", "next_tool",
+                          "filament", "action", "print_state", "reason_for_pause",
+                          "spoolman_support", "enabled"};
+  for (const char *field : fields) {
+    for (int shape = 0; shape < 4; shape++) {
+      json j = hh_status();
+      json &mmu = j["printer_state"]["mmu"];
+      switch (shape) {
+        case 0: mmu[field] = 17; break;
+        case 1: mmu[field] = "surprise"; break;
+        case 2: mmu[field] = json::array({1, 2}); break;  // too short for 4 gates
+        case 3: mmu.erase(field); break;
+      }
+      load_state(j);
+      HhBackend hh(ws);
+      try {
+        hh.refresh();
+        for (int s = -1; s < 5; s++) {
+          (void)hh.can_load(s);
+          (void)hh.can_eject(s);
+          (void)hh.can_set_backup(s);
+        }
+        hh.set_backup(0, 2);
+        hh.set_colour(0, "");
+        hh.load(0);
+      } catch (const std::exception &e) {
+        std::cout << "FAIL: hh field " << field << " shape " << shape
+                  << " threw: " << e.what() << std::endl;
+        failures++;
+      }
+    }
+  }
+}
+#endif // MMU_BACKEND_HH
+
 int main() {
   KWebSocketClient ws(NULL);
 
@@ -533,6 +863,13 @@ int main() {
   test_permissions(ws);
   test_verbs(ws);
   test_hostile_status(ws);
+#ifdef MMU_BACKEND_HH
+  test_hh_gate_mapping(ws);
+  test_hh_activity(ws);
+  test_hh_faults(ws);
+  test_hh_verbs(ws);
+  test_hh_hostile_status(ws);
+#endif
 
   if (failures > 0) {
     std::cout << failures << " backend check(s) failed" << std::endl;

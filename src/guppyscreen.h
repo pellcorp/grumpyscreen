@@ -20,6 +20,9 @@
 #ifdef MMU_BACKEND_AFC
 #include "afc_backend.h"
 #endif
+#ifdef MMU_BACKEND_HH
+#include "hh_backend.h"
+#endif
 
 #include "websocket_client.h"
 
@@ -38,6 +41,9 @@ class GuppyScreen {
   MmuPanel mmu_panel;
 #ifdef MMU_BACKEND_AFC
   AfcBackend afc_backend;
+#endif
+#ifdef MMU_BACKEND_HH
+  HhBackend hh_backend;
 #endif
   
   MainPanel main_panel;

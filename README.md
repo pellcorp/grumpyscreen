@@ -14,7 +14,7 @@ Grumpyscreen is a fork of GuppyScreen specifically for Simple AF and OpenCentaur
 :white_check_mark: Exclude Object  
 :white_check_mark: Console Logging  
 :white_check_mark: Spoolman Integration  
-:white_check_mark: MMU support (AFC now, HH later)
+:white_check_mark: MMU support (AFC, Happy Hare)
 
 ## Credits
 

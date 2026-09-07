@@ -203,7 +203,7 @@ Where the two current vendors differ is instructive:
 | load verb | `TOOL_LOAD` fresh, `CHANGE_TOOL` to swap | `MMU_CHANGE_TOOL` either way; unmapped gates need `MMU_SELECT` + `MMU_LOAD` |
 | backup | a runout pointer per lane (`SET_RUNOUT`) | endless-spool groups, a set per gate |
 | busy | `current_state` enum | `action` string, plus a pending `next_tool` for a swap |
-| fault | `error_state` + a message queue to pop | `print_state` of `error`/`paused`/`pause_locked`, message in `reason_for_pause` |
+| fault | `error_state` + a message queue to pop, `RESET_FAILURE` clears | `print_state` of `paused`/`pause_locked`, message in `reason_for_pause`, `RESUME` clears |
 | clear a colour | impossible, `can_clear_colour()` false | empty `COLOR=` is accepted |
 | metadata owner | spoolman owns a lane with a `spool_id`, so `can_configure` false there | spoolman owns the whole gate map in `pull` mode only |
 
