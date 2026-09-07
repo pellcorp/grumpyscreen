@@ -5,6 +5,9 @@
 #include "button_container.h"
 #include "sysinfo_panel.h"
 #include "websocket_client.h"
+#ifdef COSMOS
+#include "update_manager_client.h"
+#endif
 #include "lvgl/lvgl.h"
 
 #include <mutex>
@@ -37,6 +40,9 @@ class SettingPanel {
   lv_obj_t *info_tab;
   lv_obj_t *service_cont;
   lv_obj_t *danger_cont;
+#ifdef COSMOS
+  UpdateManagerClient update_manager;
+#endif
 
   SysInfoPanel sysinfo_panel;
 
