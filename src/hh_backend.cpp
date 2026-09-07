@@ -367,7 +367,7 @@ void HhBackend::set_colour(int slot, const std::string &hex) {
 
 void HhBackend::set_material(int slot, const std::string &material) {
   if (!valid(slot)) return;
-  gate_map(slot, fmt::format("MATERIAL={}", quote_gcode_arg(material)));
+  gate_map(slot, fmt::format("MATERIAL={}", KWebSocketClient::quote_arg(material)));
 }
 
 std::vector<int> HhBackend::current_groups() const {

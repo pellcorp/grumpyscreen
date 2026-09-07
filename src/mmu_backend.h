@@ -9,17 +9,6 @@
 
 using json = nlohmann::json;
 
-// Klipper splits extended gcode parameters with shlex, so a value containing
-// whitespace, a comment character or a quote has to be quoted to survive
-inline std::string quote_gcode_arg(const std::string &value) {
-  if (value.find_first_of(" \t#;'\"") == std::string::npos) return value;
-  std::string out = "\"";
-  for (char c : value) {
-    if (c != '"' && c != '\\') out += c;  // shlex would eat these, drop them
-  }
-  return out + "\"";
-}
-
 // One filament slot (a lane on AFC, a gate elsewhere) in neutral terms.
 struct MmuSlot {
   std::string name;      // backend's display name, unique within the unit

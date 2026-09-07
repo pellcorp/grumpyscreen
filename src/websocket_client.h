@@ -32,6 +32,16 @@ class KWebSocketClient : public hv::WebSocketClient {
   int send_jsonrpc(const std::string &method, const json &params);
   int send_jsonrpc(const std::string &method);
   int gcode_script(const std::string &gcode);
+  // Klipper splits extended gcode parameters with shlex, so a value containing
+  // whitespace, a comment character or a quote has to be quoted to survive
+  static std::string quote_arg(const std::string &value) {
+    if (value.find_first_of(" \t#;'\"") == std::string::npos) return value;
+    std::string out = "\"";
+    for (char c : value) {
+      if (c != '"' && c != '\\') out += c;  // shlex would eat these, drop them
+    }
+    return out + "\"";
+  }
 
   void register_method_callback(std::string resp_method,
 				std::string handler_name,

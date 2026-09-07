@@ -239,7 +239,7 @@ void AfcBackend::set_colour(int slot, const std::string &hex) {
 void AfcBackend::set_material(int slot, const std::string &material) {
   if (!valid(slot)) return;
   ws.gcode_script(fmt::format("SET_MATERIAL LANE={} MATERIAL={}",
-                              lane_id(slot), quote_gcode_arg(material)));
+                              lane_id(slot), KWebSocketClient::quote_arg(material)));
 }
 
 void AfcBackend::set_backup(int slot, int backup) {
