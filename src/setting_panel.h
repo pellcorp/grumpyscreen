@@ -36,7 +36,7 @@ class SettingPanel {
   ButtonContainer support_zip_btn;
   ButtonContainer switch_to_stock_btn;
   ButtonContainer factory_reset_btn;
-#ifdef UPDATE_BUTTON_CMD
+#ifdef COSMOS
   ButtonContainer update_btn;
 #else
   ButtonContainer shutdown_host_btn;

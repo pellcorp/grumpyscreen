@@ -100,51 +100,57 @@ else
 DEFINES			+= -D GUPPYSCREEN_BRANCH=\"unknown\"
 endif
 
-ifdef UPDATE_CMD
-DEFINES	    += -D UPDATE_BUTTON_CMD='"$(UPDATE_CMD)"'
+ifdef COSMOS
+  DEFINES	    += -D COSMOS='"$(COSMOS)"'
+
+  UPDATE_TEXT    ?= Update\nCOSMOS
+  UPDATE_TITLE   ?= $(subst \n, ,$(UPDATE_TEXT))
+  UPDATE_PROMPT  ?= Are you sure you want to update COSMOS?\n\nThis will download and update to the latest version of COSMOS!
+  UPDATE_FAILURE	?= Failed to initiate update COSMOS!
+  UPDATE_SUCCESS	?= Your printer will restart shortly!
+
+  DEFINES	    += -D UPDATE_BUTTON_TEXT='"$(UPDATE_TEXT)"'
+  DEFINES	    += -D UPDATE_BUTTON_TITLE='"$(UPDATE_TITLE)"'
+  DEFINES	    += -D UPDATE_BUTTON_PROMPT='"$(UPDATE_PROMPT)"'
+  DEFINES	    += -D UPDATE_BUTTON_FAILURE='"$(UPDATE_FAILURE)"'
+  DEFINES	    += -D UPDATE_BUTTON_SUCCESS='"$(UPDATE_SUCCESS)"'
+
+  SWITCH_TO_STOCK_TEXT    ?= Switch to OC\nPatched
+  SWITCH_TO_STOCK_TITLE   ?= $(subst \n, ,$(SWITCH_TO_STOCK_TEXT))
+  SWITCH_TO_STOCK_PROMPT  ?= Are you sure you want to switch to OpenCentauri patched firmware?\n\nThis will take some time, **DO NOT TURN OFF YOUR PRINTER**, just wait for it to reboot.
+  SWITCH_TO_STOCK_FAILURE	?= Failed to initiate switch to OC Patched!
+  SWITCH_TO_STOCK_SUCCESS	?= Your printer will restart shortly!
+
+  FACTORY_RESET_TEXT    ?= Factory\nReset
+  FACTORY_RESET_TITLE   ?= $(subst \n, ,$(FACTORY_RESET_TEXT))
+  FACTORY_RESET_PROMPT  ?= Are you sure you want factory reset?\n\nThis will reset all printer setting but it will stay using COSMOS, it will not switch back to stock.
+  FACTORY_RESET_FAILURE	?= Failed to initiate factory reset!
+  FACTORY_RESET_SUCCESS	?= Your printer will restart shortly!
+else
+  SWITCH_TO_STOCK_TEXT    ?= Switch to\nStock
+  SWITCH_TO_STOCK_TITLE   ?= $(subst \n, ,$(SWITCH_TO_STOCK_TEXT))
+  SWITCH_TO_STOCK_PROMPT  ?= Are you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!
+  SWITCH_TO_STOCK_FAILURE	?= Failed to initiate switch to stock!
+  SWITCH_TO_STOCK_SUCCESS	?= Please power cycle your printer!\nPlease wait for the stock screen to appear!
+
+  FACTORY_RESET_TEXT    ?= Factory\nReset
+  FACTORY_RESET_TITLE   ?= $(subst \n, ,$(FACTORY_RESET_TEXT))
+  FACTORY_RESET_PROMPT  ?= Are you sure you want to factory reset?\n\nThis will reset the printer to stock creality firmware!
+  FACTORY_RESET_FAILURE	?= Failed to initiate factory reset!
+  FACTORY_RESET_SUCCESS	?= Your printer will restart shortly!\nPlease wait for the stock screen to appear!
 endif
-
-ifdef UPDATE_TEXT
-UPDATE_TITLE ?= $(subst \n, ,$(UPDATE_TEXT))
-DEFINES     += -D UPDATE_BUTTON_TEXT='"$(UPDATE_TEXT)"'
-DEFINES	    += -D UPDATE_BUTTON_TITLE='"$(UPDATE_TITLE)"'
-endif
-
-ifdef UPDATE_SUCCESS
-DEFINES     += -D UPDATE_BUTTON_SUCCESS='"$(UPDATE_SUCCESS)"'
-endif
-
-ifdef UPDATE_FAILURE
-DEFINES     += -D UPDATE_BUTTON_FAILURE='"$(UPDATE_FAILURE)"'
-endif
-
-ifdef UPDATE_PROMPT
-DEFINES     += -D UPDATE_BUTTON_PROMPT='"$(UPDATE_PROMPT)"'
-endif
-
-SWITCH_TO_STOCK_TEXT    ?= Switch to\nStock
-SWITCH_TO_STOCK_TITLE   ?= $(subst \n, ,$(SWITCH_TO_STOCK_TEXT))
-SWITCH_TO_STOCK_PROMPT  ?= Are you sure you want to switch to stock?\n\nThis will temporarily switch the printer to stock creality firmware!
-SWITCH_TO_STOCK_FAILURE	?= Failed to initiate switch to stock!
-SWITCH_TO_STOCK_SUCCESS	?= Please power cycle your printer!\nPlease wait for the stock screen to appear!
-
-DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_TEXT='"$(SWITCH_TO_STOCK_TEXT)"'
-DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_TITLE='"$(SWITCH_TO_STOCK_TITLE)"'
-DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_PROMPT='"$(SWITCH_TO_STOCK_PROMPT)"'
-DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_FAILURE='"$(SWITCH_TO_STOCK_FAILURE)"'
-DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_SUCCESS='"$(SWITCH_TO_STOCK_SUCCESS)"'
-
-FACTORY_RESET_TEXT    ?= Factory\nReset
-FACTORY_RESET_TITLE   ?= $(subst \n, ,$(FACTORY_RESET_TEXT))
-FACTORY_RESET_PROMPT  ?= Are you sure you want to factory reset?\n\nThis will reset the printer to stock creality firmware!
-FACTORY_RESET_FAILURE	?= Failed to initiate factory reset!
-FACTORY_RESET_SUCCESS	?= Your printer will restart shortly!\nPlease wait for the stock screen to appear!
 
 DEFINES	    += -D FACTORY_RESET_BUTTON_TEXT='"$(FACTORY_RESET_TEXT)"'
 DEFINES	    += -D FACTORY_RESET_BUTTON_TITLE='"$(FACTORY_RESET_TITLE)"'
 DEFINES	    += -D FACTORY_RESET_BUTTON_PROMPT='"$(FACTORY_RESET_PROMPT)"'
 DEFINES	    += -D FACTORY_RESET_BUTTON_FAILURE='"$(FACTORY_RESET_FAILURE)"'
 DEFINES	    += -D FACTORY_RESET_BUTTON_SUCCESS='"$(FACTORY_RESET_SUCCESS)"'
+
+DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_TEXT='"$(SWITCH_TO_STOCK_TEXT)"'
+DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_TITLE='"$(SWITCH_TO_STOCK_TITLE)"'
+DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_PROMPT='"$(SWITCH_TO_STOCK_PROMPT)"'
+DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_FAILURE='"$(SWITCH_TO_STOCK_FAILURE)"'
+DEFINES	    += -D SWITCH_TO_STOCK_BUTTON_SUCCESS='"$(SWITCH_TO_STOCK_SUCCESS)"'
 
 OBJEXT 			?= .o
 

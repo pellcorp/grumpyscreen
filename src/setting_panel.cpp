@@ -86,7 +86,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
           SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"}, true)
   , factory_reset_btn(cont, &emergency, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
 		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"}, true)
-#ifdef UPDATE_BUTTON_CMD
+#ifdef COSMOS
   , update_btn(cont, &update_img, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
           UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, {"Back", "Update"}, true)
 #else
@@ -128,7 +128,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_set_grid_cell(switch_to_stock_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_START, 2, 1);
   lv_obj_set_grid_cell(factory_reset_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_START, 2, 1);
 
-#ifdef UPDATE_BUTTON_CMD
+#ifdef COSMOS
   lv_obj_set_grid_cell(update_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 2, 1);
 #else
   auto shutdown_host_cmd = conf->get<std::string>("/commands/shutdown_host_cmd");
@@ -172,10 +172,10 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       if (ret != 0) {
         create_simple_dialog(lv_scr_act(), "Restart GUI Failed", "Failed to restart GUI!", true, true);
       }
-#ifdef UPDATE_BUTTON_CMD
+#ifdef COSMOS
     } else if (btn == update_btn.get_container()) {
       Config *conf = Config::get_instance();
-      auto update_cmd = conf->get<std::string>(std::string("/commands/") + UPDATE_BUTTON_CMD);
+      auto update_cmd = conf->get<std::string>(std::string("/commands/cosmos_update_cmd"));
       lv_obj_t *mbox = create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Initiated", UPDATE_BUTTON_SUCCESS, false, false);
       run_command_deferred(mbox, update_cmd,
                            UPDATE_BUTTON_TITLE " Failed", UPDATE_BUTTON_FAILURE,

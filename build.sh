@@ -36,23 +36,8 @@ function docker_make() {
       fi
     fi
 
-    # this is just an easy way for me to test shit
     if [ "$COSMOS" = "true" ]; then
-      MISC_ARGS+=" UPDATE_CMD=cosmos_update_cmd"
-      MISC_ARGS+=" UPDATE_TEXT='Update\nCOSMOS'"
-      MISC_ARGS+=" UPDATE_PROMPT='Are you sure you want to update COSMOS?\n\nThis will download and update to the latest version of COSMOS!'"
-      MISC_ARGS+=" UPDATE_SUCCESS='Your printer will restart shortly!'"
-      MISC_ARGS+=" UPDATE_FAILURE='Failed to initiate update COSMOS!'"
-
-      MISC_ARGS+=" SWITCH_TO_STOCK_TEXT='Switch to OC\nPatched'"
-      MISC_ARGS+=" SWITCH_TO_STOCK_PROMPT='Are you sure you want to switch to OpenCentauri patched firmware?\n\nThis will take some time, **DO NOT TURN OFF YOUR PRINTER**, just wait for it to reboot.'"
-      MISC_ARGS+=" SWITCH_TO_STOCK_FAILURE='Failed to initiate switch to OC Patched!'"
-      MISC_ARGS+=" SWITCH_TO_STOCK_SUCCESS='Your printer will restart shortly!'"
-
-      MISC_ARGS+=" FACTORY_RESET_TEXT='Factory\nReset'"
-      MISC_ARGS+=" FACTORY_RESET_PROMPT='Are you sure you want factory reset?\n\nThis will reset all printer setting but it will stay using COSMOS, it will not switch back to stock.'"
-      MISC_ARGS+=" FACTORY_RESET_FAILURE='Failed to factory reset!'"
-      MISC_ARGS+=" FACTORY_RESET_SUCCESS='Your printer will restart shortly!'"
+      MISC_ARGS+=" COSMOS=true"
     fi
 
     echo "Args: $MISC_ARGS"
@@ -64,6 +49,7 @@ GUPPY_SMALL_SCREEN=false
 COSMOS=false
 SETUP=false
 PI_USERNAME=pi
+PASSWORD=Creality2023
 
 while true; do
     if [ "$1" = "--setup" ]; then
@@ -85,6 +71,10 @@ while true; do
         export PI_USERNAME=$2
         shift
         shift
+    elif [ "$1" = "--password" ] && [ -n "$2" ]; then
+        export PASSWORD=$2
+        shift
+        shift
     elif [ "$1" = "--printer" ]; then
         shift
         PRINTER_IP=$1
@@ -102,6 +92,7 @@ if [ "$SETUP" = "true" ]; then
     echo "username=$PI_USERNAME" >> $CURRENT_DIR/.target.cfg
   else
     echo "mips" > $CURRENT_DIR/.target.cfg
+    echo "password=$PASSWORD" >> $CURRENT_DIR/.target.cfg
   fi
 
   if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
@@ -124,6 +115,9 @@ if [ -f $CURRENT_DIR/.target.cfg ]; then
   if [ $(cat $CURRENT_DIR/.target.cfg | grep "username=" | wc -l) -gt 0 ]; then
     export PI_USERNAME=$(cat $CURRENT_DIR/.target.cfg | grep "username=" | awk -F '=' '{print $2}')
   fi
+  if [ $(cat $CURRENT_DIR/.target.cfg | grep "password=" | wc -l) -gt 0 ]; then
+    export PASSWORD=$(cat $CURRENT_DIR/.target.cfg | grep "password=" | awk -F '=' '{print $2}')
+  fi
 fi
 
 if [ "$TARGET" = "rpi" ]; then
@@ -136,25 +130,22 @@ if [ "$SETUP" = "true" ]; then
     docker_make clean || exit $?
     docker_make libhvclean || exit $?
     docker_make wpaclean || exit $?
-    docker_make "bootstrap" clean || exit $?
+    #docker_make "bootstrap" clean || exit $?
 
     docker_make libhv.a || exit $?
     docker_make wpaclient || exit $?
 fi
 
 docker_make $1 || exit $?
-docker_make "bootstrap" $1 || exit $?
+#docker_make "bootstrap" $1 || exit $?
 
 cp $CURRENT_DIR/grumpyscreen.cfg build/bin/
 
 if [ -n "$PRINTER_IP" ] && [ -f build/bin/grumpyscreen ]; then
   if [ "$TARGET" = "mips" ]; then
-    password=creality_2023
-    if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
-      password=Creality2023
-    fi
-    sshpass -p $password scp build/bin/grumpyscreen root@$PRINTER_IP:
-    sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen /usr/data/grumpyscreen/grumpyscreen"
+    echo "Copying to root@$PRINTER_IP (Password is $PASSWORD) ..."
+    sshpass -p $PASSWORD scp build/bin/grumpyscreen root@$PRINTER_IP:
+    sshpass -p $PASSWORD ssh root@$PRINTER_IP "mv /root/grumpyscreen /usr/data/grumpyscreen/grumpyscreen"
 
     cp grumpyscreen.cfg /tmp
     # this assumes a Ender 3 V3 KE Nebula pad configuration
@@ -167,10 +158,11 @@ if [ -n "$PRINTER_IP" ] && [ -f build/bin/grumpyscreen ]; then
           sed -i '/^\[commands\]/a cosmos_update_cmd: /bin/true' /tmp/grumpyscreen.cfg
       fi
     fi
-    sshpass -p $password scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
-    sshpass -p $password ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/grumpyscreen/grumpyscreen.cfg"
-    sshpass -p $password ssh root@$PRINTER_IP "/etc/init.d/S99grumpyscreen restart"
-  else # rpi
+
+    sshpass -p $PASSWORD scp /tmp/grumpyscreen.cfg root@$PRINTER_IP:
+    sshpass -p $PASSWORD ssh root@$PRINTER_IP "mv /root/grumpyscreen.cfg /usr/data/grumpyscreen/grumpyscreen.cfg"
+    sshpass -p $PASSWORD ssh root@$PRINTER_IP "/etc/init.d/S99grumpyscreen restart"
+  else # rpi - assumes passwordless ssh i guess oops
     echo "Uploading to ${PI_USERNAME}@$PRINTER_IP ..."
     cp grumpyscreen.cfg /tmp
     scp build/bin/grumpyscreen $PI_USERNAME@$PRINTER_IP:/tmp/
