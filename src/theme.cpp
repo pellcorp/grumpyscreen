@@ -267,10 +267,16 @@ Styles &styles() {
   lv_style_set_bg_opa(&s.table, LV_OPA_COVER);
   lv_style_set_border_width(&s.table, border_w());
   lv_style_set_border_color(&s.table, col(BORDER));
-  lv_style_set_pad_all(&s.table, 0);
-  // the scrollbar draws inside the right padding, so keep a lane for it and a
-  // little air: cell text never runs underneath it
-  lv_style_set_pad_right(&s.table, scale_r(10));
+  lv_style_set_pad_all(&s.table, 0);  // the scrollbar rides over the cell edge; nothing tappable lives there
+
+  // solid rather than the stock translucent grey, so it reads as a control and
+  // not a smudge; scroll_lane() is sized from these two numbers
+  lv_style_init(&s.scrollbar);
+  lv_style_set_width(&s.scrollbar, scale_r(4));
+  lv_style_set_pad_all(&s.scrollbar, scale_r(2));
+  lv_style_set_radius(&s.scrollbar, LV_RADIUS_CIRCLE);
+  lv_style_set_bg_color(&s.scrollbar, col(TEXT_DIM));
+  lv_style_set_bg_opa(&s.scrollbar, LV_OPA_COVER);
 
   lv_style_init(&s.track);
   lv_style_set_bg_color(&s.track, col(RAISED));
@@ -331,6 +337,8 @@ void fit_first_icon(lv_event_t *e) {
 }
 
 int touch_h() { return scale_r(44); }
+
+int scroll_lane() { return scale_r(4) + 2 * scale_r(2); }  // the thumb and its pad either side
 
 lv_obj_t *create_row(lv_obj_t *parent) {
   lv_obj_t *row = lv_obj_create(parent);

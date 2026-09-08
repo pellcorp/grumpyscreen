@@ -89,9 +89,14 @@ void FanPanel::create_fans(json &f) {
   for (auto &r : fans) r.second->set_height(row_h);
   lv_obj_add_flag(fans_cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_update_layout(fans_cont);
-  if (lv_obj_get_scroll_bottom(fans_cont) <= 0) {
-    lv_obj_clear_flag(fans_cont, LV_OBJ_FLAG_SCROLLABLE);
-  }
+  const bool overflows = lv_obj_get_scroll_bottom(fans_cont) > 0;
+  if (!overflows) lv_obj_clear_flag(fans_cont, LV_OBJ_FLAG_SCROLLABLE);
+  // with a scrollbar, it runs down the left edge and the rows start after it,
+  // half a gap of air either side of the bar
+  const int air = overflows ? gap() / 2 : gap();
+  lv_obj_set_style_base_dir(fans_cont, LV_BASE_DIR_RTL, LV_PART_SCROLLBAR);
+  lv_obj_set_style_pad_left(fanpanel_cont, air, 0);
+  lv_obj_set_style_pad_left(fans_cont, overflows ? scroll_lane() + air : 0, 0);
 }
 
 void FanPanel::foreground() {

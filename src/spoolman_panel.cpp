@@ -65,7 +65,7 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   const int fixed = scale_w(38) + scale_w(30) + scale_w(44) + scale_w(44);
   const int border = 2 * lv_obj_get_style_border_width(spool_table, 0);
   const int remain = lv_disp_get_physical_hor_res(NULL) - 2 * gap() - border
-                     - lv_obj_get_style_pad_right(spool_table, 0) - fixed;  // the scrollbar lane
+                     - lv_obj_get_style_pad_right(spool_table, 0) - fixed;
   const int len_field_width = remain * 23 / 100;
   const int material_width = remain * 17 / 100;
   lv_table_set_col_width(spool_table, 1, remain - 2 * len_field_width - material_width); // name - product

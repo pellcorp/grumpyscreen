@@ -119,9 +119,16 @@ struct Styles {
   lv_style_t fill;                   // the filled part of any of those: the accent
   lv_style_t knob;                   // a slider or switch knob
   lv_style_t arc_track, arc_fill;    // the same two for arcs and spinners (no box)
+  lv_style_t scrollbar;              // every scrollbar: a thin solid thumb in its own lane
 };
 
 Styles &styles();
+
+// LVGL draws a scrollbar inside its object's right edge, over whatever sits
+// there. A list that can overflow reserves at least this much right padding so
+// its rows stop short of the bar: the thumb and its pad either side. Adding
+// gap() to it puts the bar centred in the gutter to the next column.
+int scroll_lane();
 
 // --- images ---------------------------------------------------------------
 

@@ -337,6 +337,8 @@ void MainPanel::create_main(lv_obj_t * parent) {
   lv_chart_set_div_line_count(temp_chart, 5, 0);
   lv_chart_set_point_count(temp_chart, 5000);
   lv_chart_set_zoom_x(temp_chart, 5000);
+  // the history scrolls under a finger, but a bar over the trace only clutters
+  lv_obj_set_scrollbar_mode(temp_chart, LV_SCROLLBAR_MODE_OFF);
   lv_obj_scroll_to_x(temp_chart, LV_COORD_MAX, LV_ANIM_OFF);
 }
 
