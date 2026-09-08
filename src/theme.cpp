@@ -11,11 +11,21 @@ namespace {
 
 // the two [theme] numbers, read once: gap() and the radii are called from
 // every panel's constructor, and a config lookup each time is code and time
+int knob_pad() { return scale_r(4); }  // the knob is the track's height plus this each side
+
 int cfg_int(const char *key, int def) {
   return Config::get_instance()->get<int>(std::string("/theme/") + key, def);
 }
 bool cfg_bool(const char *key, bool def) {
   return Config::get_instance()->get<bool>(std::string("/theme/") + key, def);
+}
+
+// /theme/style: "modern" (the default) or "classic". A preset is nothing but
+// different fallbacks for four pegs -- classic is flat: panels the page colour,
+// square, no hairlines, no scrollbars -- so any peg set explicitly still wins.
+bool classic() {
+  static const bool c = Config::get_instance()->get<std::string>("/theme/style") == "classic";
+  return c;
 }
 
 }  // namespace
@@ -36,7 +46,7 @@ lv_color_t col(Colour c) {
     // plus the stock dark theme's card colour (0x282b30) for the page, which is
     // what every full-screen panel showed before it said so explicitly
     cache[BG]         = cfg_col("background_colour", lv_color_hex(0x282b30));
-    cache[SURFACE]    = cfg_col("surface_colour",    lv_palette_darken(LV_PALETTE_GREY, 4));
+    cache[SURFACE]    = cfg_col("surface_colour",    classic() ? cache[BG] : lv_palette_darken(LV_PALETTE_GREY, 4));
     cache[RAISED]     = cfg_col("raised_colour",     lv_palette_darken(LV_PALETTE_GREY, 3));
     cache[BORDER]     = cfg_col("border_colour",     lv_palette_darken(LV_PALETTE_GREY, 3));
     cache[BORDER_DIM] = cfg_col("border_dim_colour", lv_palette_darken(LV_PALETTE_GREY, 2));
@@ -84,11 +94,11 @@ int gap() {
 // one config number sets the middle radius; the other two step either side of
 // it, and the small one cannot go negative on a square-cornered theme
 static int radius_base() {
-  static const int r = cfg_int("radius", 6);
+  static const int r = cfg_int("radius", classic() ? 0 : 6);
   return r;
 }
 int border_w() {
-  static const int b = cfg_int("border", 1);  // a hairline stays a hairline at any size
+  static const int b = cfg_int("border", classic() ? 0 : 1);  // a hairline stays a hairline at any size
   return b;
 }
 
@@ -305,6 +315,16 @@ Styles &styles() {
   lv_style_set_bg_color(&s.knob, col(TEXT));
   lv_style_set_bg_opa(&s.knob, LV_OPA_COVER);
   lv_style_set_border_width(&s.knob, 0);
+  lv_style_set_pad_all(&s.knob, knob_pad());
+
+  // A slider's knob is drawn centred on the track's end, so half of it hangs
+  // past the widget's box, where the parent clips it at full and at zero.
+  // Insetting the track by the tallest slider's overhang keeps every knob
+  // inside its box. A negative transform rather than padding: lv_bar applies
+  // the transform to both the groove and the fill, but padding to the fill
+  // only, and the two must end at the same place.
+  lv_style_init(&s.slider);
+  lv_style_set_transform_width(&s.slider, -knob_overhang(slider_h()));
 
   lv_style_init(&s.table_cell);
   lv_style_set_pad_ver(&s.table_cell, gap());
@@ -345,8 +365,11 @@ void fit_first_icon(lv_event_t *e) {
 
 int touch_h() { return scale_r(44); }
 
+int slider_h() { return scale_r(16); }
+int knob_overhang(int track_h) { return track_h / 2 + knob_pad(); }
+
 bool scrollbars() {
-  static const bool on = cfg_bool("scrollbars", true);
+  static const bool on = cfg_bool("scrollbars", !classic());
   return on;
 }
 

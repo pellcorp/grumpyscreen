@@ -123,16 +123,28 @@ static void style_spool_icon(lv_obj_t *spool, lv_obj_t *hole, int diameter) {
   lv_obj_clear_flag(hole, LV_OBJ_FLAG_CLICKABLE);
 }
 
+// two colours near enough that a ring of one round a disc of the other would
+// not read as a ring: the channel differences summed, on a 0..765 scale
+static bool similar(lv_color_t a, lv_color_t b) {
+  const uint32_t x = lv_color_to32(a), y = lv_color_to32(b);
+  int d = 0;
+  for (int shift : {0, 8, 16}) d += std::abs(int((x >> shift) & 0xff) - int((y >> shift) & 0xff));
+  return d < 90;
+}
+
 static void paint_spool_icon(lv_obj_t *spool, lv_obj_t *hole, lv_color_t colour,
                              bool colour_valid, bool has_filament, bool tool_loaded, lv_color_t primary) {
   if (tool_loaded) {
+    // the loaded ring is the accent, unless the filament is that colour too,
+    // then the text colour so the ring still shows
+    const lv_color_t ring = colour_valid && similar(colour, primary) ? col(TEXT) : primary;
     lv_obj_set_style_bg_img_opa(spool, LV_OPA_TRANSP, 0);
     lv_obj_set_style_bg_color(spool, colour, 0);
     lv_obj_set_style_bg_opa(spool, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(spool, primary, 0);
+    lv_obj_set_style_border_color(spool, ring, 0);
     lv_obj_set_style_border_width(spool, scale_r(3), 0);
     if (hole != NULL) {
-      lv_obj_set_style_border_color(hole, primary, 0);
+      lv_obj_set_style_border_color(hole, ring, 0);
       lv_obj_set_style_border_width(hole, scale_r(2), 0);
     }
   } else if (has_filament) {
@@ -142,11 +154,13 @@ static void paint_spool_icon(lv_obj_t *spool, lv_obj_t *hole, lv_color_t colour,
     lv_obj_set_style_bg_color(spool, colour, 0);
     lv_obj_set_style_bg_opa(spool, LV_OPA_COVER, 0);
     const bool dark = lv_color_brightness(colour) < DARK_COLOUR;
-    lv_obj_set_style_border_color(spool, dark ? col(TEXT_DIM) : lv_color_darken(colour, LV_OPA_30), 0);
+    const lv_color_t rim = dark ? col(TEXT_DIM) : lv_color_darken(colour, LV_OPA_30);
+    lv_obj_set_style_border_color(spool, rim, 0);
     lv_obj_set_style_border_width(spool, scale_r(2), 0);
+    // the hole is rimmed like the disc, so it reads as a hole and not a gap
     if (hole != NULL) {
-      lv_obj_set_style_border_color(hole, col(DISABLED), 0);
-      lv_obj_set_style_border_width(hole, dark ? 1 : 0, 0);
+      lv_obj_set_style_border_color(hole, rim, 0);
+      lv_obj_set_style_border_width(hole, 1, 0);
     }
   } else if (colour_valid) {
     // Empty but a colour is configured: show it translucent so fill state stays readable
@@ -300,9 +314,10 @@ void MmuPanel::create(lv_obj_t *parent) {
   lv_obj_set_flex_align(cards_row2, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
   // Row 3: Page navigation (if > 8 spools). Aligned, not flexed: hiding one
-  // arrow must not shift the page label
+  // arrow must not shift the page label. Kept low: every pixel here comes
+  // off the two card rows above
   nav_row = create_row(cont);
-  lv_obj_set_size(nav_row, LV_PCT(100), scale_r(40));
+  lv_obj_set_size(nav_row, LV_PCT(100), scale_h(26));
   lv_obj_add_flag(nav_row, LV_OBJ_FLAG_HIDDEN);
 
   nav_prev_btn = create_flat_btn(nav_row, "< Prev", &MmuPanel::_handle_page_prev, this);
@@ -821,8 +836,10 @@ void MmuPanel::populate() {
       lv_label_set_text(card.material, slot.material.empty() ? "Empty" : slot.material.c_str());
     }
 
+    // the loaded card outlines itself in the accent; under border: 0 the
+    // spool ring and the accent title carry that alone
     lv_obj_set_style_border_color(card.cont, slot.tool_loaded ? primary : col(BORDER), 0);
-    lv_obj_set_style_border_width(card.cont, slot.tool_loaded ? scale_r(2) : border_w(), 0);
+    lv_obj_set_style_border_width(card.cont, border_w() == 0 ? 0 : slot.tool_loaded ? scale_r(2) : border_w(), 0);
   }
 
   // Header status & message display. A message the backend does not flag as an
@@ -1364,6 +1381,9 @@ void MmuPanel::open_colour_picker() {
     // right side takes the rest: preview, saturation, brightness, save/cancel
     lv_obj_t *right = create_row(box);
     lv_obj_set_height(right, LV_PCT(100));
+    // the slider knobs may hang past this column: the wheel gap and the box
+    // padding either side have room for them, so the tracks can run longer
+    lv_obj_add_flag(right, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
     lv_obj_set_flex_grow(right, 1);
     lv_obj_set_flex_flow(right, LV_FLEX_FLOW_COLUMN);
 
@@ -1385,12 +1405,13 @@ void MmuPanel::open_colour_picker() {
 
     colour_val_slider = lv_slider_create(right);
 
-    // a finger-sized knob on a track that stays a track: the knob overhangs
-    // the track by its padding, and the column's own padding keeps that
-    // inside the box
+    // a finger-sized knob on a track that stays a track. The theme insets the
+    // track by the knob's overhang; here the column lets the knob hang out
+    // instead, so the track keeps most of the width and the knob stops half
+    // a gap short of the box edge
     for (lv_obj_t *s : {colour_sat_slider, colour_val_slider}) {
-      lv_obj_set_size(s, LV_PCT(100), scale_r(16));
-      lv_obj_set_style_pad_all(s, (scale_r(24) - scale_r(16)) / 2, LV_PART_KNOB);
+      lv_obj_set_size(s, LV_PCT(100), slider_h());
+      lv_obj_set_style_transform_width(s, -(knob_overhang(slider_h()) - popout_pad() + gap() / 2), 0);
       lv_slider_set_range(s, 0, 100);
       lv_slider_set_value(s, 100, LV_ANIM_OFF);
       lv_obj_add_event_cb(s, &MmuPanel::_handle_edit_action, LV_EVENT_VALUE_CHANGED, this);

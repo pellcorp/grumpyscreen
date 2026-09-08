@@ -123,6 +123,7 @@ struct Styles {
   lv_style_t track;                  // the groove of a slider, bar, switch, arc, spinner
   lv_style_t fill;                   // the filled part of any of those: the accent
   lv_style_t knob;                   // a slider or switch knob
+  lv_style_t slider;                 // a slider's track, inset so its knob stays inside the widget
   lv_style_t arc_track, arc_fill;    // the same two for arcs and spinners (no box)
   lv_style_t scrollbar;              // every scrollbar: a thin solid thumb in its own lane
 };
@@ -158,6 +159,13 @@ void fit_first_icon(lv_event_t *e);
 
 // the height of anything a finger taps: buttons, list rows, entry lines
 int touch_h();
+// a finger-sized slider's track height; no slider in the UI is taller, so the
+// shared slider style insets every track by this one's knob overhang
+int slider_h();
+// how far a slider's knob reaches past the end of its track: half the track
+// height plus the knob's pad. A panel that wants a longer track can inset by
+// less and let the knob hang into room it knows it has.
+int knob_overhang(int track_h);
 
 // --- widget factories -----------------------------------------------------
 

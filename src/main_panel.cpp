@@ -154,10 +154,10 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
 void MainPanel::create_panel() {
   lv_obj_t *tv_content = lv_tabview_get_content(tabview);
   lv_obj_clear_flag(tv_content, LV_OBJ_FLAG_SCROLLABLE);
-  // the divider between nav bar and content, in the grey the panels outline
-  // themselves with. It goes on the content edge rather than the button
-  // matrix, whose own border the tabview draws over.
-  lv_obj_set_style_border_width(tv_content, 1, 0);
+  // the divider between nav bar and content: a hairline like the panels'
+  // own, so it goes with them under border: 0. It goes on the content edge
+  // rather than the button matrix, whose own border the tabview draws over.
+  lv_obj_set_style_border_width(tv_content, border_w(), 0);
   lv_obj_set_style_border_color(tv_content, col(BORDER), 0);
   lv_obj_set_style_border_side(tv_content, LV_BORDER_SIDE_LEFT, 0);
   lv_obj_add_event_cb(lv_tabview_get_content(tabview), scroll_begin_event, LV_EVENT_SCROLL_BEGIN, NULL);

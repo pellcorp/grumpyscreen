@@ -221,8 +221,12 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
     lv_obj_add_style(obj, &s.btn_pressed, LV_PART_MAIN | LV_STATE_PRESSED);
   }
   // button matrices (selectors, dialog button rows) and keyboards share the
-  lv_obj_add_style(obj, &s.scrollbar, LV_PART_SCROLLBAR);
-  if (!Theme::scrollbars()) lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);  // swipe only
+  // every property lookup walks the object's style list, so leaf widgets that
+  // never scroll (labels, images: most objects on screen) skip the bar style
+  if (!lv_obj_check_type(obj, &lv_label_class) && !lv_obj_check_type(obj, &lv_img_class)) {
+    lv_obj_add_style(obj, &s.scrollbar, LV_PART_SCROLLBAR);
+    if (!Theme::scrollbars()) lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);  // swipe only
+  }
   // key look; the one difference is what CHECKED means
   if (lv_obj_check_type(obj, &lv_btnmatrix_class) || lv_obj_check_type(obj, &lv_keyboard_class)) {
     lv_obj_add_style(obj, &s.key_tray, LV_PART_MAIN);
@@ -257,6 +261,7 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
       lv_obj_add_style(obj, &s.fill, LV_PART_INDICATOR | LV_STATE_CHECKED);
     }
     lv_obj_add_style(obj, &s.knob, LV_PART_KNOB);
+    if (lv_obj_check_type(obj, &lv_slider_class)) lv_obj_add_style(obj, &s.slider, LV_PART_MAIN);
   }
 }
 

@@ -79,9 +79,7 @@ SliderContainer::SliderContainer(lv_obj_t *parent,
 
   lv_obj_set_size(slider_cont, 0, LV_SIZE_CONTENT);
   lv_obj_set_flex_grow(slider_cont, 1);
-  // name / slider / value, stacked and centred; the knob overhangs the track,
-  // so the column keeps a gap of air each side for it
-  lv_obj_set_style_pad_hor(slider_cont, gap(), 0);
+  // name / slider / value, stacked and centred
   lv_obj_set_flex_flow(slider_cont, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(slider_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_width(slider, LV_PCT(100));
