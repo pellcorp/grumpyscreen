@@ -14,6 +14,9 @@ namespace {
 int cfg_int(const char *key, int def) {
   return Config::get_instance()->get<int>(std::string("/theme/") + key, def);
 }
+bool cfg_bool(const char *key, bool def) {
+  return Config::get_instance()->get<bool>(std::string("/theme/") + key, def);
+}
 
 }  // namespace
 
@@ -340,6 +343,11 @@ void fit_first_icon(lv_event_t *e) {
 
 int touch_h() { return scale_r(44); }
 
+bool scrollbars() {
+  static const bool on = cfg_bool("scrollbars", true);
+  return on;
+}
+
 std::string recolor(Colour c) { return fmt::format("#{:06x} ", lv_color_to32(col(c)) & 0xffffff); }
 
 lv_obj_t *create_row(lv_obj_t *parent) {
@@ -375,14 +383,15 @@ void add_side_scrollbar(lv_obj_t *scrollee) {
 void refresh_side_scrollbar(lv_obj_t *scrollee) {
   lv_obj_t *lane = side_scrollbar_lane(scrollee);
   const int top = lv_obj_get_scroll_top(scrollee), bottom = lv_obj_get_scroll_bottom(scrollee);
-  if (lv_obj_has_flag(scrollee, LV_OBJ_FLAG_HIDDEN) || (top <= 0 && bottom <= 0)) {
-    // fits (or is away): no bar, no bounce under a finger, the object takes the lane's width
+  const bool overflows = top > 0 || bottom > 0;
+  // fits: no bounce under a finger; and no bar when it fits, is away, or bars are off
+  if (overflows) lv_obj_add_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
+  else lv_obj_clear_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
+  if (!overflows || !scrollbars() || lv_obj_has_flag(scrollee, LV_OBJ_FLAG_HIDDEN)) {
     lv_obj_add_flag(lane, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
     return;
   }
   lv_obj_clear_flag(lane, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_add_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
   // the thumb is the visible share of the content, placed by how far it has scrolled
   const int view = lv_obj_get_height(scrollee), lane_h = lv_obj_get_height(lane);
   const int thumb_h = std::max(lane_h * view / (view + top + bottom), scale_r(16));

@@ -66,6 +66,9 @@ const lv_font_t *scale_font(int px);
 // child gap of every row and screen, so nothing needs to set pad_row/pad_column
 // unless it wants something other than the standard gap.
 int gap();
+// /theme/scrollbars, default on: off keeps every list swiping but draws no
+// bar, LVGL's own or the side ones below
+bool scrollbars();
 // three radii, all derived from /theme/radius, so rounding the whole UI off is
 // a single number
 // the hairline round cards, panels, popouts and entries: /theme/border, in
