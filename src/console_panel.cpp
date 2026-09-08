@@ -48,6 +48,16 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   lv_textarea_set_placeholder_text(input, "Gcode input coming soon");
   lv_obj_add_state(input, LV_STATE_DISABLED);
   lv_obj_clear_flag(input, LV_OBJ_FLAG_CLICKABLE);
+  // a theme without hairlines would run the log and the entry together: a
+  // rule between them, in the raised grey the graph guides use. Its own row,
+  // not a border on the entry: the disabled entry's grey filter would fade it.
+  if (border_w() == 0) {
+    lv_obj_t *rule = create_row(console_cont);
+    lv_obj_move_to_index(rule, lv_obj_get_index(bottom_cont));
+    lv_obj_set_size(rule, LV_PCT(100), 1);
+    lv_obj_set_style_bg_color(rule, col(RAISED), 0);
+    lv_obj_set_style_bg_opa(rule, LV_OPA_COVER, 0);
+  }
 
   // the clear button is a square icon-only tile the height of the entry line
   delete_btn.use_card();

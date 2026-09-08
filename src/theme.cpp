@@ -254,8 +254,10 @@ Styles &styles() {
 
   lv_style_init(&s.input);
   lv_style_set_radius(&s.input, radius_sm());
-  lv_style_set_border_width(&s.input, border_w());
-  lv_style_set_border_color(&s.input, col(BORDER));
+  // an entry with no outline is a bare line of text, so a theme without
+  // hairlines still gets a faint one here, in the raised grey
+  lv_style_set_border_width(&s.input, border_w() ? border_w() : 1);
+  lv_style_set_border_color(&s.input, col(border_w() ? BORDER : RAISED));
   lv_style_set_bg_color(&s.input, col(SURFACE));
   lv_style_set_bg_opa(&s.input, LV_OPA_COVER);
   lv_style_set_text_font(&s.input, scale_font(14));

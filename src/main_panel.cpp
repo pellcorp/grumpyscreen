@@ -323,9 +323,10 @@ void MainPanel::create_main(lv_obj_t * parent) {
   lv_obj_set_style_text_font(temp_chart, scale_font(12), LV_PART_TICKS);
   lv_obj_set_style_text_color(temp_chart, col(TEXT_DIM), LV_PART_TICKS);
   lv_obj_set_style_size(temp_chart, 0, LV_PART_INDICATOR);
-  // hairline guides in the panel's own border grey; a 2px trace on top
+  // hairline guides in the raised grey (the stock border grey, but a theme
+  // that hides its borders keeps its graph lines); a 2px trace on top
   lv_obj_set_style_line_width(temp_chart, 1, LV_PART_MAIN);
-  lv_obj_set_style_line_color(temp_chart, col(BORDER), LV_PART_MAIN);
+  lv_obj_set_style_line_color(temp_chart, col(RAISED), LV_PART_MAIN);
   lv_obj_set_style_line_width(temp_chart, 2, LV_PART_ITEMS);
 
   lv_chart_set_range(temp_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 300);
