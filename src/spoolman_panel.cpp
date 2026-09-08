@@ -40,8 +40,12 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   , active_id(-1)
   , sorted_by(SORTED_BY_ID)
 {
-  reload_btn.use_card();
-  back_btn.use_card();
+  // icon-only square tiles a finger tall: the table gets the rest of the screen
+  for (ButtonContainer *b : {&reload_btn, &back_btn}) {
+    b->use_card();
+    b->hide_label();
+    lv_obj_set_size(b->get_container(), touch_h(), touch_h());
+  }
   lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_background(cont);
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
@@ -169,8 +173,8 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
     lv_table_set_cell_value(spool_table, 0, 0, "ID");
     lv_table_set_cell_value(spool_table, 0, 1, "Name");
     lv_table_set_cell_value(spool_table, 0, 2, "MAT");
-    lv_table_set_cell_value(spool_table, 0, 4, "Remain\nWeight");
-    lv_table_set_cell_value(spool_table, 0, 5, "Remain\nLength");
+    lv_table_set_cell_value(spool_table, 0, 4, "Weight");
+    lv_table_set_cell_value(spool_table, 0, 5, "Length");
 
     bool skip_archive = !lv_obj_has_state(show_archived, LV_STATE_CHECKED);
 
