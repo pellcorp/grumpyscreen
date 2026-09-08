@@ -148,8 +148,6 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
 
     if (idx == lv_obj_get_index(self->sysinfo_tab)) {
         self->sysinfo_panel.foreground();
-    } else if (idx == lv_obj_get_index(self->console_tab)) {
-        self->console_panel.foreground();
     }
 }
 
