@@ -88,7 +88,7 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
                          LV_GRID_ALIGN_STRETCH, i / 2, 1);
   }
 
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(5), LV_GRID_FR(3), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(5), LV_GRID_FR(2), LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
 
   lv_obj_set_grid_dsc_array(status_cont, grid_main_col_dsc, grid_main_row_dsc);

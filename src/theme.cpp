@@ -307,9 +307,13 @@ Styles &styles() {
 
 int fit_img(lv_obj_t *img, int w, int h, int max_zoom) {
   const lv_img_t *i = reinterpret_cast<const lv_img_t *>(img);  // w/h of the decoded source
+  // a zoomed image's REAL-size box is a few px wider than the scaled bitmap on
+  // each axis (anti-alias margin), so fit the bitmap to that much less or the
+  // box overshoots the space it was fitted to
+  const int margin = 5;
   int zoom = max_zoom;
-  if (i->w > 0 && w > 0) zoom = std::min(zoom, LV_IMG_ZOOM_NONE * w / i->w);
-  if (i->h > 0 && h > 0) zoom = std::min(zoom, LV_IMG_ZOOM_NONE * h / i->h);
+  if (i->w > 0 && w > 0) zoom = std::min(zoom, LV_IMG_ZOOM_NONE * (w - margin) / i->w);
+  if (i->h > 0 && h > 0) zoom = std::min(zoom, LV_IMG_ZOOM_NONE * (h - margin) / i->h);
   zoom = std::max(zoom, LV_IMG_ZOOM_NONE / 8);
   // a no-op when nothing changes: lv_img_set_zoom and the box refresh each
   // cost a layout pass, and size-changed handlers call this on every layout
