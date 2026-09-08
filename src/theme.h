@@ -3,6 +3,8 @@
 
 #include "lvgl/lvgl.h"
 
+#include <string>
+
 // The one place the UI's look is defined.
 //
 // Panels build their widgets from these tokens instead of writing colours and
@@ -124,11 +126,19 @@ struct Styles {
 
 Styles &styles();
 
-// LVGL draws a scrollbar inside its object's right edge, over whatever sits
-// there. A list that can overflow reserves at least this much right padding so
-// its rows stop short of the bar: the thumb and its pad either side. Adding
-// gap() to it puts the bar centred in the gutter to the next column.
-int scroll_lane();
+// opens a run of a theme colour in a label with lv_label_set_recolor() on:
+// "#rrggbb " -- the caller closes it with '#'. Captions in the dim text colour
+// over their values, for one label that reads as a form.
+std::string recolor(Colour c);
+
+// LVGL draws a scrollbar inside the object that scrolls, over its contents and
+// across its rounded corners. This one is drawn beside it instead: a thin lane
+// inserted just before the object in its flex row, holding a thumb that follows
+// the object's scrolling. The lane is hidden, and the object takes its width
+// back, while the content fits. Content changes are not events, so call
+// refresh_side_scrollbar() after repopulating the object.
+void add_side_scrollbar(lv_obj_t *scrollee);
+void refresh_side_scrollbar(lv_obj_t *scrollee);
 
 // --- images ---------------------------------------------------------------
 

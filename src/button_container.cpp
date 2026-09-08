@@ -98,15 +98,15 @@ void ButtonContainer::stack() {
 void ButtonContainer::float_bottom_right() {
   use_card();
   lv_obj_add_flag(btn_cont, LV_OBJ_FLAG_FLOATING);
-  // a fixed narrow width with the same gap of air on every side, so Back and
-  // Refresh are the same shape and the caller can place one beside the other
-  // without measuring
-  lv_obj_set_size(btn_cont, float_w(), LV_SIZE_CONTENT);
+  // a fixed square, wide enough for a one-word label on one line, so Back and
+  // Refresh are the same shape whatever their text and the caller can place
+  // one beside the other without measuring; fit_icon sizes the icon to the rest
+  lv_obj_set_size(btn_cont, float_w(), float_w());
   lv_obj_set_style_pad_all(btn_cont, gap(), 0);
   lv_obj_align(btn_cont, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
 }
 
-int ButtonContainer::float_w() { return scale_w(64); }
+int ButtonContainer::float_w() { return scale_w(76); }
 
 // Shrink the icon until icon + label fit the tile; never enlarge it, a scaled
 // up bitmap only blurs. fit_img is a no-op when the fit is unchanged, so this

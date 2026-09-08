@@ -40,6 +40,7 @@ LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   lv_obj_set_size(leds_cont, 0, lv_pct(100));
   lv_obj_set_flex_grow(leds_cont, 1);
   lv_obj_set_flex_flow(leds_cont, LV_FLEX_FLOW_COLUMN);
+  add_side_scrollbar(leds_cont);
   lv_obj_set_size(side_cont, scale_w(84), lv_pct(100));
   lv_obj_set_flex_flow(side_cont, LV_FLEX_FLOW_COLUMN);
   for (ButtonContainer *b : {&all_on_btn, &all_off_btn, &back_btn}) {
@@ -148,21 +149,11 @@ void LedPanel::init(json &l) {
     }
   }
 
-  // Any number of rows, any screen size: build them, then ask LVGL whether
-  // they actually overflow. lv_obj_get_scroll_bottom() is that answer, so no
-  // row height and no row count is guessed anywhere.
+  // Any number of rows, any screen size: build them, then let the scroller
+  // measure whether they overflow; no row height or count is guessed anywhere
   const lv_coord_t row_h = SliderContainer::row_height(leds.size());
   for (auto &r : leds) r.second->set_height(row_h);
-  lv_obj_add_flag(leds_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_update_layout(leds_cont);
-  const bool overflows = lv_obj_get_scroll_bottom(leds_cont) > 0;
-  if (!overflows) lv_obj_clear_flag(leds_cont, LV_OBJ_FLAG_SCROLLABLE);
-  // with a scrollbar, it runs down the left edge and the rows start after it,
-  // half a gap of air either side of the bar
-  const int air = overflows ? gap() / 2 : gap();
-  lv_obj_set_style_base_dir(leds_cont, LV_BASE_DIR_RTL, LV_PART_SCROLLBAR);
-  lv_obj_set_style_pad_left(ledpanel_cont, air, 0);
-  lv_obj_set_style_pad_left(leds_cont, overflows ? scroll_lane() + air : 0, 0);
+  refresh_side_scrollbar(leds_cont);
 }
 
 void LedPanel::activate() {

@@ -1,4 +1,5 @@
 #include "theme.h"
+#include <fmt/core.h>
 #include "config.h"
 
 #include <algorithm>
@@ -267,10 +268,11 @@ Styles &styles() {
   lv_style_set_bg_opa(&s.table, LV_OPA_COVER);
   lv_style_set_border_width(&s.table, border_w());
   lv_style_set_border_color(&s.table, col(BORDER));
-  lv_style_set_pad_all(&s.table, 0);  // the scrollbar rides over the cell edge; nothing tappable lives there
+  lv_style_set_pad_all(&s.table, 0);
+  lv_style_set_clip_corner(&s.table, true);  // cells follow the rounded corners instead of poking out square
 
   // solid rather than the stock translucent grey, so it reads as a control and
-  // not a smudge; scroll_lane() is sized from these two numbers
+  // not a smudge; the side scrollbar thumb wears it too
   lv_style_init(&s.scrollbar);
   lv_style_set_width(&s.scrollbar, scale_r(4));
   lv_style_set_pad_all(&s.scrollbar, scale_r(2));
@@ -338,13 +340,55 @@ void fit_first_icon(lv_event_t *e) {
 
 int touch_h() { return scale_r(44); }
 
-int scroll_lane() { return scale_r(4) + 2 * scale_r(2); }  // the thumb and its pad either side
+std::string recolor(Colour c) { return fmt::format("#{:06x} ", lv_color_to32(col(c)) & 0xffffff); }
 
 lv_obj_t *create_row(lv_obj_t *parent) {
   lv_obj_t *row = lv_obj_create(parent);
   lv_obj_add_style(row, &styles().row, 0);
   lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
   return row;
+}
+
+// the lane is the sibling just before the object it tracks
+static lv_obj_t *side_scrollbar_lane(lv_obj_t *scrollee) {
+  return lv_obj_get_child(lv_obj_get_parent(scrollee), lv_obj_get_index(scrollee) - 1);
+}
+
+void add_side_scrollbar(lv_obj_t *scrollee) {
+  lv_obj_t *lane = create_row(lv_obj_get_parent(scrollee));
+  lv_obj_move_to_index(lane, lv_obj_get_index(scrollee));
+  // as wide as the thumb: the row's own column gap is the air either side
+  lv_obj_set_size(lane, scale_r(4), LV_PCT(100));
+  lv_obj_t *thumb = lv_obj_create(lane);
+  lv_obj_add_style(thumb, &styles().scrollbar, 0);
+  lv_obj_clear_flag(thumb, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_width(thumb, LV_PCT(100));
+  // the object's own bar would double up inside it
+  lv_obj_set_scrollbar_mode(scrollee, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_set_scroll_dir(scrollee, LV_DIR_VER);
+  auto follow = [](lv_event_t *e) { refresh_side_scrollbar(lv_event_get_target(e)); };
+  lv_obj_add_event_cb(scrollee, follow, LV_EVENT_SCROLL, NULL);
+  lv_obj_add_event_cb(scrollee, follow, LV_EVENT_SIZE_CHANGED, NULL);
+  refresh_side_scrollbar(scrollee);
+}
+
+void refresh_side_scrollbar(lv_obj_t *scrollee) {
+  lv_obj_t *lane = side_scrollbar_lane(scrollee);
+  const int top = lv_obj_get_scroll_top(scrollee), bottom = lv_obj_get_scroll_bottom(scrollee);
+  if (lv_obj_has_flag(scrollee, LV_OBJ_FLAG_HIDDEN) || (top <= 0 && bottom <= 0)) {
+    // fits (or is away): no bar, no bounce under a finger, the object takes the lane's width
+    lv_obj_add_flag(lane, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
+    return;
+  }
+  lv_obj_clear_flag(lane, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
+  // the thumb is the visible share of the content, placed by how far it has scrolled
+  const int view = lv_obj_get_height(scrollee), lane_h = lv_obj_get_height(lane);
+  const int thumb_h = std::max(lane_h * view / (view + top + bottom), scale_r(16));
+  lv_obj_t *thumb = lv_obj_get_child(lane, 0);
+  lv_obj_set_height(thumb, thumb_h);
+  lv_obj_set_y(thumb, (lane_h - thumb_h) * top / (top + bottom));
 }
 
 lv_obj_t *create_screen(lv_obj_t *parent) {

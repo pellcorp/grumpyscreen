@@ -30,7 +30,8 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   : ws(c)
   , lv_lock(l)
   , cont(create_screen(NULL))
-  , spool_table(lv_table_create(cont))
+  , table_box(create_row(cont))
+  , spool_table(lv_table_create(table_box))
   , empty_box(create_row(cont))
   , controls(create_row(cont))
   , switch_cont(create_row(controls))
@@ -50,8 +51,13 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   lv_obj_move_background(cont);
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
 
-  lv_obj_set_width(spool_table, LV_PCT(100));
+  // the table takes the height above the controls, its scrollbar beside it
+  lv_obj_set_width(table_box, LV_PCT(100));
+  lv_obj_set_flex_grow(table_box, 1);
+  lv_obj_set_flex_flow(table_box, LV_FLEX_FLOW_ROW);
+  lv_obj_set_size(spool_table, 0, LV_PCT(100));
   lv_obj_set_flex_grow(spool_table, 1);
+  add_side_scrollbar(spool_table);
   // rows tall enough to tap: the theme pads cells by a gap, these action
   // columns need a finger's worth
   const lv_font_t *cell_font = lv_obj_get_style_text_font(spool_table, LV_PART_ITEMS);
@@ -62,20 +68,7 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   lv_table_set_col_width(spool_table, 3, scale_w(30)); // color
   lv_table_set_col_width(spool_table, 6, scale_w(44)); // set active
   lv_table_set_col_width(spool_table, 7, scale_w(44)); // archive
-
-  // the name/material/length columns share whatever the fixed ones leave, in
-  // whole pixels that add up to the table's content width exactly, so the
-  // rows reach its right edge
-  const int fixed = scale_w(38) + scale_w(30) + scale_w(44) + scale_w(44);
-  const int border = 2 * lv_obj_get_style_border_width(spool_table, 0);
-  const int remain = lv_disp_get_physical_hor_res(NULL) - 2 * gap() - border
-                     - lv_obj_get_style_pad_right(spool_table, 0) - fixed;
-  const int len_field_width = remain * 23 / 100;
-  const int material_width = remain * 17 / 100;
-  lv_table_set_col_width(spool_table, 1, remain - 2 * len_field_width - material_width); // name - product
-  lv_table_set_col_width(spool_table, 2, material_width); // material
-  lv_table_set_col_width(spool_table, 4, len_field_width);
-  lv_table_set_col_width(spool_table, 5, len_field_width);
+  // the flexible columns are set by layout_columns() once the table has a width
 
   // stands in for the table when there is nothing to list
   lv_obj_set_width(empty_box, LV_PCT(100));
@@ -236,10 +229,29 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
   // nothing listed (no spools, or all of them archived): say so instead of
   // showing a bare header
   const bool empty = row_idx <= 1;
-  if (empty) lv_obj_add_flag(spool_table, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_clear_flag(spool_table, LV_OBJ_FLAG_HIDDEN);
+  if (empty) lv_obj_add_flag(table_box, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_clear_flag(table_box, LV_OBJ_FLAG_HIDDEN);
   if (empty) lv_obj_clear_flag(empty_box, LV_OBJ_FLAG_HIDDEN);
   else lv_obj_add_flag(empty_box, LV_OBJ_FLAG_HIDDEN);
+
+  // the bar takes or gives back its lane first, then the columns share the
+  // width the table is left with (names wrap, so a narrower table only gets
+  // taller and a wider one shorter: this settles)
+  lv_obj_update_layout(table_box);
+  refresh_side_scrollbar(spool_table);
+  layout_columns();
+}
+
+void SpoolmanPanel::layout_columns() {
+  lv_obj_update_layout(table_box);
+  const int fixed = scale_w(38) + scale_w(30) + scale_w(44) + scale_w(44);
+  const int remain = lv_obj_get_content_width(spool_table) - fixed;
+  const int len_field_width = remain * 23 / 100;
+  const int material_width = remain * 17 / 100;
+  lv_table_set_col_width(spool_table, 1, remain - 2 * len_field_width - material_width); // name - product
+  lv_table_set_col_width(spool_table, 2, material_width); // material
+  lv_table_set_col_width(spool_table, 4, len_field_width);
+  lv_table_set_col_width(spool_table, 5, len_field_width);
 }
 
 void SpoolmanPanel::handle_active_id_update(json &j) {

@@ -138,6 +138,7 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   // the readout keeps its own row height; Spoolman matches it
   lv_obj_set_grid_cell(extruder_temp.get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
   lv_obj_set_grid_cell(spoolman_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_style_text_font(spoolman_btn, scale_font(12), 0);  // a step under the button face: the word is long for its cell
   set_action_btn(spoolman_btn, false, theme_primary());
 
   ButtonContainer *left[] = {&load_btn, &unload_btn, &cooldown_btn};

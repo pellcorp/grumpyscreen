@@ -47,16 +47,17 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
   lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 0);
   lv_obj_move_foreground(spinner);
 
-  // the file list is a panel on the left half
+  // the file list is a panel on the left half, its scrollbar beside it
   lv_obj_set_size(left_cont, 0, LV_PCT(100));
   lv_obj_set_flex_grow(left_cont, 1);
-  lv_obj_set_flex_flow(left_cont, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_flow(left_cont, LV_FLEX_FLOW_ROW);
 
-  lv_obj_set_size(file_table, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_size(file_table, 0, LV_PCT(100));
+  lv_obj_set_flex_grow(file_table, 1);
   lv_table_set_col_width(file_table, 0, LV_PCT(100));
   lv_table_set_col_cnt(file_table, 1);
   lv_obj_add_event_cb(file_table, &PrintPanel::_handle_callback, LV_EVENT_ALL, this);
-  lv_obj_set_scroll_dir(file_table, LV_DIR_TOP | LV_DIR_BOTTOM);
+  add_side_scrollbar(file_table);
   // each row is a touch target: pad the cells so one is at least touch_h() tall
   const lv_font_t *row_font = scale_font(14);
   lv_obj_set_style_text_font(file_table, row_font, LV_PART_ITEMS);
@@ -271,6 +272,7 @@ void PrintPanel::show_dir(Tree *dir, uint32_t sort_type) {
 
   lv_table_set_row_cnt(file_table, index);
   lv_obj_scroll_to_y(file_table, 0, LV_ANIM_OFF);
+  refresh_side_scrollbar(file_table);
 
   // XXX: maybe use the directory instead of file endpoint in moonraker
   for (auto &c : sorted_files) {

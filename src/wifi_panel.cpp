@@ -82,7 +82,7 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   lv_obj_add_event_cb(wifi_table, &WifiPanel::_handle_callback, LV_EVENT_LONG_PRESSED, this);
   lv_obj_add_event_cb(wifi_table, draw_part_event_cb, LV_EVENT_DRAW_PART_BEGIN, NULL);
 
-  lv_obj_set_scroll_dir(wifi_table, LV_DIR_TOP | LV_DIR_BOTTOM);
+  Theme::add_side_scrollbar(wifi_table);  // beside the list, clear of its corners; re-fits when the keyboard shrinks it
 
   // the prompt column: status text over the password entry, one gap apart
   lv_obj_set_flex_grow(wifi_right, 1);
@@ -91,8 +91,10 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   lv_obj_add_flag(wifi_right, LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
 
+  // a form, read top down: dim captions over their values (recolor markup in
+  // the one label), left-aligned like the entry beneath
   lv_obj_set_width(wifi_label, LV_PCT(100));
-  lv_obj_set_style_text_align(wifi_label, LV_TEXT_ALIGN_CENTER, 0);
+  lv_label_set_recolor(wifi_label, true);
 
   lv_obj_set_size(password_input, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_style_min_height(password_input, Theme::scale_r(34), 0);
@@ -155,6 +157,7 @@ void WifiPanel::handle_back_btn(lv_event_t *e) {
       return;
     }
     lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
+    Theme::refresh_side_scrollbar(wifi_table);  // the bar goes with it
     lv_obj_add_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_background(cont);
   }
@@ -221,7 +224,7 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       if (switching_network) {
         restart_wifi_from_network = cur_network;
       }
-      lv_label_set_text(wifi_label, fmt::format("Connect to {}\n\nPassword:", selected_network).c_str());
+      lv_label_set_text(wifi_label, fmt::format("{0}Network#\n{1}\n\n{0}Password#", Theme::recolor(Theme::TEXT_DIM), selected_network).c_str());
       lv_obj_clear_flag(password_input, LV_OBJ_FLAG_HIDDEN);
       entering_password = true;
       lv_event_send(password_input, LV_EVENT_FOCUSED, NULL);
@@ -285,6 +288,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     } // while
     lv_obj_scroll_to_y(wifi_table, 0, LV_ANIM_OFF);
     lv_obj_clear_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
+    Theme::refresh_side_scrollbar(wifi_table);
     lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   } else if (event.rfind("<3>CTRL-EVENT-CONNECTED", 0) == 0) {
     if (find_current_network()) {
@@ -321,6 +325,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
 
       lv_obj_scroll_to_y(wifi_table, 0, LV_ANIM_OFF);
       lv_obj_clear_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
+      Theme::refresh_side_scrollbar(wifi_table);
       lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
     } else {
       stop_ip_poll();
@@ -364,7 +369,7 @@ void WifiPanel::update_connection_status_label(const std::string &network_name) 
   auto iface = KUtils::get_wifi_interface();
   auto ip = iface.empty() ? "0.0.0.0" : KUtils::interface_ip(iface);
   if (ip != "0.0.0.0") {
-    lv_label_set_text(wifi_label, fmt::format("Connected to {}\n\nIP: {}", network_name, ip).c_str());
+    lv_label_set_text(wifi_label, fmt::format("{0}Connected to#\n{1}\n\n{0}IP address#\n{2}", Theme::recolor(Theme::TEXT_DIM), network_name, ip).c_str());
   } else {
     lv_label_set_text(wifi_label, fmt::format("Connecting to {}", network_name).c_str());
   }
