@@ -4,6 +4,7 @@
 #include "mmu_backend.h"
 #include "websocket_client.h"
 
+#include <chrono>
 #include <map>
 
 // Happy Hare driver: reads the single "mmu" printer object, speaks MMU_*.
@@ -47,10 +48,7 @@ class HhBackend : public MmuBackend {
   // HH publishes gate_spool_id but never grams; weights come from spoolman
   std::map<int, int> spool_weights;      // spool id -> grams remaining
   std::vector<int> fetched_spool_ids;    // ids covered by the last fetch
-
-  // endless spool groups sent but not yet echoed back by klipper; bridges
-  // the panel's back-to-back clear-then-set command pairs
-  std::vector<int> pending_groups;
+  std::chrono::steady_clock::time_point last_fetch;
 
   bool enabled = true;          // MMU ENABLE=0 refuses every command
   bool filament_loaded = false; // in the extruder, from a gate or the bypass

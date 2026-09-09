@@ -3,6 +3,7 @@
 #include "logger.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cmath>
 
@@ -78,7 +79,6 @@ bool HhBackend::detect() {
   });
   if (found) {
     // re-runs on every klipper reconnect; nothing cached survives a reconfig
-    pending_groups.clear();
     spool_weights.clear();
     fetched_spool_ids.clear();
   }
@@ -146,25 +146,6 @@ void HhBackend::refresh() {
   // In pull mode the spoolman database is the source of truth for the gate map
   // and HH refuses local edits; in push mode the gate map is, so they are fine.
   const bool editable = spoolman_mode != "pull";
-
-  // Retire the optimistic group set once klipper echoes it back, or whenever
-  // it can no longer apply -- a rejected command produces no status delta, and
-  // a stale pending set would silently drive every later edit.
-  if (!pending_groups.empty()) {
-    const bool sized = (int)pending_groups.size() == num_gates;
-    bool echoed = sized && es_groups.is_array() &&
-                  (int)es_groups.size() == num_gates;
-    if (echoed) {
-      for (int g = 0; g < num_gates; g++) {
-        if (!es_groups[g].is_number() ||
-            es_groups[g].template get<int>() != pending_groups[g]) {
-          echoed = false;
-          break;
-        }
-      }
-    }
-    if (echoed || !sized) pending_groups.clear();
-  }
 
   // endless_spool_enabled is the current name; endless_spool is the
   // deprecated alias HH still publishes for older clients
@@ -252,8 +233,10 @@ void HhBackend::refresh() {
   bypass = cur_tool == -2; // TOOL_GATE_BYPASS
   activity = hh_activity(action, changing, error);
 
-  // refresh spoolman weights whenever the set of assigned spool ids changes
+  // refresh spoolman weights whenever the set of assigned spool ids changes,
+  // and at least once a minute: printing eats grams without touching the map
   if (spoolman) {
+    const auto now = std::chrono::steady_clock::now();
     std::vector<int> ids;
     if (gate_spool_id.is_array()) {
       for (auto &sid : gate_spool_id) {
@@ -262,8 +245,9 @@ void HhBackend::refresh() {
         }
       }
     }
-    if (!ids.empty() && ids != fetched_spool_ids) {
+    if (!ids.empty() && (ids != fetched_spool_ids || now - last_fetch > std::chrono::seconds(60))) {
       fetched_spool_ids = ids;
+      last_fetch = now;
       fetch_spoolman_weights();
     }
   }
@@ -278,7 +262,8 @@ void HhBackend::fetch_spoolman_weights() {
     auto &spools = d["/result"_json_pointer];
     if (!spools.is_array()) {
       // leave fetched_spool_ids in place: clearing it here re-fired this
-      // request on every status frame while spoolman was unreachable
+      // request on every status frame while spoolman was unreachable; the
+      // minute timer retries instead
       return;
     }
     for (auto &s : spools) {
@@ -312,8 +297,9 @@ bool HhBackend::can_eject(int slot) const {
 
 bool HhBackend::can_set_backup(int slot) const {
   // MMU_ENDLESS_SPOOL only rewrites the group list: no motion, so no reason to
-  // refuse it mid-print or while paused
-  return valid(slot) && slots.size() > 1;
+  // refuse it mid-print or while paused. MMU ENABLE=0 does refuse it, and only
+  // logs the refusal, so nothing would come back to tell the panel.
+  return enabled && valid(slot) && slots.size() > 1;
 }
 
 // One verb, both jobs: MMU_CHANGE_TOOL runs HH's full toolchange sequence and
@@ -371,7 +357,6 @@ void HhBackend::set_material(int slot, const std::string &material) {
 }
 
 std::vector<int> HhBackend::current_groups() const {
-  if (!pending_groups.empty()) return pending_groups;
   State *state = State::get_instance();
   const json es = state->get_data("/printer_state/mmu/endless_spool_groups"_json_pointer);
   const json ng = state->get_data("/printer_state/mmu/num_gates"_json_pointer);
@@ -385,7 +370,6 @@ std::vector<int> HhBackend::current_groups() const {
 }
 
 void HhBackend::send_groups(const std::vector<int> &groups) {
-  pending_groups = groups;
   std::string csv;
   for (size_t i = 0; i < groups.size(); i++) {
     if (i) csv += ",";
@@ -402,8 +386,12 @@ void HhBackend::set_backup(int slot, int backup) {
   if ((int)groups.size() <= slot) return;
 
   if (backup < 0) {
-    // leave the old group; former partners keep each other
-    groups[slot] = *std::max_element(groups.begin(), groups.end()) + 1;
+    // The panel clears "X backs up slot" by calling this on slot. Groups are
+    // cycles, so X is the gate after slot, and X is what leaves the group --
+    // moving slot instead would leave X covering slot's predecessor. Former
+    // partners keep each other.
+    const int out = valid(slot) && slots[slot].backup >= 0 ? slots[slot].backup : slot;
+    groups[out] = *std::max_element(groups.begin(), groups.end()) + 1;
   } else {
     if (backup >= (int)groups.size()) return;
     groups[backup] = groups[slot];

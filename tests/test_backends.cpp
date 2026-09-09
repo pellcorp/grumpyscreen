@@ -793,25 +793,49 @@ static void test_hh_verbs(KWebSocketClient &ws) {
   hh.set_backup(0, 2);
   CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=0,1,0,3"));
 
-  // the next edit before klipper echoes the first builds on what was sent
+  // every edit reads the groups klipper publishes, never what was last sent:
+  // a refused MMU_ENDLESS_SPOOL (MMU disabled) only logs, so a remembered
+  // send would silently drive every later edit
   sent.clear();
   hh.set_backup(1, 3);
-  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=0,1,0,1"));
+  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=0,1,2,1"));
 
-  // clearing moves the slot to a fresh group and leaves its partners together
+  // klipper echoes a three-gate cycle 0->1->2->0. Turning Gate 0 off as a
+  // backup means the panel clears Gate 2, whose backup it is; Gate 0 is the
+  // one that has to leave the group or it would still cover Gate 1
+  mmu["endless_spool_groups"] = {0, 0, 0, 3};
+  load_state(j);
+  hh.refresh();
+  CHECK_EQ(hh.slots[0].backup, 1);
+  CHECK_EQ(hh.slots[1].backup, 2);
+  CHECK_EQ(hh.slots[2].backup, 0);
   sent.clear();
-  hh.set_backup(0, -1);
-  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=2,1,0,1"));
+  hh.set_backup(2, -1);
+  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=4,0,0,3"));
 
-  // klipper echoes the groups: the pending set retires and state is read again
+  // a pair: clearing either side leaves both alone
   mmu["endless_spool_groups"] = {2, 1, 0, 1};
   load_state(j);
   hh.refresh();
   CHECK_EQ(hh.slots[1].backup, 3);
+  CHECK_EQ(hh.slots[3].backup, 1);
   CHECK_EQ(hh.slots[2].backup, -1);
+  sent.clear();
+  hh.set_backup(3, -1);
+  CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=2,3,0,1"));
   sent.clear();
   hh.set_backup(2, 0);
   CHECK_EQ(sent[0], std::string("MMU_ENDLESS_SPOOL ENABLE=1 GROUPS=0,1,0,1"));
+
+  // MMU disabled: HH refuses MMU_ENDLESS_SPOOL, so the control is greyed
+  mmu["enabled"] = false;
+  load_state(j);
+  hh.refresh();
+  CHECK(!hh.can_set_backup(0));
+  mmu.erase("enabled");
+  load_state(j);
+  hh.refresh();
+  CHECK(hh.can_set_backup(0));
 }
 
 static void test_hh_hostile_status(KWebSocketClient &ws) {
