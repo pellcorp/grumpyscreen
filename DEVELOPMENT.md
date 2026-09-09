@@ -39,11 +39,11 @@ This will directly deploy it to your printer or dev box!
 
 This will directly deploy it to your rpi based printer or dev box!
 
-### Build Locally (Wayland)
+### Build Locally (SDL2)
 
-Mostly this is about getting good screenshots for the moment but you can build grumpyscreen locally for wayland
+Mostly this is about getting good screenshots for the moment but you can build grumpyscreen locally with SDL2.
 
 ```
-./build.sh --setup wayland [--small]
-build/bin/grumpyscreen
+./build.sh --setup sdl [--small]
+build/sdl/bin/grumpyscreen
 ```

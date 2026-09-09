@@ -17,16 +17,19 @@ jobs:
             small: false
             asset: grumpyscreen
             calibrate: false
+            build_dir: build/mips
 
           - arch: mipsel-buildroot-linux-musl-
             small: true
             asset: grumpyscreen-smallscreen
             calibrate: true
+            build_dir: build/mips-small
 
           - arch: armv8-rpi3-linux-gnueabihf-
             small: false
             calibrate: true
             asset: grumpyscreen-rpi
+            build_dir: build/rpi
 
     runs-on: ubuntu-22.04
     container:
@@ -37,6 +40,7 @@ jobs:
       CROSS_COMPILE: ${{ matrix.arch }}
       CC: ${{ matrix.arch }}
       CXX: ${{ matrix.arch }}
+      BUILD_DIR: ${{ matrix.build_dir }}
 
     steps:
     - uses: actions/checkout@v6
@@ -70,7 +74,7 @@ jobs:
     - name: package release
       run: |
         chmod +x ./release.sh
-        ./release.sh ${{ matrix.asset }} ${{ github.sha }} ${{ github.ref_name }}
+        ./release.sh ${{ matrix.asset }} ${{ github.sha }} ${{ github.ref_name }} ${{ matrix.build_dir }}
 
     - uses: actions/upload-artifact@v7
       with:

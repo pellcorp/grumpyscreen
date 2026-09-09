@@ -3,13 +3,16 @@
 #include "config.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
-#ifdef GUPPY_WAYLAND
-#include "lv_drivers/wayland/wayland.h"
+#ifdef GUPPY_SDL
+#include "lv_drivers/sdl/sdl_common.h"
 #endif
 #include "logger.h"
 #include "state.h"
 #ifdef GUPPY_CALIBRATE
 #include <fstream>
+#endif
+#ifdef GUPPY_SDL
+#include <cstdlib>
 #endif
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
@@ -75,7 +78,7 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   lv_init();
 
   /*Linux frame buffer device init*/
-#ifndef GUPPY_WAYLAND
+#ifndef GUPPY_SDL
   fbdev_init();
   fbdev_unblank();
 #endif
@@ -121,7 +124,7 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
   lv_obj_set_size(screen_saver, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_bg_opa(screen_saver, LV_OPA_100, 0);
-#ifdef GUPPY_WAYLAND
+#ifdef GUPPY_SDL
   lv_obj_set_style_bg_color(screen_saver, lv_color_black(), 0);
 #endif
   lv_obj_move_background(screen_saver);
@@ -159,14 +162,19 @@ void GuppyScreen::loop() {
            inactive_baseline);
 
   while (1) {
+#ifdef GUPPY_SDL
+    if (sdl_quit_qry) {
+      std::exit(0);
+    }
+#endif
+
     lv_lock.lock();
     lv_timer_handler();
 
-#ifdef GUPPY_WAYLAND
-    if (!lv_wayland_window_is_open(NULL)) {
+#ifdef GUPPY_SDL
+    if (sdl_quit_qry) {
       lv_lock.unlock();
-      lv_wayland_deinit();
-      return;
+      std::exit(0);
     }
 #endif
 
@@ -181,7 +189,7 @@ void GuppyScreen::loop() {
       if (effective_inactive > static_cast<uint32_t>(display_sleep)) {
         if (!is_sleeping.load()) {
           LOG_DEBUG("putting display to sleeping after {} ms effective inactivity", effective_inactive);
-#ifndef GUPPY_WAYLAND
+#ifndef GUPPY_SDL
           fbdev_blank();
 #endif
           lv_obj_move_foreground(screen_saver);
@@ -190,7 +198,7 @@ void GuppyScreen::loop() {
       } else {
         if (is_sleeping.load()) {
           LOG_DEBUG("waking up display");
-#ifndef GUPPY_WAYLAND
+#ifndef GUPPY_SDL
           fbdev_unblank();
 #endif
           lv_obj_move_background(screen_saver);

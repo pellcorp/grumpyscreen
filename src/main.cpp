@@ -1,8 +1,8 @@
 #include "lvgl/lvgl.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
-#ifdef GUPPY_WAYLAND
-#include "lv_drivers/wayland/wayland.h"
+#ifdef GUPPY_SDL
+#include "lv_drivers/sdl/sdl.h"
 #endif
 #ifdef GUPPY_CALIBRATE
 #include "lv_tc.h"
@@ -28,6 +28,22 @@ static void hal_init(lv_color_t p, lv_color_t s);
 using namespace hv;
 
 #define DISP_BUF_SIZE (128 * 1024)
+
+#ifdef GUPPY_SDL
+static int sdl_window_event_watch(void *userdata, SDL_Event *event) {
+    (void) userdata;
+
+    if (event->type == SDL_QUIT) {
+        std::_Exit(0);
+    }
+
+    if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_CLOSE) {
+        sdl_quit_qry = true;
+    }
+
+    return 0;
+}
+#endif
 
 int main(void) {
     const char* config_file_env = std::getenv("CONFIG_FILE");
@@ -67,24 +83,6 @@ int main(void) {
 static void hal_init(lv_color_t primary, lv_color_t secondary) {
     lv_disp_t * disp = nullptr;
 
-#ifdef GUPPY_WAYLAND
-    lv_wayland_init();
-
-    disp = lv_wayland_create_window(
-#ifdef GUPPY_SMALL_SCREEN
-        static_cast<lv_coord_t>(480),
-        static_cast<lv_coord_t>(272),
-#else
-        static_cast<lv_coord_t>(800),
-        static_cast<lv_coord_t>(480),
-#endif
-        const_cast<char *>("GrumpyScreen"),
-        nullptr);
-    if (disp == nullptr) {
-        LOG_ERROR("Failed to create Wayland window");
-        std::exit(1);
-    }
-#else
     /*A small buffer for LittlevGL to draw the screen's content*/
     static lv_color_t buf[DISP_BUF_SIZE];
     static lv_color_t buf2[DISP_BUF_SIZE];
@@ -97,6 +95,14 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
     disp_drv.draw_buf   = &disp_buf;
+
+#ifdef GUPPY_SDL
+    sdl_init();
+    SDL_AddEventWatch(sdl_window_event_watch, nullptr);
+    disp_drv.flush_cb = sdl_display_flush;
+    disp_drv.hor_res = SDL_HOR_RES;
+    disp_drv.ver_res = SDL_VER_RES;
+#else
     disp_drv.flush_cb   = fbdev_flush;
 
     uint32_t width;
@@ -113,9 +119,17 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
       disp_drv.sw_rotate = 1;
       disp_drv.rotated = rotate_value;
     }
+#endif
 
     disp = lv_disp_drv_register(&disp_drv);
 
+#ifdef GUPPY_SDL
+    static lv_indev_drv_t indev_drv_1;
+    lv_indev_drv_init(&indev_drv_1);
+    indev_drv_1.read_cb = sdl_mouse_read;
+    indev_drv_1.type = LV_INDEV_TYPE_POINTER;
+    lv_indev_drv_register(&indev_drv_1);
+#else
     const char *path = std::getenv("LVGL_EVDEV_DEV");
     if (path != nullptr && path[0] != '\0') {
         LOG_INFO("Input Device is: {}", path);

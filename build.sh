@@ -20,16 +20,18 @@ function docker_make() {
 
     MISC_ARGS=""
 
-    if [ "$TARGET" = "mips" ] || [ "$TARGET" = "rpi" ]; then
+    MISC_ARGS+=" BUILD_DIR=$BUILD_DIR"
+
+    if [ "$TARGET_BASE" = "mips" ] || [ "$TARGET_BASE" = "rpi" ]; then
       MISC_ARGS+=" CROSS_COMPILE=$CROSS_COMPILE"
 
       if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
           MISC_ARGS+=" GUPPY_SMALL_SCREEN=true GUPPY_CALIBRATE=true"
-      elif [ "$TARGET" = "rpi" ]; then
+      elif [ "$TARGET_BASE" = "rpi" ]; then
           MISC_ARGS+=" GUPPY_CALIBRATE=true"
       fi
     else
-      MISC_ARGS+=" GUPPY_WAYLAND=true"
+      MISC_ARGS+=" GUPPY_SDL=true"
 
       if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
         MISC_ARGS+=" GUPPY_SMALL_SCREEN=true"
@@ -41,7 +43,7 @@ function docker_make() {
     fi
 
     echo "Args: $MISC_ARGS"
-    docker run --name=grumpydev -ti --rm --entrypoint /bin/bash -v $PWD:$PWD pellcorp/grumpydev -c "cd $PWD && $MISC_ARGS GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH make $makefile_arg $@"
+    docker run --name=grumpydev --rm --entrypoint /bin/bash -v $PWD:$PWD pellcorp/grumpydev -c "cd $PWD && $MISC_ARGS GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH make -j $makefile_arg $@"
 }
 
 TARGET=
@@ -51,14 +53,49 @@ SETUP=false
 PI_USERNAME=pi
 PASSWORD=Creality2023
 
+function target_base() {
+    local target="${1%-small}"
+    if [ "$target" = "wayland" ]; then
+      echo "sdl"
+    else
+      echo "$target"
+    fi
+}
+
+function target_is_small() {
+    [ "${1%-small}" != "$1" ]
+}
+
+function normalize_build_target() {
+    local target=$1
+    if [ "${target%-small}" = "wayland" ]; then
+      target="sdl${target#wayland}"
+    fi
+    if [ "$GUPPY_SMALL_SCREEN" = "true" ] && [ "${target%-small}" = "$target" ]; then
+      echo "${target}-small"
+    else
+      echo "$target"
+    fi
+}
+
+function is_build_target() {
+    local base
+    base=$(target_base "$1")
+    [ "$base" = "mips" ] || [ "$base" = "rpi" ] || [ "$base" = "sdl" ]
+}
+
 while true; do
     if [ "$1" = "--setup" ]; then
         shift
         SETUP=true
         TARGET=$1
-        if [ "$TARGET" != "mips" ] && [ "$TARGET" != "rpi" ] && [ "$TARGET" != "wayland" ]; then
-          echo "ERROR: mips or rpi or wayland target must be specified"
+        TARGET_BASE=$(target_base "$TARGET")
+        if [ "$TARGET_BASE" != "mips" ] && [ "$TARGET_BASE" != "rpi" ] && [ "$TARGET_BASE" != "sdl" ]; then
+          echo "ERROR: mips, mips-small, rpi, rpi-small, sdl or sdl-small target must be specified"
           exit 1
+        fi
+        if target_is_small "$TARGET"; then
+          export GUPPY_SMALL_SCREEN=true
         fi
         shift
     elif [ "$1" = "--small" ]; then
@@ -84,15 +121,26 @@ while true; do
     fi
 done
 
+if [ -n "$1" ] && is_build_target "$1"; then
+  TARGET=$1
+  if target_is_small "$TARGET"; then
+    export GUPPY_SMALL_SCREEN=true
+  fi
+  shift
+fi
+
 if [ "$SETUP" = "true" ]; then
-  if [ "$TARGET" = "wayland" ]; then
-    echo "wayland" > $CURRENT_DIR/.target.cfg
-  elif [ "$TARGET" = "rpi" ]; then
-    echo "rpi" > $CURRENT_DIR/.target.cfg
+  TARGET=$(normalize_build_target "$TARGET")
+  TARGET_BASE=$(target_base "$TARGET")
+
+  if [ "$TARGET_BASE" = "rpi" ]; then
+    echo "$TARGET" > $CURRENT_DIR/.target.cfg
     echo "username=$PI_USERNAME" >> $CURRENT_DIR/.target.cfg
-  else
-    echo "mips" > $CURRENT_DIR/.target.cfg
+  elif [ "$TARGET_BASE" = "mips" ]; then
+    echo "$TARGET" > $CURRENT_DIR/.target.cfg
     echo "password=$PASSWORD" >> $CURRENT_DIR/.target.cfg
+  else
+    echo "$TARGET" > $CURRENT_DIR/.target.cfg
   fi
 
   if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
@@ -106,6 +154,9 @@ fi
 
 if [ -f $CURRENT_DIR/.target.cfg ]; then
   TARGET=$(cat $CURRENT_DIR/.target.cfg | head -1)
+  if target_is_small "$TARGET"; then
+    export GUPPY_SMALL_SCREEN=true
+  fi
   if [ $(cat $CURRENT_DIR/.target.cfg | grep "small=true" | wc -l) -gt 0 ]; then
     export GUPPY_SMALL_SCREEN=true
   fi
@@ -120,9 +171,17 @@ if [ -f $CURRENT_DIR/.target.cfg ]; then
   fi
 fi
 
-if [ "$TARGET" = "rpi" ]; then
+if [ -z "$TARGET" ]; then
+  TARGET=sdl
+fi
+
+TARGET=$(normalize_build_target "$TARGET")
+TARGET_BASE=$(target_base "$TARGET")
+BUILD_DIR=build/$TARGET
+
+if [ "$TARGET_BASE" = "rpi" ]; then
   export CROSS_COMPILE=armv8-rpi3-linux-gnueabihf-
-elif [ "$TARGET" = "mips" ]; then
+elif [ "$TARGET_BASE" = "mips" ]; then
   export CROSS_COMPILE=mipsel-buildroot-linux-musl-
 fi
 
@@ -139,12 +198,12 @@ fi
 docker_make $1 || exit $?
 #docker_make "bootstrap" $1 || exit $?
 
-cp $CURRENT_DIR/grumpyscreen.cfg build/bin/
+cp $CURRENT_DIR/grumpyscreen.cfg "$BUILD_DIR/bin/"
 
-if [ -n "$PRINTER_IP" ] && [ -f build/bin/grumpyscreen ]; then
-  if [ "$TARGET" = "mips" ]; then
+if [ -n "$PRINTER_IP" ] && [ -f "$BUILD_DIR/bin/grumpyscreen" ] && { [ "$TARGET_BASE" = "mips" ] || [ "$TARGET_BASE" = "rpi" ]; }; then
+  if [ "$TARGET_BASE" = "mips" ]; then
     echo "Copying to root@$PRINTER_IP (Password is $PASSWORD) ..."
-    sshpass -p $PASSWORD scp build/bin/grumpyscreen root@$PRINTER_IP:
+    sshpass -p $PASSWORD scp "$BUILD_DIR/bin/grumpyscreen" root@$PRINTER_IP:
     sshpass -p $PASSWORD ssh root@$PRINTER_IP "mv /root/grumpyscreen /usr/data/grumpyscreen/grumpyscreen"
 
     cp grumpyscreen.cfg /tmp
@@ -165,7 +224,7 @@ if [ -n "$PRINTER_IP" ] && [ -f build/bin/grumpyscreen ]; then
   else # rpi - assumes passwordless ssh i guess oops
     echo "Uploading to ${PI_USERNAME}@$PRINTER_IP ..."
     cp grumpyscreen.cfg /tmp
-    scp build/bin/grumpyscreen $PI_USERNAME@$PRINTER_IP:/tmp/
+    scp "$BUILD_DIR/bin/grumpyscreen" $PI_USERNAME@$PRINTER_IP:/tmp/
     sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
     sed -i 's:/etc/init.d/S99grumpyscreen restart:sudo systemctl restart grumpyscreen:g' /tmp/grumpyscreen.cfg
     sed -i 's:/etc/init.d/S55klipper_service restart:sudo systemctl restart klipper:g' /tmp/grumpyscreen.cfg

@@ -28,7 +28,7 @@ WARNINGS		:= -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wp
 CFLAGS 			?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
 LDFLAGS 		?= -static -lm -Llibhv/lib -l:libhv.a -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -l:libwpa_client.a -lstdc++fs
 BIN 			= grumpyscreen
-BUILD_DIR 		= ./build
+BUILD_DIR 		?= ./build
 BUILD_OBJ_DIR 	= $(BUILD_DIR)/obj
 BUILD_BIN_DIR 	= $(BUILD_DIR)/bin
 
@@ -50,6 +50,7 @@ DEFINES 		+= $(foreach b,$(MMU_BACKENDS),-D MMU_BACKEND_$(shell echo $(b) | tr '
 
 include $(LVGL_DIR)/lvgl/lvgl.mk
 include $(LVGL_DIR)/lv_drivers/lv_drivers.mk
+CSRCS			:= $(filter-out $(LVGL_DIR)/lv_drivers/wayland/%.c,$(CSRCS))
 
 CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/*.c)
 ifdef GUPPY_CALIBRATE
@@ -65,27 +66,6 @@ DEFINES			+= -D GUPPY_SMALL_SCREEN
 endif
 
 CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/$(ASSET_DIR)/*.c)
-
-ifdef GUPPY_WAYLAND
-WAYLAND_SCANNER := $(shell command -v wayland-scanner 2>/dev/null)
-WAYLAND_PROTOCOLS_BASE := $(shell pkg-config --variable=pkgdatadir wayland-protocols 2>/dev/null)
-WAYLAND_CFLAGS := $(shell pkg-config --cflags wayland-client wayland-cursor xkbcommon 2>/dev/null)
-WAYLAND_LIBS := $(shell pkg-config --libs wayland-client wayland-cursor xkbcommon 2>/dev/null)
-ifeq ($(strip $(WAYLAND_PROTOCOLS_BASE)),)
-WAYLAND_PROTOCOLS_BASE := $(shell test -d /usr/share/wayland-protocols && printf %s /usr/share/wayland-protocols)
-endif
-ifeq ($(strip $(WAYLAND_LIBS)),)
-WAYLAND_LIBS := -lwayland-client -lwayland-cursor -lxkbcommon
-endif
-WAYLAND_XDG_PROTOCOL := $(WAYLAND_PROTOCOLS_BASE)/stable/xdg-shell/xdg-shell.xml
-WAYLAND_PROTOCOL_GEN_DIR := $(BUILD_DIR)/wayland-src/protocols
-WAYLAND_PROTOCOL_GEN_C := $(WAYLAND_PROTOCOL_GEN_DIR)/wayland-xdg-shell-client-protocol.c
-WAYLAND_PROTOCOL_GEN_H := $(WAYLAND_PROTOCOL_GEN_DIR)/wayland-xdg-shell-client-protocol.h
-WAYLAND_PROTOCOL_OBJ := $(BUILD_OBJ_DIR)/$(patsubst ./%,%,$(WAYLAND_PROTOCOL_GEN_C:.c=.o))
-WAYLAND_SRC_OBJ := $(BUILD_OBJ_DIR)/lv_drivers/wayland/wayland.o
-
-CSRCS			+= $(WAYLAND_PROTOCOL_GEN_C)
-endif
 
 ifdef GUPPYSCREEN_VERSION
 SHORT_GUPPYSCREEN_VERSION := $(shell printf "%s" "$(GUPPYSCREEN_VERSION)" | cut -c1-7)
@@ -168,20 +148,21 @@ LDLIBS	 			:= -lm
 
 DEFINES				+= -D _GNU_SOURCE -DSPDLOG_COMPILED_LIB
 
-ifdef GUPPY_WAYLAND
-ifeq ($(strip $(WAYLAND_SCANNER)),)
-$(error GUPPY_WAYLAND=1 requires wayland-scanner to be installed)
-endif
-ifeq ($(strip $(WAYLAND_PROTOCOLS_BASE)),)
-$(error GUPPY_WAYLAND=1 requires wayland-protocols; could not locate pkgdatadir)
-endif
-ifeq ($(wildcard $(WAYLAND_XDG_PROTOCOL)),)
-$(error GUPPY_WAYLAND=1 requires xdg-shell.xml at $(WAYLAND_XDG_PROTOCOL))
+ifdef GUPPY_SDL
+SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
+SDL_LIBS := $(shell pkg-config --libs sdl2 2>/dev/null)
+ifeq ($(strip $(SDL_LIBS)),)
+SDL_LIBS := -lSDL2
 endif
 LDFLAGS				:= $(filter-out -static,$(LDFLAGS))
-INC					+= -I./lv_drivers/wayland -I./$(BUILD_DIR)/wayland-src $(WAYLAND_CFLAGS)
-LDFLAGS				+= $(WAYLAND_LIBS)
-DEFINES				+= -D GUPPY_WAYLAND -D USE_WAYLAND=1 -D LV_WAYLAND_XDG_SHELL=1 -D LV_WAYLAND_WL_SHELL=1
+INC					+= $(SDL_CFLAGS)
+LDFLAGS				+= $(SDL_LIBS)
+DEFINES				+= -D GUPPY_SDL -D USE_SDL=1
+ifdef GUPPY_SMALL_SCREEN
+DEFINES				+= -D SDL_HOR_RES=480 -D SDL_VER_RES=272
+else
+DEFINES				+= -D SDL_HOR_RES=800 -D SDL_VER_RES=480
+endif
 endif
 
 COMPILE_CC				= $(CC) $(CFLAGS) $(INC) $(DEFINES)
@@ -196,16 +177,6 @@ libhv.a:
 
 wpaclient:
 	$(MAKE) -C wpa_supplicant/wpa_supplicant -j$(nproc) libwpa_client.a
-
-ifdef GUPPY_WAYLAND
-$(WAYLAND_PROTOCOL_GEN_C) $(WAYLAND_PROTOCOL_GEN_H): $(WAYLAND_XDG_PROTOCOL)
-	@mkdir -p $(WAYLAND_PROTOCOL_GEN_DIR)
-	$(WAYLAND_SCANNER) client-header $< $(WAYLAND_PROTOCOL_GEN_H)
-	$(WAYLAND_SCANNER) private-code $< $(WAYLAND_PROTOCOL_GEN_C)
-
-$(WAYLAND_SRC_OBJ): $(WAYLAND_PROTOCOL_GEN_H)
-$(WAYLAND_PROTOCOL_OBJ): $(WAYLAND_PROTOCOL_GEN_H)
-endif
 
 $(BUILD_OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
