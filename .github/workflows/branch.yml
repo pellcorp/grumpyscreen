@@ -1,15 +1,79 @@
 name: branch build
 
 on:
+  pull_request:
   push:
     branches:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build:
+  compile:
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        include:
+          - arch: mipsel-buildroot-linux-musl-
+            small: false
+            calibrate: false
+            build_dir: build/mips
+
+          - arch: mipsel-buildroot-linux-musl-
+            small: true
+            calibrate: true
+            build_dir: build/mips-small
+
+          - arch: armv8-rpi3-linux-gnueabihf-
+            small: false
+            calibrate: true
+            build_dir: build/rpi
+
+    runs-on: ubuntu-22.04
+    container:
+      image: pellcorp/grumpydev:latest
+      options: --user 1001
+
+    env:
+      CROSS_COMPILE: ${{ matrix.arch }}
+      CC: ${{ matrix.arch }}
+      CXX: ${{ matrix.arch }}
+      BUILD_DIR: ${{ matrix.build_dir }}
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+
+    - name: set grumpyscreen version
+      run: |
+        echo "GUPPYSCREEN_BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+        echo "GUPPYSCREEN_VERSION=${{ github.sha }}" >> $GITHUB_ENV
+
+    - if: matrix.small
+      name: export screen size
+      run: |
+        echo "GUPPY_SMALL_SCREEN=${{ matrix.small }}" >> $GITHUB_ENV
+
+    - if: matrix.calibrate
+      name: export touch calibrate
+      run: |
+        echo "GUPPY_CALIBRATE=${{ matrix.calibrate }}" >> $GITHUB_ENV
+
+    - name: make wpaclient
+      run: make wpaclient
+
+    - name: make libhv
+      run: make libhv.a
+
+    - name: make grumpyscreen
+      run: make -j
+
+  release:
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
