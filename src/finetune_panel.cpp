@@ -2,91 +2,62 @@
 #include "state.h"
 #include "logger.h"
 #include "config.h"
+#include "icons.h"
+#include "theme.h"
 
 #include <algorithm>
 
-LV_IMG_DECLARE(home_z);
-LV_IMG_DECLARE(z_closer);
-LV_IMG_DECLARE(z_farther);
-LV_IMG_DECLARE(pa_plus_img);
-LV_IMG_DECLARE(pa_minus_img);
-LV_IMG_DECLARE(refresh_img);
-LV_IMG_DECLARE(speed_up_img);
-LV_IMG_DECLARE(speed_down_img);
-LV_IMG_DECLARE(flow_up_img);
-LV_IMG_DECLARE(flow_down_img);
-LV_IMG_DECLARE(back);
+
+using namespace Theme;
+
+namespace {
+
+// "{:.5}" can come out in exponent form for a tiny offset; show that as zero
+std::string fmt_offset(double v, const char *unit) {
+  std::string s = fmt::format("{:.5} {}", v, unit);
+  return s.find_first_of("eE") == std::string::npos ? s : fmt::format("0.0 {}", unit);
+}
+
+std::string fmt_pct(double factor) {
+  return fmt::format("{}%", static_cast<int>(factor * 100));
+}
+
+}  // namespace
 
 FineTunePanel::FineTunePanel(KWebSocketClient &websocket_client, std::mutex &l)
   : NotifyConsumer(l)
   , ws(websocket_client)
-  , panel_cont(lv_obj_create(lv_scr_act()))
-  , values_cont(lv_obj_create(panel_cont))
-  , zreset_btn(panel_cont, &refresh_img, "Reset Z", &FineTunePanel::_handle_zoffset, this)
-  , zup_btn(panel_cont, &z_closer, "Z+", &FineTunePanel::_handle_zoffset, this)
-  , zdown_btn(panel_cont, &z_farther, "Z-", &FineTunePanel::_handle_zoffset, this)
-  , pareset_btn(panel_cont, &refresh_img, "Reset PA", &FineTunePanel::_handle_pa, this)
-  , paup_btn(panel_cont, &pa_plus_img, "PA+", &FineTunePanel::_handle_pa, this)
-  , padown_btn(panel_cont, &pa_minus_img, "PA-", &FineTunePanel::_handle_pa, this)
-  , speed_reset_btn(panel_cont, &refresh_img, "Speed Reset", &FineTunePanel::_handle_speed, this)    
-  , speed_up_btn(panel_cont, &speed_up_img, "Speed+", &FineTunePanel::_handle_speed, this)
-  , speed_down_btn(panel_cont, &speed_down_img, "Speed-", &FineTunePanel::_handle_speed, this)
-  , flow_reset_btn(panel_cont, &refresh_img, "Flow Reset", &FineTunePanel::_handle_flow, this)
-  , flow_up_btn(panel_cont, &flow_up_img, "Flow+", &FineTunePanel::_handle_flow, this)
-  , flow_down_btn(panel_cont, &flow_down_img, "Flow-", &FineTunePanel::_handle_flow, this)
-  , back_btn(panel_cont, &back, "Back", &FineTunePanel::_handle_callback, this)
-  , zoffset_selector(panel_cont, "Z (mm) - PA (mm/s)",
-		     {"0.01", "0.05", "0.10", ""}, 0, 30, 15, &FineTunePanel::_handle_callback, this)
-  , multipler_selector(panel_cont, "Multiplier Step (%)",
-		       {"1", "5", "10", "25", ""}, 0, 40, 15, &FineTunePanel::_handle_callback, this)
-  , z_offset(values_cont, &home_z, 150, 100, 15, "0.0 mm")
-  , pa(values_cont, &pa_plus_img, 150, 100, 15, "0.0 mm/s")
-  , speed_factor(values_cont, &speed_up_img, 150, 100, 15 ,"100%")
-  , flow_factor(values_cont, &flow_up_img, 150, 100, 15, "100%")
+  , panel_cont(create_screen(NULL))
+  , step_selector(panel_cont, "Z / PA step (mm)", {"0.01", "0.05", "0.10", ""}, 0,
+                  &FineTunePanel::_handle_selector, this)
+  , multiplier_selector(panel_cont, "Speed / Flow step (%)", {"1", "5", "10", "25", ""}, 0,
+                        &FineTunePanel::_handle_selector, this)
+  , back_btn(panel_cont, Icons::BACK, "Back", &FineTunePanel::_handle_back, this)
 {
   lv_obj_move_background(panel_cont);
-  
-  lv_obj_set_size(panel_cont, LV_PCT(100), LV_PCT(100));
-  lv_obj_clear_flag(panel_cont, LV_OBJ_FLAG_SCROLLABLE);
 
-  lv_obj_set_size(values_cont, LV_PCT(20), LV_PCT(80));
-  lv_obj_clear_flag(values_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_style_pad_all(values_cont, 0, 0);
-  lv_obj_set_flex_flow(values_cont, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(values_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  // readout | down | up | reset, four rows sharing the height above a
+  // content-sized selector row
+  static lv_coord_t col_dsc[] = {LV_GRID_FR(3), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
+                                 LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
+                                 LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
+  lv_obj_set_grid_dsc_array(panel_cont, col_dsc, row_dsc);
 
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
-    LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
-    LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  make_row(z,     0, Icons::HOME_Z,       "Z offset",         "0.0 mm");
+  make_row(pa,    1, Icons::PA_PLUS_IMG,  "Pressure adv.",    "0.0 mm/s");
+  make_row(speed, 2, Icons::SPEED_UP_IMG, "Speed",            "100%");
+  make_row(flow,  3, Icons::FLOW_UP_IMG,  "Flow",             "100%");
 
-  lv_obj_set_grid_dsc_array(panel_cont, grid_main_col_dsc, grid_main_row_dsc);
-
-  // col 1
-  lv_obj_set_grid_cell(zreset_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(zup_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(zdown_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(zoffset_selector.get_container(), LV_GRID_ALIGN_CENTER, 0, 2, LV_GRID_ALIGN_CENTER, 3, 1);
-
-  // col 2
-  lv_obj_set_grid_cell(pareset_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(paup_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(padown_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  
-  // col 3
-  lv_obj_set_grid_cell(speed_reset_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(speed_up_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(speed_down_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(multipler_selector.get_container(), LV_GRID_ALIGN_CENTER, 2, 2, LV_GRID_ALIGN_CENTER, 3, 1);  
-
-  // col 4
-  lv_obj_set_grid_cell(flow_reset_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(flow_up_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(flow_down_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-
-  // col 5
-  lv_obj_set_grid_cell(values_cont, LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 3);  
-  lv_obj_set_grid_cell(back_btn.get_container(), LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 3, 1);
+  // the selectors and Back share the content-sized bottom row: it takes the
+  // height a row of keys needs, the four parameter rows above get the rest,
+  // and all three sit at the end of it, a screen margin from the bottom edge
+  for (Selector *s : {&multiplier_selector, &step_selector}) s->seat_at_row_bottom();
+  lv_obj_set_grid_cell(multiplier_selector.get_container(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_END, 4, 1);
+  lv_obj_set_grid_cell(step_selector.get_container(), LV_GRID_ALIGN_STRETCH, 1, 2, LV_GRID_ALIGN_END, 4, 1);
+  back_btn.use_card();
+  lv_obj_set_grid_cell(back_btn.get_container(), LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_END, 4, 1);
+  back_btn.match_height(panel_cont, multiplier_selector.get_container());
 
   ws.register_notify_update(this);
 }
@@ -99,186 +70,120 @@ FineTunePanel::~FineTunePanel() {
   ws.unregister_notify_update(this);
 }
 
+void FineTunePanel::make_row(Row &r, int grid_row, const void *icon, const char *name,
+                             const char *initial) {
+  // the readout card: icon, dim name, value
+  r.card = lv_obj_create(panel_cont);
+  lv_obj_add_style(r.card, &styles().card, 0);
+  lv_obj_set_style_border_width(r.card, 0, 0);  // a readout: room, but no frame
+  lv_obj_set_style_pad_hor(r.card, gap(), 0);
+  lv_obj_clear_flag(r.card, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_flex_flow(r.card, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(r.card, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(r.card, gap(), 0);
+  lv_obj_set_grid_cell(r.card, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, grid_row, 1);
+
+  lv_obj_t *img = lv_img_create(r.card);
+  lv_img_set_src(img, icon);
+  lv_obj_add_event_cb(r.card, fit_first_icon, LV_EVENT_SIZE_CHANGED, NULL);
+
+  lv_obj_t *label = lv_label_create(r.card);
+  lv_label_set_text(label, name);
+  lv_obj_add_style(label, &styles().dim_label, 0);
+  // one line, dotted if it must be: a content-height label would wrap instead
+  lv_obj_set_height(label, lv_font_get_line_height(lv_obj_get_style_text_font(label, 0)));
+  lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+  lv_obj_set_flex_grow(label, 1);
+
+  r.value = lv_label_create(r.card);
+  lv_label_set_text(r.value, initial);
+  lv_obj_set_style_text_font(r.value, scale_font(14), 0);
+
+  // its three actions: plain text buttons, one grid cell each
+  r.down  = create_flat_btn(panel_cont, "-", &FineTunePanel::_handle_btn, this);
+  r.up    = create_flat_btn(panel_cont, "+", &FineTunePanel::_handle_btn, this);
+  r.reset = create_flat_btn(panel_cont, "Reset", &FineTunePanel::_handle_btn, this);
+  int col = 1;
+  for (lv_obj_t *btn : {r.down, r.up, r.reset}) {
+    lv_obj_set_grid_cell(btn, LV_GRID_ALIGN_STRETCH, col++, 1, LV_GRID_ALIGN_STRETCH, grid_row, 1);
+  }
+  // the signs read better a size up
+  for (lv_obj_t *btn : {r.down, r.up}) {
+    lv_obj_set_style_text_font(lv_obj_get_child(btn, 0), scale_font(18), 0);
+  }
+}
+
 void FineTunePanel::foreground() {
-  auto v = State::get_instance()->get_data("/printer_state/gcode_move/homing_origin/2"_json_pointer);
-  if (!v.is_null()) {
-    std::string z_offset_str = fmt::format("{:.5} mm", v.template get<double>());
-    // this is some dodgy shit not even sure why it happens
-    if (z_offset_str.find("e-") == std::string::npos && z_offset_str.find("E-") == std::string::npos) {
-      z_offset.update_label(z_offset_str.c_str());
-    } else {
-      z_offset.update_label("0.0 mm");
-    }
-  }
-
-  v = State::get_instance()->get_data("/printer_state/extruder/pressure_advance"_json_pointer);
-  if (!v.is_null()) {
-    pa.update_label(fmt::format("{:.5} mm/s", v.template get<double>()).c_str());
-  }
-
-  v = State::get_instance()->get_data("/printer_state/gcode_move/speed_factor"_json_pointer);
-  if (!v.is_null()) {
-    speed_factor.update_label(fmt::format("{}%",
-    static_cast<int>(v.template get<double>() * 100)).c_str());
-  }
-
-  v = State::get_instance()->get_data("/printer_state/gcode_move/extrude_factor"_json_pointer);
-  if (!v.is_null()) {
-    flow_factor.update_label(fmt::format("{}%",
-    static_cast<int>(v.template get<double>() * 100)).c_str());
-  }
-
-  //Set the Z axis buttons
-  const bool inverted = Config::get_instance()->get<bool>("/ui/invert_z_icon");
-  if (inverted) {
-    // UP arrow
-    zup_btn.set_image(&z_farther);
-    zdown_btn.set_image(&z_closer);
-  } else {
-    // DOWN arrow
-    zup_btn.set_image(&z_closer);
-    zdown_btn.set_image(&z_farther);
-  }
-  
+  update_values(State::get_instance()->get_data("/printer_state"_json_pointer));
   lv_obj_move_foreground(panel_cont);
 }
 
 void FineTunePanel::consume(json &j) {
   std::lock_guard<std::mutex> lock(lv_lock);
-  auto v = j["/params/0/gcode_move/homing_origin/2"_json_pointer];
-  if (!v.is_null()) {
-    std::string z_offset_str = fmt::format("{:.5} mm", v.template get<double>());
-    // this is some dodgy shit not even sure why it happens
-    if (z_offset_str.find("e-") == std::string::npos && z_offset_str.find("E-") == std::string::npos) {
-      z_offset.update_label(z_offset_str.c_str());
-    } else {
-      z_offset.update_label("0.0 mm");
-    }
-  }
+  update_values(j["/params/0"_json_pointer]);
+}
 
-  v = j["/params/0/extruder/pressure_advance"_json_pointer];
-  if (!v.is_null()) {
-    pa.update_label(fmt::format("{:.5} mm/s", v.template get<double>()).c_str());
-  }
+// the same four fields whether they come from the full state or an update;
+// a label is only rewritten (and redrawn) when its text actually changes
+void FineTunePanel::update_values(const json &state) {
+  auto set = [](lv_obj_t *label, const json &v, std::string (*fmt)(double)) {
+    if (v.is_null()) return;
+    const std::string s = fmt(v.template get<double>());
+    if (s != lv_label_get_text(label)) lv_label_set_text(label, s.c_str());
+  };
+  set(z.value, state.value("/gcode_move/homing_origin/2"_json_pointer, json()),
+      [](double v) { return fmt_offset(v, "mm"); });
+  set(pa.value, state.value("/extruder/pressure_advance"_json_pointer, json()),
+      [](double v) { return fmt_offset(v, "mm/s"); });
+  set(speed.value, state.value("/gcode_move/speed_factor"_json_pointer, json()), fmt_pct);
+  set(flow.value, state.value("/gcode_move/extrude_factor"_json_pointer, json()), fmt_pct);
+}
 
-  v = j["/params/0/gcode_move/speed_factor"_json_pointer];
-  if (!v.is_null()) {
-    speed_factor.update_label(fmt::format("{}%",
-    static_cast<int>(v.template get<double>() * 100)).c_str());
-  }
-
-  v = j["/params/0/gcode_move/extrude_factor"_json_pointer];
-  if (!v.is_null()) {
-    flow_factor.update_label(fmt::format("{}%",
-    static_cast<int>(v.template get<double>() * 100)).c_str());
+void FineTunePanel::handle_selector(lv_event_t *e) {
+  lv_obj_t *selector = lv_event_get_target(e);
+  uint32_t idx = lv_btnmatrix_get_selected_btn(selector);
+  for (Selector *s : {&step_selector, &multiplier_selector}) {
+    if (selector == s->get_selector()) s->set_selected_idx(idx);
   }
 }
 
-void FineTunePanel::handle_callback(lv_event_t *e) {
-  LOG_TRACE("fine tune btn callback");
-  if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
-    lv_obj_t *selector = lv_event_get_target(e);
-    uint32_t idx = lv_btnmatrix_get_selected_btn(selector);
+void FineTunePanel::handle_btn(lv_obj_t *btn) {
+  State *state = State::get_instance();
+  const char *step = lv_btnmatrix_get_btn_text(step_selector.get_selector(), step_selector.get_selected_idx());
+  const char *mult = lv_btnmatrix_get_btn_text(multiplier_selector.get_selector(),
+                                               multiplier_selector.get_selected_idx());
 
-    if (selector == zoffset_selector.get_selector()) {
-      zoffset_selector.set_selected_idx(idx);
+  if (btn == z.reset) {
+    ws.gcode_script("SET_GCODE_OFFSET Z=0 MOVE=1");
+  } else if (btn == z.up || btn == z.down) {
+    ws.gcode_script(fmt::format("SET_GCODE_OFFSET Z_ADJUST={}{} MOVE=1", btn == z.up ? "+" : "-", step));
+
+  } else if (btn == pa.reset) {
+    auto v = state->get_data("/printer_state/configfile/settings/extruder/pressure_advance"_json_pointer);
+    if (!v.is_null()) ws.gcode_script(fmt::format("SET_PRESSURE_ADVANCE ADVANCE={}", v.template get<double>()));
+  } else if (btn == pa.up || btn == pa.down) {
+    auto cur = state->get_data("/printer_state/extruder/pressure_advance"_json_pointer);
+    if (!cur.is_null()) {
+      const double d = btn == pa.up ? std::stod(step) : -std::stod(step);
+      ws.gcode_script(fmt::format("SET_PRESSURE_ADVANCE ADVANCE={}", std::max(0.0, cur.template get<double>() + d)));
     }
 
-    if (selector == multipler_selector.get_selector()) {
-      multipler_selector.set_selected_idx(idx);
+  } else if (btn == speed.reset) {
+    ws.gcode_script("M220 S100");
+  } else if (btn == speed.up || btn == speed.down) {
+    auto cur = state->get_data("/printer_state/gcode_move/speed_factor"_json_pointer);
+    if (!cur.is_null()) {
+      const int d = btn == speed.up ? std::stoi(mult) : -std::stoi(mult);
+      ws.gcode_script(fmt::format("M220 S{}", std::max(1, static_cast<int>(cur.template get<double>() * 100) + d)));
     }
-  }
-  
-  if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    lv_obj_t *btn = lv_event_get_current_target(e);
-    if (btn == back_btn.get_container()) {
-      lv_obj_move_background(panel_cont);
-    }
-  }
-}
 
-void FineTunePanel::handle_zoffset(lv_event_t *e) {
-  if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    lv_obj_t *btn = lv_event_get_current_target(e);
-
-    if (btn == zreset_btn.get_container()) {
-      LOG_TRACE("clicked zoffset reset");
-      ws.gcode_script("SET_GCODE_OFFSET Z=0 MOVE=1");
-    } else {
-      const char * step = lv_btnmatrix_get_btn_text(zoffset_selector.get_selector(),
-						    zoffset_selector.get_selected_idx());
-      LOG_TRACE("clicked z {}", step);
-      ws.gcode_script(fmt::format("SET_GCODE_OFFSET Z_ADJUST={}{} MOVE=1",
-				  btn == zup_btn.get_container() ? "+" : "-",
-				  step));
-    }
-  }
-}
-
-void FineTunePanel::handle_pa(lv_event_t *e) {
-  if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    lv_obj_t *btn = lv_event_get_current_target(e);
-
-    if (btn == pareset_btn.get_container()) {
-      LOG_TRACE("clicked pa reset");
-      auto v = State::get_instance()->get_data(
-		     "/printer_state/configfile/settings/extruder/pressure_advance"_json_pointer);
-      if (!v.is_null()) {
-	      ws.gcode_script(fmt::format("SET_PRESSURE_ADVANCE ADVANCE={}", v.template get<double>()));
-      }
-    } else {
-      auto cur_pa = State::get_instance()->get_data("/printer_state/extruder/pressure_advance"_json_pointer);
-      if (!cur_pa.is_null()) {
-        const char * step = lv_btnmatrix_get_btn_text(zoffset_selector.get_selector(), zoffset_selector.get_selected_idx());
-        double direction = btn == paup_btn.get_container() ? std::stod(step) : -std::stod(step);
-        double new_pa = cur_pa.template get<double>() + direction;
-        new_pa = new_pa < 0 ? 0 : new_pa;
-        ws.gcode_script(fmt::format("SET_PRESSURE_ADVANCE ADVANCE={}", new_pa));
-      }
-    }
-  }
-}
-
-void FineTunePanel::handle_speed(lv_event_t *e) {
-  if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    lv_obj_t *btn = lv_event_get_current_target(e);
-    if (btn == speed_reset_btn.get_container()) {
-      LOG_TRACE("speed reset");
-      ws.gcode_script("M220 S100");
-    } else {
-      auto spd_factor = State::get_instance()->get_data("/printer_state/gcode_move/speed_factor"_json_pointer);
-      if (!spd_factor.is_null()) {
-	      const char * step = lv_btnmatrix_get_btn_text(multipler_selector.get_selector(),
-						      multipler_selector.get_selected_idx());
-
-        int32_t direction = btn == speed_up_btn.get_container() ? std::stoi(step) : -std::stoi(step);
-        int32_t new_speed = static_cast<int32_t>(spd_factor.template get<double>() * 100 + direction);
-        new_speed = std::max(new_speed, 1);
-        LOG_TRACE("speed step {}, {}", direction, new_speed);
-        ws.gcode_script(fmt::format("M220 S{}", new_speed));
-      }
-    }
-  }
-}
-
-void FineTunePanel::handle_flow(lv_event_t *e) {
-  if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    lv_obj_t *btn = lv_event_get_current_target(e);
-    if (btn == flow_reset_btn.get_container()) {
-      LOG_TRACE("flow reset");
-      ws.gcode_script("M221 S100");
-    } else {
-      auto extrude_factor = State::get_instance()->get_data("/printer_state/gcode_move/extrude_factor"_json_pointer);
-      if (!extrude_factor.is_null()) {
-	      const char * step = lv_btnmatrix_get_btn_text(multipler_selector.get_selector(),
-						      multipler_selector.get_selected_idx());
-
-        int32_t direction = btn == flow_up_btn.get_container() ? std::stoi(step) : -std::stoi(step);
-        int32_t new_flow = static_cast<int32_t>(extrude_factor.template get<double>() * 100 + direction);
-        new_flow = std::max(new_flow, 1);
-        LOG_TRACE("flow step {}, {}", direction, new_flow);
-        ws.gcode_script(fmt::format("M221 S{}", new_flow));
-      }
+  } else if (btn == flow.reset) {
+    ws.gcode_script("M221 S100");
+  } else if (btn == flow.up || btn == flow.down) {
+    auto cur = state->get_data("/printer_state/gcode_move/extrude_factor"_json_pointer);
+    if (!cur.is_null()) {
+      const int d = btn == flow.up ? std::stoi(mult) : -std::stoi(mult);
+      ws.gcode_script(fmt::format("M221 S{}", std::max(1, static_cast<int>(cur.template get<double>() * 100) + d)));
     }
   }
 }

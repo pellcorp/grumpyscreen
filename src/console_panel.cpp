@@ -2,37 +2,48 @@
 #include "state.h"
 #include "logger.h"
 #include "klipper_temp_filter.h"
+#include "icons.h"
+#include "theme.h"
+
+using namespace Theme;
 
 #include <algorithm>
 #include <cctype>
 
-LV_IMG_DECLARE(delete_img);
 LV_FONT_DECLARE(dejavusans_mono_14);
 
 ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock, lv_obj_t *parent)
   : ws(websocket_client)
   , lv_lock(lock)
-  , console_cont(lv_obj_create(parent))
-  , top_cont(lv_obj_create(console_cont))
+  , console_cont(create_screen(parent))
+  , top_cont(create_row(console_cont))
   , output(lv_textarea_create(top_cont))
-  , delete_btn(top_cont, &delete_img, "", &ConsolePanel::_handle_delete_btn, this)
+  , delete_btn(top_cont, Icons::DELETE_IMG, "", &ConsolePanel::_handle_delete_btn, this)
 {
-  lv_obj_align(console_cont, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_set_size(console_cont, LV_PCT(100), LV_PCT(100));
   lv_obj_set_flex_flow(console_cont, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_style_pad_all(console_cont, 0, 0);
-  lv_obj_set_style_text_font(console_cont, &dejavusans_mono_14, LV_STATE_DEFAULT);
 
+  // the log takes the row and the clear tile sits beside it, bottom aligned:
+  // the log's own area stops where the tile starts rather than running under it
   lv_obj_set_flex_grow(top_cont, 1);
-  lv_obj_set_style_pad_all(top_cont, 0, 0);
   lv_obj_set_width(top_cont, LV_PCT(100));
+  lv_obj_set_flex_flow(top_cont, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(top_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
 
-  lv_obj_set_style_border_width(output, 0, 0);
-  lv_obj_set_size(output, LV_PCT(100), LV_PCT(100));
+  // The log is a textarea wearing the panel look over the theme's input look
+  // (panel is added later, so its bg/border/radius/pad win): a log, not an
+  // entry. The mono face is the one fixed-width font compiled in and has no
+  // scaled sizes, so it is the one unscaled font in the UI, worn by the log only.
+  lv_obj_add_style(output, &styles().panel, 0);
+  lv_obj_set_style_text_font(output, &dejavusans_mono_14, 0);
+  lv_obj_set_size(output, 0, LV_PCT(100));
+  lv_obj_set_flex_grow(output, 1);
   lv_obj_set_style_border_width(output, 0, LV_STATE_FOCUSED | LV_PART_CURSOR);
 
-  lv_obj_add_flag(delete_btn.get_container(), LV_OBJ_FLAG_FLOATING);
-  lv_obj_align(delete_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 10, 10);
+  // an icon-only tile in the corner the Back tile takes on every other panel,
+  // a little smaller than one: it is the only control on the screen
+  delete_btn.use_card();
+  delete_btn.hide_label();
+  lv_obj_set_size(delete_btn.get_container(), scale_r(52), scale_r(52));
 
   ws.register_method_callback("notify_gcode_response",
 			      "ConsolePanel",

@@ -16,6 +16,7 @@ class Selector {
 	   lv_event_cb_t cb,
 	   void *cb_data);
 
+  // no size of its own: fills the cell the parent stretches it into
   Selector(lv_obj_t *parent,
 	   const char *label_text,
 	   std::vector<const char*> map,
@@ -26,6 +27,11 @@ class Selector {
   ~Selector();
   lv_obj_t *get_container();
   lv_obj_t *get_selector();
+  // Seat the selector on the bottom edge of a screen: it gives up the padding
+  // under its keys, so they sit on the screen's own margin, and keeps a gap
+  // above its caption, which would otherwise crowd the panel's top border in
+  // the look that draws one. For a selector placed LV_GRID_ALIGN_END.
+  void seat_at_row_bottom();
   lv_obj_t *get_label();
   uint32_t get_selected_idx();
   void set_selected_idx(uint32_t idx);

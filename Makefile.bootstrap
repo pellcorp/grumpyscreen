@@ -30,6 +30,7 @@ BOOTSTRAP_SRC = \
 	$(LVGL_DIR)/src/bootstrap/main.cpp \
 	$(LVGL_DIR)/src/net_utils.cpp \
 	$(LVGL_DIR)/src/button_container.cpp \
+	$(LVGL_DIR)/src/theme.cpp \
 	$(LVGL_DIR)/src/wifi_panel.cpp \
 	$(LVGL_DIR)/src/wpa_event.cpp
 

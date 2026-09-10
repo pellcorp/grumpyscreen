@@ -158,7 +158,12 @@ LDFLAGS				:= $(filter-out -static,$(LDFLAGS))
 INC					+= $(SDL_CFLAGS)
 LDFLAGS				+= $(SDL_LIBS)
 DEFINES				+= -D GUPPY_SDL -D USE_SDL=1
-ifdef GUPPY_SMALL_SCREEN
+# SDL_RES=<w>x<h> sizes the desktop window explicitly, for checking a layout at
+# a resolution no board ships yet; without it the window is the panel the build
+# is for.
+ifdef SDL_RES
+DEFINES				+= -D SDL_HOR_RES=$(word 1,$(subst x, ,$(SDL_RES))) -D SDL_VER_RES=$(word 2,$(subst x, ,$(SDL_RES)))
+else ifdef GUPPY_SMALL_SCREEN
 DEFINES				+= -D SDL_HOR_RES=480 -D SDL_VER_RES=272
 else
 DEFINES				+= -D SDL_HOR_RES=800 -D SDL_VER_RES=480

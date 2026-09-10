@@ -4,6 +4,9 @@
 #include "config.h"
 #include "mmu_panel.h"
 #include "logger.h"
+#include "theme.h"
+
+using namespace Theme;
 
 #include <algorithm>
 #include <cstdio>
@@ -14,17 +17,17 @@ InitPanel::InitPanel(MainPanel &mp, std::mutex& l)
   , main_panel(mp)
   , lv_lock(l)
 {
-  lv_obj_set_size(cont, LV_PCT(55), LV_SIZE_CONTENT);
-  lv_obj_align(cont, LV_ALIGN_TOP_MID, 0, 15);  
-  
+  // a centred notice card; the label wraps inside it if a message runs long
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_style_bg_color(cont, lv_palette_darken(LV_PALETTE_GREY, 1), 0);
-  
-  lv_obj_set_size(label, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_obj_add_style(cont, &styles().panel, 0);
+  // the system-is-not-ready notice, so it wears the not-ready colour
+  lv_obj_set_style_bg_color(cont, col(DISABLED), 0);
+  lv_obj_set_size(cont, scale_w(264), LV_SIZE_CONTENT);
+  lv_obj_center(cont);
 
+  lv_obj_set_width(label, LV_PCT(100));
   lv_label_set_text(label, LV_SYMBOL_WARNING " Waiting for Klipper to start...");
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
 InitPanel::~InitPanel() {

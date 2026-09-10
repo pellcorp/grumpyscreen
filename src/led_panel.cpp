@@ -2,6 +2,10 @@
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
+#include "theme.h"
+#include "icons.h"
+
+using namespace Theme;
 
 namespace {
 bool get_led_pwm(const json &led) {
@@ -21,34 +25,30 @@ std::string get_led_display_name(const json &led, const std::string &fallback) {
 }
 } // namespace
 
-LV_IMG_DECLARE(cancel);
-LV_IMG_DECLARE(light_img);
-LV_IMG_DECLARE(light_off);
-LV_IMG_DECLARE(back);
-
 LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   : NotifyConsumer(lock)
   , ws(websocket_client)
-  , ledpanel_cont(lv_obj_create(lv_scr_act()))
-  , leds_cont(lv_obj_create(ledpanel_cont))
-  , back_btn(ledpanel_cont, &back, "Back", &LedPanel::_handle_callback, this)
+  , ledpanel_cont(create_screen(NULL))
+  , leds_cont(create_row(ledpanel_cont))
+  , side_cont(create_row(ledpanel_cont))
+  , all_on_btn(side_cont, Icons::LIGHT_IMG, "All On", &LedPanel::_handle_callback, this)
+  , all_off_btn(side_cont, Icons::LIGHT_OFF, "All Off", &LedPanel::_handle_callback, this)
+  , back_btn(side_cont, Icons::BACK, "Back", &LedPanel::_handle_callback, this)
 {
-    lv_obj_set_style_pad_all(ledpanel_cont, 0, 0);
-
-    lv_obj_clear_flag(ledpanel_cont, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_size(ledpanel_cont, lv_pct(100), lv_pct(100));
-
-    lv_obj_center(leds_cont);
-    lv_obj_set_size(leds_cont, lv_pct(100), lv_pct(100));
-    lv_obj_set_flex_flow(leds_cont, LV_FLEX_FLOW_COLUMN);
-
-    lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);
-#ifdef GUPPY_SMALL_SCREEN
-    lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 20, -10);
-#else
-    lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 30, -5);
-#endif
-    ws.register_notify_update(this);
+  // the list takes the width, the action tiles their own column
+  lv_obj_set_flex_flow(ledpanel_cont, LV_FLEX_FLOW_ROW);
+  lv_obj_set_size(leds_cont, 0, lv_pct(100));
+  lv_obj_set_flex_grow(leds_cont, 1);
+  lv_obj_set_flex_flow(leds_cont, LV_FLEX_FLOW_COLUMN);
+  manage_scroll(leds_cont);
+  lv_obj_set_size(side_cont, scale_w(84), lv_pct(100));
+  lv_obj_set_flex_flow(side_cont, LV_FLEX_FLOW_COLUMN);
+  for (ButtonContainer *b : {&all_on_btn, &all_off_btn, &back_btn}) {
+    b->use_card();
+    lv_obj_set_width(b->get_container(), lv_pct(100));
+    lv_obj_set_flex_grow(b->get_container(), 1);  // the three share the column
+  }
+  ws.register_notify_update(this);
 }
 
 LedPanel::~LedPanel() {
@@ -126,30 +126,16 @@ void LedPanel::init(json &l) {
       led_cb = &LedPanel::_handle_led_update_generic;
     }
 
-    if (pwm) {
-      auto lptr = std::make_shared<SliderContainer>(leds_cont, display_name.c_str(),
-                &cancel, "Off", led_cb, this,
-                &light_img, "Max", led_cb, this,
-                led_cb, this, "%");
-      auto inserted = leds.insert({key, lptr}).second;
-      if (inserted) {
-        ++created_led_count;
-        created_led_id = key;
-        created_led_is_output_pin = is_output_pin;
-        created_led_pwm = pwm;
-      }
-    } else {
-      auto lptr = std::make_shared<SliderContainer>(leds_cont, display_name.c_str(),
-                    &cancel, "Off", led_cb, this,
-                    &light_img, "On", led_cb, this,
-                    null_cb, this, "%");
-      auto inserted = leds.insert({key, lptr}).second;
-      if (inserted) {
-        ++created_led_count;
-        created_led_id = key;
-        created_led_is_output_pin = is_output_pin;
-        created_led_pwm = pwm;
-      }
+    // a non-PWM LED is a switch: On rather than Max, and no slider
+    auto lptr = std::make_shared<SliderContainer>(leds_cont, display_name.c_str(),
+              Icons::CANCEL, "Off", led_cb, this,
+              Icons::LIGHT_IMG, pwm ? "Max" : "On", led_cb, this,
+              pwm ? led_cb : null_cb, this, "%");
+    if (leds.insert({key, lptr}).second) {
+      ++created_led_count;
+      created_led_id = key;
+      created_led_is_output_pin = is_output_pin;
+      created_led_pwm = pwm;
     }
   }
 
@@ -163,19 +149,11 @@ void LedPanel::init(json &l) {
     }
   }
 
-#ifdef GUPPY_SMALL_SCREEN
-  if (leds.size() > 2) {
-#else
-  if (leds.size() > 3) {
-#endif
-    lv_obj_set_size(leds_cont, lv_pct(86), lv_pct(100));
-    lv_obj_align(leds_cont, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_add_flag(leds_cont, LV_OBJ_FLAG_SCROLLABLE);
-  } else {
-    lv_obj_clear_flag(leds_cont, LV_OBJ_FLAG_SCROLLABLE);    
-  }
-
-  lv_obj_move_foreground(back_btn.get_container());
+  // Any number of rows, any screen size: build them, then let the scroller
+  // measure whether they overflow; no row height or count is guessed anywhere
+  const lv_coord_t row_h = SliderContainer::row_height(leds.size());
+  for (auto &r : leds) r.second->set_height(row_h);
+  refresh_scroll(leds_cont);
 }
 
 void LedPanel::activate() {
@@ -221,13 +199,13 @@ void LedPanel::foreground() {
 
 const void *LedPanel::get_main_button_image() {
   if (single_led_id.empty()) {
-    return &light_img;
+    return Icons::LIGHT_IMG;
   }
 
   const double current_value = single_led_last_value_valid
                                  ? single_led_last_value
                                  : get_led_value(single_led_id);
-  return current_value > 0.0 ? &light_img : &light_off;
+  return current_value > 0.0 ? Icons::LIGHT_IMG : Icons::LIGHT_OFF;
 }
 
 double LedPanel::get_led_value(const std::string &led_id) {
@@ -268,10 +246,22 @@ void LedPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
   if (btn == back_btn.get_container()) {
     lv_obj_move_background(ledpanel_cont);
+  } else if (btn == all_off_btn.get_container() || btn == all_on_btn.get_container()) {
+    const bool on = btn == all_on_btn.get_container();
+    for (auto &l : leds) {
+      ws.gcode_script(led_gcode(l.first, on ? 1.0 : 0.0));
+      l.second->update_value(on ? 100 : 0);
+    }
   }
   else {
     LOG_DEBUG("Unknown action button pressed");
   }
+}
+
+std::string LedPanel::led_gcode(const std::string &key, double fraction) {
+  const std::string name = KUtils::get_obj_name(key);
+  if (key.rfind("output_pin ", 0) == 0) return fmt::format("SET_PIN PIN={} VALUE={}", name, fraction);
+  return fmt::format("SET_LED LED={} WHITE={}", name, fraction);
 }
 
 void LedPanel::handle_led_update(lv_event_t *event) {

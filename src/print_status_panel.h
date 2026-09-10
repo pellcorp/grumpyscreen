@@ -42,6 +42,8 @@ class PrintStatusPanel : public NotifyConsumer {
   int current_layer(json &info);
 
   FineTunePanel &get_finetune_panel();
+  // the small printing chip shown on the main tab
+  lv_obj_t *get_mini_status() { return mini_print_status.get_container(); }
 
  private:
   KWebSocketClient &ws;

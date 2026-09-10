@@ -2,7 +2,10 @@
 #include "config.h"
 #include "utils.h"
 #include "logger.h"
+#include "theme.h"
 #include "subprocess.hpp"
+#include "icons.h"
+#include "simple_dialog.h"
 
 #include <sstream>
 #include <iostream>
@@ -11,9 +14,6 @@
 #include <algorithm>
 
 namespace sp = subprocess;
-
-LV_IMG_DECLARE(back);
-LV_IMG_DECLARE(refresh_img);
 
 static void draw_part_event_cb(lv_event_t * e) {
   lv_obj_t * obj = lv_event_get_target(e);
@@ -30,79 +30,82 @@ static void draw_part_event_cb(lv_event_t * e) {
 
 WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   : lv_lock(l)
-  , cont(lv_obj_create(options.parent != nullptr ? options.parent : lv_scr_act()))
+  , cont(Theme::create_screen(options.parent))
   , spinner(lv_spinner_create(cont, 1000, 60))
-  , top_cont(lv_obj_create(cont))
+  , top_cont(Theme::create_row(cont))
   , wifi_table(lv_table_create(top_cont))
-  , wifi_right(lv_obj_create(top_cont))
+  , wifi_right(Theme::create_row(top_cont))
   , prompt_cont(wifi_right)
   , wifi_label(lv_label_create(prompt_cont))
   , password_input(lv_textarea_create(prompt_cont))
   , footer_label(options.footer_text != nullptr ? lv_label_create(cont) : nullptr)
   , on_back(options.on_back)
-  , back_btn(cont, &back, "Back", &WifiPanel::_handle_back_btn, this)
-  , refresh_btn(cont, &refresh_img, "Refresh", &WifiPanel::_handle_refresh_btn, this)
+  , back_btn(cont, Icons::BACK, "Back", &WifiPanel::_handle_back_btn, this)
+  , refresh_btn(cont, Icons::REFRESH_IMG, "Refresh", &WifiPanel::_handle_refresh_btn, this)
   , kb(lv_keyboard_create(cont))
 {
-  lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
-  lv_obj_set_style_pad_all(cont, 0, 0);
-  lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
   lv_obj_add_flag(cont, LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_CLICKABLE);
 
   lv_obj_add_flag(spinner, LV_OBJ_FLAG_FLOATING);
+  lv_obj_set_size(spinner, Theme::scale_r(60), Theme::scale_r(60));
+  lv_obj_set_style_arc_width(spinner, Theme::scale_r(6), LV_PART_MAIN);
+  lv_obj_set_style_arc_width(spinner, Theme::scale_r(6), LV_PART_INDICATOR);
   lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 0);
 
-  lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);  
-  lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -20);
-  lv_obj_add_flag(refresh_btn.get_container(), LV_OBJ_FLAG_FLOATING);
-  lv_obj_align(refresh_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, -100, -20);
-  if (!options.show_back_button) {
+  back_btn.float_bottom_right();
+  refresh_btn.float_bottom_right();
+  if (options.show_back_button) {
+    // Refresh sits one tile to the left of Back
+    lv_obj_align(refresh_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT,
+                 -(ButtonContainer::float_w() + Theme::gap()), 0);
+  } else {
     back_btn.hide();
-    lv_obj_align(refresh_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 0, -20);
   }
-  
+
   lv_obj_set_flex_grow(top_cont, 1);
   lv_obj_set_flex_flow(top_cont, LV_FLEX_FLOW_ROW);
-  lv_obj_clear_flag(top_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_style_border_width(top_cont, 0, 0);
   lv_obj_set_width(top_cont, LV_PCT(100));
-  
-  lv_obj_set_height(wifi_table, LV_PCT(90));
-  lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
 
-  auto screen_width = lv_disp_get_physical_hor_res(NULL) / 2 - 100;
-  
-  lv_table_set_col_width(wifi_table, 0, screen_width);
-  lv_table_set_col_width(wifi_table, 1, 100);
-  
+  // the list and the prompt column share the row; the SSID column takes
+  // whatever the icon column leaves (set once the table has its width, see
+  // handle_callback), and rows are tall enough for a finger
+  lv_obj_set_size(wifi_table, 0, LV_PCT(100));
+  lv_obj_set_flex_grow(wifi_table, 1);
+  lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
+  lv_table_set_col_width(wifi_table, 1, Theme::scale_w(100));
+  const lv_coord_t row_text_h = lv_font_get_line_height(lv_obj_get_style_text_font(wifi_table, LV_PART_ITEMS));
+  lv_obj_set_style_pad_ver(wifi_table, std::max(Theme::gap(), (Theme::touch_h() - row_text_h) / 2), LV_PART_ITEMS);
+
   lv_obj_add_event_cb(wifi_table, &WifiPanel::_handle_callback, LV_EVENT_VALUE_CHANGED, this);
   lv_obj_add_event_cb(wifi_table, &WifiPanel::_handle_callback, LV_EVENT_SIZE_CHANGED, this);
   lv_obj_add_event_cb(wifi_table, &WifiPanel::_handle_callback, LV_EVENT_LONG_PRESSED, this);
   lv_obj_add_event_cb(wifi_table, draw_part_event_cb, LV_EVENT_DRAW_PART_BEGIN, NULL);
 
-  lv_obj_set_scroll_dir(wifi_table, LV_DIR_TOP | LV_DIR_BOTTOM);
+  Theme::manage_scroll(wifi_table);  // beside the list, clear of its corners; re-fits when the keyboard shrinks it
 
-  lv_obj_set_style_border_width(wifi_right, 0, 0);
+  // the prompt column: status text over the password entry, one gap apart
   lv_obj_set_flex_grow(wifi_right, 1);
+  lv_obj_set_height(wifi_right, LV_PCT(100));
+  lv_obj_set_flex_flow(wifi_right, LV_FLEX_FLOW_COLUMN);
   lv_obj_add_flag(wifi_right, LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_CLICKABLE);
-
   lv_obj_add_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_set_size(prompt_cont, LV_PCT(100), LV_PCT(100));
-  lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_style_border_width(prompt_cont, 0, 0);
-  
-  lv_obj_align(wifi_label, LV_ALIGN_TOP_LEFT, 0, 10);
-#ifdef GUPPY_SMALL_SCREEN
-  lv_obj_align(password_input, LV_ALIGN_TOP_MID, 0, 65);
-#else
-  lv_obj_align(password_input, LV_ALIGN_TOP_MID, 0, 100);
-#endif
+
+  // a form, read top down: dim captions over their values (recolor markup in
+  // the one label), left-aligned like the entry beneath
+  lv_obj_set_width(wifi_label, LV_PCT(100));
+  lv_label_set_recolor(wifi_label, true);
 
   lv_obj_set_size(password_input, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_min_height(password_input, Theme::scale_r(34), 0);
   lv_textarea_set_one_line(password_input, true);
 
+  // the keyboard joins the column below the list while the entry has focus;
+  // the screen padding keeps its keys one gap from the edges
   lv_keyboard_set_textarea(kb, password_input);
+  lv_obj_set_style_bg_color(kb, Theme::col(Theme::BG), LV_PART_MAIN);  // it covers the floating tiles
+  lv_obj_set_style_bg_opa(kb, LV_OPA_COVER, LV_PART_MAIN);
+  lv_obj_set_size(kb, LV_PCT(100), LV_PCT(55));
   lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_event_cb(password_input, &WifiPanel::_handle_kb_input, LV_EVENT_FOCUSED, this);
@@ -118,8 +121,8 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   if (footer_label != nullptr) {
     lv_label_set_text(footer_label, options.footer_text);
     lv_obj_add_flag(footer_label, LV_OBJ_FLAG_FLOATING);
-    lv_obj_set_style_text_color(footer_label, lv_palette_darken(LV_PALETTE_GREY, 1), 0);
-    lv_obj_align(footer_label, LV_ALIGN_BOTTOM_LEFT, 8, -8);
+    lv_obj_set_style_text_color(footer_label, Theme::col(Theme::TEXT_DIM), 0);
+    lv_obj_align(footer_label, LV_ALIGN_BOTTOM_LEFT, 0, 0);  // the screen padding is its margin
   }
 
   wpa_event.register_callback("WifiPanel",
@@ -154,6 +157,7 @@ void WifiPanel::handle_back_btn(lv_event_t *e) {
       return;
     }
     lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
+    Theme::refresh_scroll(wifi_table);  // the bar goes with it
     lv_obj_add_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_background(cont);
   }
@@ -167,12 +171,8 @@ void WifiPanel::handle_refresh_btn(lv_event_t *e) {
   }
 }
 
-void WifiPanel::remove_network(lv_event_t *e) {
-  lv_obj_t * obj = lv_event_get_current_target(e);
-  const std::string action = lv_msgbox_get_active_btn_text(obj);
-  lv_msgbox_close(obj);
-
-  if (action == "OK") {
+void WifiPanel::remove_network(uint32_t btn_idx) {
+  if (btn_idx == 0) {  // OK
     LOG_INFO("Removing network {}", selected_network);
     auto nid = list_networks.find(selected_network)->second;
     wpa_event.send_command(fmt::format("REMOVE_NETWORK {}", nid));
@@ -182,6 +182,12 @@ void WifiPanel::remove_network(lv_event_t *e) {
 
 void WifiPanel::handle_callback(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
+
+  if (code == LV_EVENT_SIZE_CHANGED) {
+    const lv_coord_t ssid_w = lv_obj_get_content_width(wifi_table) - Theme::scale_w(100);
+    if (ssid_w > 0) lv_table_set_col_width(wifi_table, 0, ssid_w);
+    return;
+  }
 
   if (code == LV_EVENT_VALUE_CHANGED || code == LV_EVENT_LONG_PRESSED) {
     uint16_t row;
@@ -218,7 +224,7 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       if (switching_network) {
         restart_wifi_from_network = cur_network;
       }
-      lv_label_set_text(wifi_label, fmt::format("Connect to {}\n\nPassword:", selected_network).c_str());
+      lv_label_set_text(wifi_label, fmt::format("{0}Network#\n{1}\n\n{0}Password#", Theme::recolor(Theme::TEXT_DIM), selected_network).c_str());
       lv_obj_clear_flag(password_input, LV_OBJ_FLAG_HIDDEN);
       entering_password = true;
       lv_event_send(password_input, LV_EVENT_FOCUSED, NULL);
@@ -226,12 +232,13 @@ void WifiPanel::handle_callback(lv_event_t *e) {
     lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
   } else if (code == LV_EVENT_LONG_PRESSED) {
     if (list_networks.count(selected_network)) {
-      static const char *btns[] = {"OK", "Cancel"};
-      lv_obj_t * mbox = lv_msgbox_create(NULL, "", fmt::format("Delete {}?", selected_network).c_str(), btns, false);
-      lv_obj_set_width(mbox, LV_PCT(50));
-      lv_obj_align(mbox, LV_ALIGN_TOP_MID, 0, 0);
-      lv_obj_add_event_cb(mbox, _remove_network, LV_EVENT_VALUE_CHANGED, this);
-      lv_obj_center(mbox);
+      static const char *btns[] = {"OK", "Cancel", ""};
+      SimpleDialogOptions opts;
+      opts.buttons = btns;
+      opts.highlighted_button_idx = 0;  // deleting is the destructive choice
+      opts.result_cb = _remove_network;
+      opts.user_data = this;
+      create_configurable_dialog(lv_layer_top(), "Forget network", fmt::format("Delete {}?", selected_network).c_str(), opts);
     }
   }
 }
@@ -270,7 +277,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
           if (cur_network != wifi_parts[4]) {
             lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_WIFI);
           } else if (cur_network.length() > 0) {
-            lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_OK "    " LV_SYMBOL_WIFI);
+            lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_OK " " LV_SYMBOL_WIFI);
             update_connection_status_label(cur_network);
             lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
@@ -281,6 +288,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     } // while
     lv_obj_scroll_to_y(wifi_table, 0, LV_ANIM_OFF);
     lv_obj_clear_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
+    Theme::refresh_scroll(wifi_table);
     lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   } else if (event.rfind("<3>CTRL-EVENT-CONNECTED", 0) == 0) {
     if (find_current_network()) {
@@ -292,12 +300,12 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       for (auto it = wifi_name_db.begin(); it != wifi_name_db.end(); ++it) {
 	      pairs.push_back(*it);
       }
-      
+
       std::sort(pairs.begin(), pairs.end(), [=](std::pair<std::string, int>& a,
 						std::pair<std::string, int>& b) {
 	      return a.second > b.second;
       });
-      
+
       std::lock_guard<std::mutex> lock(lv_lock);
 
       uint32_t index = 0;
@@ -306,7 +314,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
         if (cur_network != wifi.first) {
           lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_WIFI);
         } else if (cur_network.length() > 0) {
-          lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_OK "    " LV_SYMBOL_WIFI);
+          lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_OK " " LV_SYMBOL_WIFI);
           update_connection_status_label(cur_network);
           start_ip_poll();
           lv_obj_add_flag(password_input, LV_OBJ_FLAG_HIDDEN);
@@ -317,6 +325,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
 
       lv_obj_scroll_to_y(wifi_table, 0, LV_ANIM_OFF);
       lv_obj_clear_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
+      Theme::refresh_scroll(wifi_table);
       lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
     } else {
       stop_ip_poll();
@@ -360,7 +369,7 @@ void WifiPanel::update_connection_status_label(const std::string &network_name) 
   auto iface = KUtils::get_wifi_interface();
   auto ip = iface.empty() ? "0.0.0.0" : KUtils::interface_ip(iface);
   if (ip != "0.0.0.0") {
-    lv_label_set_text(wifi_label, fmt::format("Connected to {}\n\nIP: {}", network_name, ip).c_str());
+    lv_label_set_text(wifi_label, fmt::format("{0}Connected to#\n{1}\n\n{0}IP address#\n{2}", Theme::recolor(Theme::TEXT_DIM), network_name, ip).c_str());
   } else {
     lv_label_set_text(wifi_label, fmt::format("Connecting to {}", network_name).c_str());
   }

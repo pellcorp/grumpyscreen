@@ -1,4 +1,5 @@
 #include "lvgl/lvgl.h"
+#include "theme.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
 #ifdef GUPPY_SDL
@@ -112,6 +113,7 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     
     disp_drv.hor_res    = width;
     disp_drv.ver_res    = height;
+    disp_drv.dpi        = LV_DPI_DEF * width / 480;  // LVGL defaults scale with the screen
 
     Config *conf = Config::get_instance();
     auto rotate_value = conf->get<std::uint32_t>("/ui/display_rotate");
@@ -148,10 +150,11 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     lv_indev_drv_register(&indev_drv_1);
 #endif
 
-#ifdef GUPPY_SMALL_SCREEN
-    lv_theme_t * th = lv_theme_default_init(disp, primary, secondary, true, &lv_font_montserrat_12);
-#else
-    lv_theme_t * th = lv_theme_default_init(disp, primary, secondary, true, &lv_font_montserrat_20);
-#endif
+    // 12 on a 480x272 panel, 20 on 800x480 -- the same sizes the build used to
+    // pick with an #ifdef, now read off the display that is actually attached.
+    // Dark or light follows the configured page colour, so what LVGL paints on
+    // its own (scrollbars, cursors, chart defaults) suits a light theme too.
+    const bool dark = lv_color_brightness(Theme::col(Theme::BG)) < 128;
+    lv_theme_t * th = lv_theme_default_init(disp, primary, secondary, dark, Theme::scale_font(12));
     lv_disp_set_theme(disp, th);
 }

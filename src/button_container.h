@@ -14,15 +14,33 @@ class ButtonContainer {
 		  void *user_data,
 		  const std::string &title_text = {},
 		  const std::string &prompt_text = {},
-		  const std::array<std::string, 2> &prompt_buttons = {},
-		  const bool prompt_multiline = false);
+		  const std::array<std::string, 2> &prompt_buttons = {});
   ~ButtonContainer();
 
   lv_obj_t *get_container();
   lv_obj_t *get_button();
+  // Lay the tile out and, in the modern look, wear the shared card: a tappable
+  // box a shade off the page that darkens under a finger. In classic there is
+  // no box and this is exactly use_plain(), so a panel can call it either way.
+  void use_card();
+  // Stand as tall as another control sharing this tile's row. The row is
+  // content-sized in the panels that need this, so stretching into it would be
+  // circular -- it is deriving its height from us. Measuring settles it, which
+  // needs the layout resolved first, hence the root.
+  void match_height(lv_obj_t *root, lv_obj_t *other);
+  // Lay the tile out as icon over label and fit the icon to whatever cell the
+  // tile is given, so tiles never clip: no box, and the icon turns the accent
+  // colour when pressed.
+  void use_plain();
+  // A tile pinned to the parent's bottom-right corner, over the content:
+  // the Back button on panels whose content is a list rather than a grid.
+  void float_bottom_right();
+  static int float_w();  // the width of such a tile
   void disable();
   void enable();
   void hide();
+  // an icon-only tile: the label takes no room
+  void hide_label();
   void show();
   // Keep the pressed visual visible and ignore input until the delay expires.
   bool start_pressed_transition(uint32_t duration_ms);
@@ -46,10 +64,11 @@ class ButtonContainer {
   std::string prompt_text;
   std::array<std::string, 2> prompt_buttons;
   std::array<const char *, 3> prompt_button_map;
-  bool prompt_multiline;
   bool dispatch_confirmed_click = false;
   lv_timer_t *pressed_transition_timer = nullptr;
 
+  void stack();
+  void fit_icon();
   static void _handle_pressed_transition_timer(lv_timer_t *timer);
 };
 

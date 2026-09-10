@@ -5,26 +5,13 @@
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
-#include "config.h"
+#include "icons.h"
+#include "theme.h"
 
-LV_IMG_DECLARE(extruder);
-LV_IMG_DECLARE(speed_up_img);
-LV_IMG_DECLARE(extrude);
-LV_IMG_DECLARE(clock_img);
-LV_IMG_DECLARE(hourglass);
-LV_IMG_DECLARE(bed);
-LV_IMG_DECLARE(heater);
-LV_IMG_DECLARE(home_z);
-LV_IMG_DECLARE(fan);
-LV_IMG_DECLARE(layers_img);
+#include <algorithm>
+#include <vector>
 
-LV_IMG_DECLARE(fine_tune_img);
-LV_IMG_DECLARE(delete_img);
-LV_IMG_DECLARE(pause_img);
-LV_IMG_DECLARE(resume);
-LV_IMG_DECLARE(cancel);
-LV_IMG_DECLARE(emergency);
-LV_IMG_DECLARE(back);
+using namespace Theme;
 
 double pi() { return std::atan(1)*4; }
 
@@ -38,119 +25,115 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , mini_print_status(mini_parent, &PrintStatusPanel::_handle_callback, this)
   , status_cont(lv_obj_create(lv_scr_act()))
   , buttons_cont(lv_obj_create(status_cont))
-  , finetune_btn(buttons_cont, &fine_tune_img, "Fine Tune", &PrintStatusPanel::_handle_callback, this)
-  , objects_btn(buttons_cont, &delete_img, "Objects", &PrintStatusPanel::_handle_callback, this)
-  , pause_btn(buttons_cont, &pause_img, "Pause", &PrintStatusPanel::_handle_callback, this)
-  , resume_btn(buttons_cont, &resume, "Resume", &PrintStatusPanel::_handle_callback, this)
-  , cancel_btn(buttons_cont, &cancel, "Cancel", &PrintStatusPanel::_handle_callback, this,
+  , finetune_btn(buttons_cont, Icons::FINE_TUNE_IMG, "Fine Tune", &PrintStatusPanel::_handle_callback, this)
+  , objects_btn(buttons_cont, Icons::DELETE_IMG, "Objects", &PrintStatusPanel::_handle_callback, this)
+  , pause_btn(buttons_cont, Icons::PAUSE_IMG, "Pause", &PrintStatusPanel::_handle_callback, this)
+  , resume_btn(buttons_cont, Icons::RESUME, "Resume", &PrintStatusPanel::_handle_callback, this)
+  , cancel_btn(buttons_cont, Icons::CANCEL, "Cancel", &PrintStatusPanel::_handle_callback, this,
 	       "Cancel Print", "Do you want to cancel the print?", {"Back", "Cancel Print"})
-  , emergency_btn(buttons_cont, &emergency, "Stop", &PrintStatusPanel::_handle_callback, this,
+  , emergency_btn(buttons_cont, Icons::EMERGENCY, "Stop", &PrintStatusPanel::_handle_callback, this,
 		  "Emergency Stop", Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
                   {"Back", "Emergency Stop"})
-  , back_btn(buttons_cont, &back, "Back", &PrintStatusPanel::_handle_callback, this)
+  , back_btn(buttons_cont, Icons::BACK, "Back", &PrintStatusPanel::_handle_callback, this)
   , thumbnail_cont(lv_obj_create(status_cont))
   , thumbnail(lv_img_create(thumbnail_cont))
   , pbar_cont(lv_obj_create(thumbnail_cont))
   , progress_bar(lv_bar_create(pbar_cont))
   , progress_label(lv_label_create(pbar_cont))
   , detail_cont(lv_obj_create(status_cont))
-  , extruder_temp(detail_cont, &extruder, 100, "20")
-  , bed_temp(detail_cont, &bed, 100, "21")
-  , chamber_temp(detail_cont, &heater, 100, "")
-  , print_speed(detail_cont, &speed_up_img, 100, "0 mm/s")
-  , z_offset(detail_cont, &home_z, 100, "0.0 mm")
-  , flow_rate(detail_cont, &extrude, 100, "0.0 mm3/s")
-  , layers(detail_cont, &layers_img, 100, "...")
-  , fans(detail_cont, &fan, 100, "0%")
-  , elapsed(detail_cont, &clock_img, 100, "0s")
-  , time_left(detail_cont, &hourglass, 100, "...")
+  , extruder_temp(detail_cont, Icons::EXTRUDER, "20")
+  , bed_temp(detail_cont, Icons::BED, "21")
+  , chamber_temp(detail_cont, Icons::HEATER, "")
+  , print_speed(detail_cont, Icons::SPEED_UP_IMG, "0 mm/s")
+  , z_offset(detail_cont, Icons::HOME_Z, "0.0 mm")
+  , flow_rate(detail_cont, Icons::EXTRUDE, "0.0 mm3/s")
+  , layers(detail_cont, Icons::LAYERS_IMG, "...")
+  , fans(detail_cont, Icons::FAN, "0%")
+  , elapsed(detail_cont, Icons::CLOCK_IMG, "0s")
+  , time_left(detail_cont, Icons::HOURGLASS, "...")
   , estimated_time_s(0)
   , filament_diameter(1.75) // XXX: check config
   , extruder_target(-1)
   , heater_bed_target(-1)
   , chamber_sensor_key_(Config::get_instance()->get<std::string>("/ui/chamber_temp_sensor"))
 {
+  // a full-screen overlay paints its own background; a plain
+  // container is transparent scaffolding
+  lv_obj_add_style(status_cont, &styles().screen, 0);
   lv_obj_move_background(status_cont);
-  lv_obj_clear_flag(status_cont, LV_OBJ_FLAG_SCROLLABLE);  
+  lv_obj_clear_flag(status_cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_size(status_cont, LV_PCT(100), LV_PCT(100));
 
-  static lv_coord_t grid_main_row_dsc_detail[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
-    LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t grid_main_col_dsc_detail[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  lv_obj_set_grid_dsc_array(detail_cont, grid_main_col_dsc_detail, grid_main_row_dsc_detail);
-
-  lv_obj_clear_flag(detail_cont, LV_OBJ_FLAG_SCROLLABLE);  
-  lv_obj_set_size(detail_cont, LV_PCT(60), LV_PCT(60));
-
-  //detail containter row 1
-  lv_obj_set_grid_cell(extruder_temp.get_container(), LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 0, 1);
-  lv_obj_set_grid_cell(bed_temp.get_container(), LV_GRID_ALIGN_START, 1, 1, LV_GRID_ALIGN_START, 0, 1);  
-
-  //detail containter row 2
-  lv_obj_set_grid_cell(chamber_temp.get_container(), LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 1, 1);
+  // the readouts fill the detail cell as a two-column grid. Only chips that
+  // apply to this printer take a cell, so a missing chamber sensor never
+  // leaves a hole; an odd one out spans the last row.
+  std::vector<ImageLabel *> chips = {&extruder_temp, &bed_temp, &chamber_temp, &fans, &print_speed,
+                                     &z_offset, &flow_rate, &layers, &elapsed, &time_left};
   if (chamber_sensor_key_.empty()) {
     lv_obj_add_flag(chamber_temp.get_container(), LV_OBJ_FLAG_HIDDEN);
+    chips.erase(std::find(chips.begin(), chips.end(), &chamber_temp));
   }
-  lv_obj_set_grid_cell(fans.get_container(), LV_GRID_ALIGN_START, 1, 1, LV_GRID_ALIGN_START, 1, 1);
+  static lv_coord_t grid_main_col_dsc_detail[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  // five rows at most; the terminator moves up when the chamber chip is absent
+  static lv_coord_t grid_main_row_dsc_detail[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
+                                                  LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  grid_main_row_dsc_detail[(chips.size() + 1) / 2] = LV_GRID_TEMPLATE_LAST;
+  lv_obj_set_grid_dsc_array(detail_cont, grid_main_col_dsc_detail, grid_main_row_dsc_detail);
 
-  //detail containter row 3
-  lv_obj_set_grid_cell(print_speed.get_container(), LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 2, 1);
-  lv_obj_set_grid_cell(z_offset.get_container(), LV_GRID_ALIGN_START, 1, 1, LV_GRID_ALIGN_START, 2, 1);
+  lv_obj_clear_flag(detail_cont, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_add_style(detail_cont, &styles().row, 0);
+  for (size_t i = 0; i < chips.size(); i++) {
+    const bool last_alone = (i + 1 == chips.size()) && (chips.size() % 2 == 1);
+    lv_obj_set_grid_cell(chips[i]->get_container(), LV_GRID_ALIGN_STRETCH, i % 2, last_alone ? 2 : 1,
+                         LV_GRID_ALIGN_STRETCH, i / 2, 1);
+  }
 
-  //detail containter row 4
-  lv_obj_set_grid_cell(flow_rate.get_container(), LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 3, 1);
-  lv_obj_set_grid_cell(layers.get_container(), LV_GRID_ALIGN_START, 1, 1, LV_GRID_ALIGN_START, 3, 1);
-
-  //detail containter row 5
-  lv_obj_set_grid_cell(elapsed.get_container(), LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_START, 4, 1);
-  lv_obj_set_grid_cell(time_left.get_container(), LV_GRID_ALIGN_START, 1, 1, LV_GRID_ALIGN_START, 4, 1);
-  
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(2), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(5), LV_GRID_FR(2), LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
 
   lv_obj_set_grid_dsc_array(status_cont, grid_main_col_dsc, grid_main_row_dsc);
 
-  lv_obj_set_size(buttons_cont, LV_PCT(100), LV_PCT(40));
+  lv_obj_add_style(buttons_cont, &styles().row, 0);
   lv_obj_clear_flag(buttons_cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_flex_flow(buttons_cont, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(buttons_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_row(buttons_cont, 8, 0);
-  lv_obj_set_style_pad_column(buttons_cont, 6, 0);
 
-  // Keep all seven actions on one row so Back remains on the far right.
-  lv_obj_set_width(finetune_btn.get_container(), LV_PCT(13));
-  lv_obj_set_width(objects_btn.get_container(), LV_PCT(13));
-  lv_obj_set_width(pause_btn.get_container(), LV_PCT(13));
-  lv_obj_set_width(resume_btn.get_container(), LV_PCT(13));
-  lv_obj_set_width(cancel_btn.get_container(), LV_PCT(13));
-  lv_obj_set_width(emergency_btn.get_container(), LV_PCT(13));
-  lv_obj_set_width(back_btn.get_container(), LV_PCT(13));
+  // all seven actions on one row, Back on the far right, sharing the width
+  for (ButtonContainer *b : {&finetune_btn, &objects_btn, &pause_btn, &resume_btn,
+                             &cancel_btn, &emergency_btn, &back_btn}) {
+    b->use_card();
+    lv_obj_set_height(b->get_container(), LV_PCT(100));
+    lv_obj_set_flex_grow(b->get_container(), 1);
+  }
 
-  lv_obj_set_style_pad_all(pbar_cont, 0, 0);
-  lv_obj_set_size(pbar_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-
-  auto bar_width = (double)lv_disp_get_physical_hor_res(NULL) * 0.35;
-  auto hscale = (double)lv_disp_get_physical_ver_res(NULL) / 480.0;
-
-  lv_obj_set_size(progress_bar, bar_width, 20 * hscale);
+  // the progress bar spans the preview column with its percentage drawn on
+  // it; the box has the bar's height so the centred label measures as nothing
+  lv_obj_add_style(pbar_cont, &styles().row, 0);
+  lv_obj_set_size(pbar_cont, LV_PCT(100), scale_r(18));
+  lv_obj_set_style_pad_hor(pbar_cont, gap(), 0);  // the bar is not flush with the screen edges
+  lv_obj_set_size(progress_bar, LV_PCT(100), LV_PCT(100));
   lv_bar_set_value(progress_bar, 0, LV_ANIM_OFF);
-  lv_obj_center(progress_bar);
 
   lv_label_set_text(progress_label, "0%");
+  lv_obj_set_style_text_font(progress_label, scale_font(12), 0);
   lv_obj_center(progress_label);
 
+  // the preview is a REAL-size image: its box is its drawn size, so the flex
+  // column centres it and stacks the bar under it without any pivot or box
+  // arithmetic. handle_metadata zooms it to what the cell leaves for it, so a
+  // tall thumbnail can never push the bar onto the action tiles.
+  lv_obj_add_flag(thumbnail, LV_OBJ_FLAG_HIDDEN);  // until a print has a preview
+  lv_obj_add_style(thumbnail_cont, &styles().row, 0);
+  lv_obj_clear_flag(thumbnail_cont, LV_OBJ_FLAG_SCROLLABLE);  // never a scrollbar here
+  lv_obj_set_scrollbar_mode(thumbnail_cont, LV_SCROLLBAR_MODE_OFF);
   lv_obj_set_flex_flow(thumbnail_cont, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(thumbnail_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
-  lv_obj_set_size(thumbnail_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-  lv_obj_set_style_pad_all(thumbnail_cont, 0, 0);
-  lv_obj_set_style_pad_row(thumbnail_cont, 20, 0);
+  lv_obj_set_flex_align(thumbnail_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
   // row 1
-  lv_obj_set_grid_cell(thumbnail_cont, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(detail_cont, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 0, 1);  
+  lv_obj_set_grid_cell(thumbnail_cont, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(detail_cont, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
 
   //row 2
-  lv_obj_set_grid_cell(buttons_cont, LV_GRID_ALIGN_CENTER, 0, 2, LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_obj_set_grid_cell(buttons_cont, LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_STRETCH, 1, 1);
   
   ws.register_notify_update(this);
 }
@@ -200,10 +183,9 @@ void PrintStatusPanel::reset() {
   extruder_target = -1;
   heater_bed_target = -1;
 
-  // free src
+  // no preview until the next print's metadata arrives
+  lv_obj_add_flag(thumbnail, LV_OBJ_FLAG_HIDDEN);
   lv_img_set_src(thumbnail, NULL);
-  // hack to color in empty space.
-  ((lv_img_t*)thumbnail)->src_type = LV_IMG_SRC_SYMBOL;
 
   mini_print_status.reset();
   mini_print_status.hide();
@@ -310,18 +292,22 @@ void PrintStatusPanel::handle_metadata(const std::string &gcode_file, json &j) {
 
   current_file = j["/result"_json_pointer];
 
-  auto width_scale = (double)lv_disp_get_physical_hor_res(NULL) / 800.0;
-  auto thumb_detail = KUtils::get_thumbnail(gcode_file, j, width_scale);
+  auto thumb_detail = KUtils::get_thumbnail(gcode_file, j, scale_w(180));
   std::string fullpath = thumb_detail.first;
   if (fullpath.length() > 0) {
     LOG_TRACE("thumb path: {}", fullpath);
     std::lock_guard<std::mutex> lock(lv_lock);
     const std::string img_path = "A:" + fullpath;
 
-    auto screen_width = lv_disp_get_physical_hor_res(NULL);
-    uint32_t normalized_thumb_scale = ((0.34 * (double)screen_width) / (double)thumb_detail.second) * 256;
     lv_img_set_src(thumbnail, img_path.c_str());
-    lv_img_set_zoom(thumbnail, normalized_thumb_scale);
+    // as large as the cell leaves beside the progress bar, whole and in
+    // proportion; a small bitmap is enlarged at most 2x so it stays crisp
+    lv_obj_clear_flag(thumbnail, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_update_layout(thumbnail_cont);
+    const int avail_w = lv_obj_get_content_width(thumbnail_cont);
+    const int avail_h = lv_obj_get_content_height(thumbnail_cont) - lv_obj_get_height(pbar_cont)
+                        - lv_obj_get_style_pad_row(thumbnail_cont, 0);
+    fit_img(thumbnail, avail_w, avail_h, 2 * LV_IMG_ZOOM_NONE);
     mini_print_status.update_img(img_path, thumb_detail.second);
   }
 }

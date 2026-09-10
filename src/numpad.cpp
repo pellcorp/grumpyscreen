@@ -1,5 +1,6 @@
 #include "numpad.h"
 #include "logger.h"
+#include "theme.h"
 
 #include <string>
 
@@ -11,24 +12,21 @@ Numpad::Numpad(lv_obj_t *parent)
   , prev_was_empty(false)
 {
   LOG_TRACE("creating numpad on main_cont");
-  lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_CLICKABLE);
-
+  // hidden until a readout asks for it; the caller places it with cover_from()
+  lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_CLICKABLE
+                  | LV_OBJ_FLAG_FLOATING);
   lv_obj_clear_flag(edit_cont, LV_OBJ_FLAG_SCROLLABLE);
-  
   lv_obj_move_background(edit_cont);
-  lv_obj_set_size(edit_cont, LV_PCT(48), LV_PCT(100));
+  lv_obj_add_style(edit_cont, &Theme::styles().screen, 0);
 
   lv_obj_set_flex_align(edit_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_align(edit_cont, LV_ALIGN_RIGHT_MID, 0, 0);
-
   lv_obj_set_flex_flow(edit_cont, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_style_pad_all(edit_cont, 0, 0);
 
   lv_obj_set_size(input, LV_PCT(100), LV_SIZE_CONTENT);
   lv_textarea_set_one_line(input, true);
 
-  lv_obj_set_size(kb, LV_PCT(100), LV_PCT(85));
+  lv_obj_set_width(kb, LV_PCT(100));
+  lv_obj_set_flex_grow(kb, 1);
   static const char * kb_map[] = {"1", "2", "3", "\n", "4", "5", "6", "\n", "7", "8", "9", "\n", LV_SYMBOL_BACKSPACE, "0", LV_SYMBOL_OK, NULL };
   static const lv_btnmatrix_ctrl_t kb_ctrl[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
   lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_map, kb_ctrl);
@@ -91,12 +89,22 @@ void Numpad::handle_kb_input(lv_event_t *e) {
   }
 }
 
+void Numpad::cover_from(lv_coord_t x) {
+  lv_obj_t *parent = lv_obj_get_parent(edit_cont);
+  lv_obj_set_align(edit_cont, LV_ALIGN_DEFAULT);
+  // parent-content coordinates: reach past the parent's own padding on the
+  // other three sides so nothing shows around the popout
+  const lv_coord_t top = lv_obj_get_style_pad_top(parent, 0);
+  lv_obj_set_pos(edit_cont, x, -top);
+  lv_obj_set_size(edit_cont, lv_obj_get_width(parent) - lv_obj_get_style_pad_left(parent, 0) - x,
+                  lv_obj_get_height(parent));
+}
+
 void Numpad::foreground_reset() {
   LOG_TRACE("resetting foreground");
   prev_was_empty = false;
   lv_textarea_set_text(input, "");
   lv_obj_clear_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_align(edit_cont, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_move_foreground(edit_cont);
   lv_keyboard_set_textarea(kb, input);
 }

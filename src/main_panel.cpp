@@ -3,20 +3,20 @@
 #include "state.h"
 #include "lvgl/lvgl.h"
 #include "logger.h"
+#include "theme.h"
 
+using namespace Theme;
+#include "icons.h"
+
+#include <algorithm>
 #include <string>
 
-LV_IMG_DECLARE(filament_img);
-LV_IMG_DECLARE(light_img);
-LV_IMG_DECLARE(move);
-LV_IMG_DECLARE(print);
-LV_IMG_DECLARE(extruder);
-LV_IMG_DECLARE(bed);
-LV_IMG_DECLARE(fan);
-LV_IMG_DECLARE(heater);
-LV_IMG_DECLARE(emergency);
-
 LV_FONT_DECLARE(materialdesign_font_40);
+
+// The nav bar holds glyphs from one fixed-size font, so unlike everything else
+// in the UI it cannot scale: a wider bar would only surround them with air and
+// leave the icons looking lost. This is the width it has always been.
+#define TAB_BAR_W 60
 
 #define INFO_SYMBOL    u8"\U000F02FD"
 #define SETTING_SYMBOL u8"\U000F1064"
@@ -33,7 +33,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , homing_panel(ws, lock)
   , fan_panel(ws, lock)
   , led_panel(ws, lock)    
-  , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, 60))
+  , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, TAB_BAR_W))
   , main_tab(lv_tabview_add_tab(tabview, HOME_SYMBOL))
   , mmu_tab(MmuPanel::enabled() ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
@@ -42,7 +42,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , setting_panel(websocket, lock, setting_tab)
   , sysinfo_tab(lv_tabview_add_tab(tabview, INFO_SYMBOL))
   , sysinfo_panel(sysinfo_tab)
-  , main_cont(lv_obj_create(main_tab))
+  , main_cont(create_screen(main_tab))  // fills the tab: it is the page
   , print_status_panel(websocket, lock, main_cont)
   , print_panel(ws, lock, print_status_panel)
   , numpad(Numpad(main_cont))
@@ -51,22 +51,17 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , spoolman_panel(sm)
   , mmu_panel(mmu)
   , temp_cont(lv_obj_create(main_cont))
-  , temp_chart(lv_chart_create(main_cont))
-  , homing_btn(main_cont, &move, "Homing", &MainPanel::_handle_homing_cb, this)
-  , extrude_btn(main_cont, &filament_img, "Extrude", &MainPanel::_handle_extrude_cb, this)
-  , action_btn(main_cont, &fan, "Fans", &MainPanel::_handle_fanpanel_cb, this)
-  , led_btn(main_cont, &light_img, "LED", &MainPanel::_handle_ledpanel_cb, this)
-  , print_btn(main_cont, &print, "Print", &MainPanel::_handle_print_cb, this)
-  , emergency_btn(main_cont, &emergency, "Stop", &MainPanel::_handle_emergency_cb, this,
+  , temp_chart_box(lv_obj_create(main_cont))
+  , temp_chart(lv_chart_create(temp_chart_box))
+  , homing_btn(main_cont, Icons::MOVE, "Homing", &MainPanel::_handle_homing_cb, this)
+  , extrude_btn(main_cont, Icons::FILAMENT_IMG, "Extrude", &MainPanel::_handle_extrude_cb, this)
+  , action_btn(main_cont, Icons::FAN, "Fans", &MainPanel::_handle_fanpanel_cb, this)
+  , led_btn(main_cont, Icons::LIGHT_IMG, "LED", &MainPanel::_handle_ledpanel_cb, this)
+  , print_btn(main_cont, Icons::PRINT, "Print", &MainPanel::_handle_print_cb, this)
+  , emergency_btn(main_cont, Icons::EMERGENCY, "Stop", &MainPanel::_handle_emergency_cb, this,
                   "Emergency Stop", Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
                   {"Back", "Emergency Stop"})
 {
-    lv_style_init(&style);
-    lv_style_set_img_recolor_opa(&style, LV_OPA_30);
-    lv_style_set_img_recolor(&style, lv_color_black());
-    lv_style_set_border_width(&style, 0);
-    lv_style_set_bg_color(&style, lv_palette_darken(LV_PALETTE_GREY, 4));
-
     ws.register_notify_update(this);
 
     lv_obj_add_event_cb(tabview, &MainPanel::_tabview_event_cb,
@@ -156,33 +151,65 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
 
     const uint16_t idx = lv_tabview_get_tab_act(tv);
 
-    const uint16_t sysinfo_idx = lv_obj_get_index(self->sysinfo_tab);
-    if (idx == sysinfo_idx) {
+    if (idx == lv_obj_get_index(self->sysinfo_tab)) {
         self->sysinfo_panel.foreground();
     }
 }
 
 void MainPanel::create_panel() {
-  lv_obj_clear_flag(lv_tabview_get_content(tabview), LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_t *tv_content = lv_tabview_get_content(tabview);
+  lv_obj_clear_flag(tv_content, LV_OBJ_FLAG_SCROLLABLE);
+  // Modern fences the nav bar off from the content with a hairline; classic
+  // has never had one. It goes on the content's left edge rather than the
+  // button matrix's right, because the tabview draws over the matrix's own
+  // border.
+  lv_obj_set_style_border_width(tv_content, frame_w(), 0);
+  lv_obj_set_style_border_color(tv_content, col(BORDER), 0);
+  lv_obj_set_style_border_side(tv_content, LV_BORDER_SIDE_LEFT, 0);
   lv_obj_add_event_cb(lv_tabview_get_content(tabview), scroll_begin_event, LV_EVENT_SCROLL_BEGIN, NULL);
   
   lv_obj_t * tab_btns = lv_tabview_get_tab_btns(tabview);
-  lv_obj_set_style_bg_color(tab_btns, lv_palette_main(LV_PALETTE_GREY), LV_STATE_CHECKED | LV_PART_ITEMS);
-  lv_obj_set_style_outline_width(tab_btns, 0, LV_PART_ITEMS | LV_STATE_FOCUS_KEY | LV_STATE_FOCUS_KEY);
+  lv_obj_set_style_bg_color(tab_btns, col(SURFACE), 0);
+  lv_obj_set_style_bg_opa(tab_btns, LV_OPA_COVER, 0);
+  lv_obj_set_style_border_width(tab_btns, 0, 0);
+  lv_obj_set_style_pad_all(tab_btns, 0, 0);
+  // the selection fills its whole slot; a padded, rounded pill read as a
+  // floating bubble rather than part of the bar
+  lv_obj_set_style_radius(tab_btns, 0, LV_PART_ITEMS);
+  lv_obj_set_style_bg_opa(tab_btns, LV_OPA_TRANSP, LV_PART_ITEMS);
+  lv_obj_set_style_text_color(tab_btns, col(TEXT), LV_PART_ITEMS);
+  // the selected tab is the grey slot with the accent-coloured glyph it has
+  // always been (LVGL's tabview paints a checked tab's text with the accent)
+  // a wash of grey rather than a solid slab, which is the weight it has always
+  // had behind the selected glyph
+  lv_obj_set_style_bg_opa(tab_btns, LV_OPA_20, LV_STATE_CHECKED | LV_PART_ITEMS);
+  lv_obj_set_style_bg_color(tab_btns, col(SELECTED), LV_STATE_CHECKED | LV_PART_ITEMS);
+  lv_obj_set_style_text_color(tab_btns, theme_primary(), LV_STATE_CHECKED | LV_PART_ITEMS);
+  lv_obj_set_style_outline_width(tab_btns, 0, LV_PART_ITEMS | LV_STATE_FOCUS_KEY);
   lv_obj_set_style_border_side(tab_btns, 0, LV_PART_ITEMS | LV_STATE_CHECKED);
-  lv_obj_set_style_text_font(tab_btns, &materialdesign_font_40, LV_STATE_DEFAULT);
-  // tab buttons are btnmatrix glyphs, so they cannot take style_imgbtn_disabled;
+  // on the items, not the bar: the shared key style sets a text font on the
+  // items and would otherwise win over an inherited one
+  lv_obj_set_style_text_font(tab_btns, &materialdesign_font_40, LV_PART_ITEMS);
+  // tab buttons are btnmatrix glyphs, not images, so they cannot wear icon_disabled;
   // grey them with the same colour it recolours disabled icons with
-  lv_obj_set_style_text_color(tab_btns, lv_palette_darken(LV_PALETTE_GREY, 1),
+  lv_obj_set_style_text_color(tab_btns, col(DISABLED),
                               LV_PART_ITEMS | LV_STATE_DISABLED);
 
-  lv_obj_set_style_pad_all(main_tab, 0, 0);
-  lv_obj_set_style_pad_all(console_tab, 0, 0);
-  lv_obj_set_style_pad_all(setting_tab, 0, 0);
-  lv_obj_set_style_pad_all(sysinfo_tab, 0, 0);
+  // The page is the theme's background everywhere: the screen, the tabview and
+  // each tab. Left alone they paint LVGL's own dark card grey, which only
+  // happened to match the stock background_colour.
+  lv_obj_set_style_bg_color(lv_scr_act(), col(BG), 0);
+  lv_obj_set_style_bg_color(tabview, col(BG), 0);
+  lv_obj_set_style_bg_opa(tabview, LV_OPA_COVER, 0);
+  for (lv_obj_t *tab : {main_tab, console_tab, setting_tab, sysinfo_tab, mmu_tab}) {
+    if (tab == NULL) continue;
+    lv_obj_add_style(tab, &styles().screen, 0);
+    // the tab is only a page behind a panel that pads itself; without this
+    // the screen style's gap would double up with the panel's own
+    lv_obj_set_style_pad_all(tab, 0, 0);
+  }
 
   if (mmu_tab != NULL) {
-    lv_obj_set_style_pad_all(mmu_tab, 0, 0);
     // greyed out until klipper confirms the configured backend is there
     lv_btnmatrix_set_btn_ctrl(tab_btns, lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
   }
@@ -240,37 +267,92 @@ void MainPanel::create_main(lv_obj_t * parent) {
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
     LV_GRID_TEMPLATE_LAST};
 
-  lv_obj_clear_flag(main_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_height(main_cont, LV_PCT(100));
-
-  lv_obj_set_flex_grow(main_cont, 1);
   lv_obj_set_grid_dsc_array(main_cont, grid_main_col_dsc, grid_main_row_dsc);
 
-  lv_obj_set_grid_cell(homing_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(extrude_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(action_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(led_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(print_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-  lv_obj_set_grid_cell(emergency_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+  // the six actions are tappable tiles, the same look as an MMU slot card
+  for (ButtonContainer *b : {&homing_btn, &extrude_btn, &action_btn,
+                             &led_btn, &print_btn, &emergency_btn}) {
+    b->use_card();
+  }
+
+  lv_obj_set_grid_cell(homing_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(extrude_btn.get_container(), LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(action_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
+  lv_obj_set_grid_cell(led_btn.get_container(), LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
+  lv_obj_set_grid_cell(print_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+  lv_obj_set_grid_cell(emergency_btn.get_container(), LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
 
   lv_obj_clear_flag(temp_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(temp_cont, LV_PCT(50), LV_PCT(50));
-  lv_obj_set_style_pad_all(temp_cont, 0, 0);
+  lv_obj_add_style(temp_cont, &styles().row, 0);
 
-  lv_obj_set_flex_flow(temp_cont, LV_FLEX_FLOW_ROW_WRAP);
-  lv_obj_set_grid_cell(temp_cont, LV_GRID_ALIGN_START, 0, 2, LV_GRID_ALIGN_CENTER, 0, 2);
+  lv_obj_set_flex_flow(temp_cont, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(temp_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_grid_cell(temp_cont, LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_STRETCH, 0, 3);
+  // The chart is the last child of the readout column, half its height; the
+  // rows above share the other half, for any number of sensors.
+  lv_obj_set_parent(temp_chart_box, temp_cont);
+  // while printing, the status chip is the first row of the column (it is
+  // hidden otherwise, and flex skips hidden children)
+  lv_obj_set_parent(print_status_panel.get_mini_status(), temp_cont);
+  lv_obj_move_to_index(print_status_panel.get_mini_status(), 0);
 
-  lv_obj_align(temp_chart, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_set_size(temp_chart, LV_PCT(45), LV_PCT(40));
+  // the temperature popout covers the tile column, from the column gap out
+  lv_obj_update_layout(main_cont);
+  numpad.cover_from(lv_obj_get_x(homing_btn.get_container()) - gap());
+
+  // lv_chart places primary-Y tick labels at obj->coords.x1 minus the label
+  // width -- outside the widget, not inside its padding (lv_chart.c:1414). So
+  // styling the chart itself threw the labels onto whatever sat to its left,
+  // which is how they ended up over the nav bar. The box carries the panel
+  // look and a left gutter; the chart is transparent inside it, and the labels
+  // land in that gutter.
+  lv_obj_add_style(temp_chart_box, &styles().panel, 0);
+  // the graph keeps the hairline frame it has always been drawn in: it is a
+  // plotted box, not a group of controls
+  lv_obj_set_style_border_width(temp_chart_box, border_w(), 0);
+  lv_obj_set_style_border_color(temp_chart_box, col(BORDER), 0);
+  lv_obj_clear_flag(temp_chart_box, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_width(temp_chart_box, LV_PCT(100));
+  // the chart and the readout rows share the column by flex weight: the chart
+  // weighs as much as all the rows together (set in create_sensors), so it is
+  // half the column when idle and everything shrinks together when the print
+  // status chip joins the column
+  lv_obj_set_height(temp_chart_box, 0);
+  lv_obj_set_flex_grow(temp_chart_box, 1);
+  // room for the tick labels, which lv_chart draws to the left of the plot
+  const lv_coord_t tick_gutter = scale_w(30);
+  lv_obj_set_style_pad_left(temp_chart_box, tick_gutter, 0);
+  lv_obj_set_style_pad_right(temp_chart_box, gap(), 0);
+  // the tick labels centre on the 0 and 300 lines, so leave half a line of
+  // room above and below the plot for them
+  lv_obj_set_style_pad_ver(temp_chart_box, gap() + scale_font(12)->line_height / 2, 0);
+
+  lv_obj_add_style(temp_chart, &styles().row, 0);
+  lv_obj_set_size(temp_chart, LV_PCT(100), LV_PCT(100));
+  // lv_chart skips the top and bottom guides when it thinks it has a border
+  // there (it checks the side, not the width), so the 0 line went undrawn
+  lv_obj_set_style_border_side(temp_chart, LV_BORDER_SIDE_NONE, 0);
+  lv_obj_set_style_text_font(temp_chart, scale_font(12), LV_PART_TICKS);
+  lv_obj_set_style_text_color(temp_chart, col(TEXT_DIM), LV_PART_TICKS);
   lv_obj_set_style_size(temp_chart, 0, LV_PART_INDICATOR);
+  // hairline guides in the raised grey (the stock border grey, but a theme
+  // that hides its borders keeps its graph lines); a 2px trace on top
+  lv_obj_set_style_line_width(temp_chart, 1, LV_PART_MAIN);
+  lv_obj_set_style_line_color(temp_chart, col(RAISED), LV_PART_MAIN);
+  lv_obj_set_style_line_width(temp_chart, 2, LV_PART_ITEMS);
 
   lv_chart_set_range(temp_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 300);
-  lv_obj_set_grid_cell(temp_chart, LV_GRID_ALIGN_END, 0, 2, LV_GRID_ALIGN_END, 2, 1);
-  lv_chart_set_axis_tick(temp_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, 6, 5, true, 50);
+  // minor_cnt must stay non-zero: lv_chart derives its tick count as
+  // (major_cnt - 1) * minor_cnt and draws nothing at all when that is 0
+  lv_chart_set_axis_tick(temp_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, 5, 1, true, tick_gutter);
 
-  lv_chart_set_div_line_count(temp_chart, 3, 8);
+  // one guide per labelled value: 0, 75, 150, 225, 300
+  lv_chart_set_div_line_count(temp_chart, 5, 0);
   lv_chart_set_point_count(temp_chart, 5000);
   lv_chart_set_zoom_x(temp_chart, 5000);
+  // the history scrolls under a finger, but a bar over the trace only clutters
+  lv_obj_set_scrollbar_mode(temp_chart, LV_SCROLLBAR_MODE_OFF);
   lv_obj_scroll_to_x(temp_chart, LV_COORD_MAX, LV_ANIM_OFF);
 }
 
@@ -297,20 +379,31 @@ void MainPanel::create_sensors(json &temp_sensors) {
 
     std::string display_name = sensor.value()["display_name"].template get<std::string>();
 
-    const void* sensor_img = &heater;
+    const void* sensor_img = Icons::HEATER;
     if (key == "extruder") {
-      sensor_img = &extruder;
+      sensor_img = Icons::EXTRUDER;
     } else if (key == "heater_bed") {
-      sensor_img = &bed;
+      sensor_img = Icons::BED;
     }
 
     lv_chart_series_t *temp_series =
       lv_chart_add_series(temp_chart, color_code, LV_CHART_AXIS_PRIMARY_Y);
 
-    sensors.insert({key, std::make_shared<SensorContainer>(ws, temp_cont, sensor_img, 150,
+    auto sc = std::make_shared<SensorContainer>(ws, temp_cont, sensor_img,
 			   display_name.c_str(), color_code, controllable, false, numpad, key,
-        		   temp_chart, temp_series)});
+        		   temp_chart, temp_series);
+    // the rows share the column above the chart, never shorter than one line
+    lv_obj_set_height(sc->get_sensor(), 0);
+    lv_obj_set_flex_grow(sc->get_sensor(), 1);
+    lv_obj_set_style_min_height(sc->get_sensor(), scale_r(30), 0);
+    sensors.insert({key, sc});
   }
+
+  // the readouts were appended after the chart, so put the chart back at the
+  // bottom of the column where it belongs
+  const uint32_t last = lv_obj_get_child_cnt(temp_cont);
+  if (last > 0) lv_obj_move_to_index(temp_chart_box, last - 1);
+  lv_obj_set_flex_grow(temp_chart_box, std::max<int>(1, sensors.size()));
 }
 
 void MainPanel::create_fans(json &fans) {

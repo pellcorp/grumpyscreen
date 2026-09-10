@@ -31,11 +31,11 @@ namespace KUtils {
     return "";
   }
 
-  std::pair<std::string, size_t> get_thumbnail(const std::string &gcode_file, json &j, double scale) {
+  std::pair<std::string, size_t> get_thumbnail(const std::string &gcode_file, json &j, int target_width) {
     auto &thumbs = j["/result/thumbnails"_json_pointer];
     if (!thumbs.is_null() && !thumbs.empty()) {
-      // assume square, look for closest to 300x300
-      auto scaled_width = scale * 300;
+      // assume square, look for the one closest to what the caller asked for
+      const int scaled_width = target_width;
       LOG_DEBUG("using thumb at scaled width {}", scaled_width);
       uint32_t closest_index = 0;
       size_t thumb_width = 0;

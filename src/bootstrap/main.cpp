@@ -1,4 +1,5 @@
 #include "lvgl/lvgl.h"
+#include "theme.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
 #ifdef GUPPY_SDL
@@ -27,6 +28,10 @@ using json = nlohmann::json;
 
 namespace {
 constexpr double calibration_version = 2.0;
+// bootstrap has no grumpyscreen.cfg to read a [theme] from, so the stock
+// accent pair is fixed here: the one place in the app a colour is spelled out
+constexpr uint32_t bootstrap_primary_rgb = 0x2196F3;
+constexpr uint32_t bootstrap_secondary_rgb = 0xF44336;
 
 std::uint32_t get_display_rotate() {
     const char *rotate_env = std::getenv("DISPLAY_ROTATE");
@@ -195,11 +200,9 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     lv_indev_drv_register(&indev_drv);
 #endif
 
-#ifdef GUPPY_SMALL_SCREEN
-    lv_theme_t *th = lv_theme_default_init(disp, primary, secondary, true, &lv_font_montserrat_12);
-#else
-    lv_theme_t *th = lv_theme_default_init(disp, primary, secondary, true, &lv_font_montserrat_20);
-#endif
+    // 12 on a 480x272 panel, 20 on 800x480 -- the same sizes the build used to
+    // pick with an #ifdef, now read off the display that is actually attached
+    lv_theme_t *th = lv_theme_default_init(disp, primary, secondary, true, Theme::scale_font(12));
     lv_disp_set_theme(disp, th);
 }
 
@@ -214,7 +217,7 @@ int main(void) {
     fbdev_unblank();
 #endif
 
-    hal_init(lv_color_hex(0x2196F3), lv_color_hex(0xF44336));
+    hal_init(lv_color_hex(bootstrap_primary_rgb), lv_color_hex(bootstrap_secondary_rgb));
 
     std::mutex lv_lock;
     const std::string footer_text = fmt::format("Build {}", GUPPYSCREEN_VERSION);

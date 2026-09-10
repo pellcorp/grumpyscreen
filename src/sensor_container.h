@@ -20,20 +20,7 @@ class SensorContainer {
 		  std::string name,
 		  lv_obj_t *chart,
 		  lv_chart_series_t *chart_series);
-		  
-  SensorContainer(KWebSocketClient &c,
-		  lv_obj_t *parent,
-		  const void *img,
-		  uint16_t img_scale,
-		  const char *text,
-		  lv_color_t color,
-		  bool editable,
-		  bool show_target,
-		  Numpad &np,
-		  std::string name,
-		  lv_obj_t *chart,
-		  lv_chart_series_t *chart_series);
-  
+
   ~SensorContainer();
 
   lv_obj_t *get_sensor();
@@ -50,6 +37,10 @@ class SensorContainer {
  private:
   KWebSocketClient &ws;
   lv_obj_t *sensor_cont;
+  // modern only: the sensor's colour as a floating bar down the left edge, so
+  // the row's own border is free to be the card frame. NULL in classic, where
+  // the border IS the stripe.
+  lv_obj_t *accent;
   lv_obj_t *sensor_img;
   lv_obj_t *sensor_label;
   lv_obj_t *value_label;
@@ -61,6 +52,7 @@ class SensorContainer {
   std::string id;
   lv_obj_t *chart;
   lv_chart_series_t *series;
+  bool series_seeded = false;
   std::time_t last_updated_ts;
   
 };

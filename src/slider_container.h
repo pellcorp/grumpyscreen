@@ -35,6 +35,11 @@ class SliderContainer {
 
   ~SliderContainer();
   lv_obj_t *get_container();
+  // the row height the panel gives it; Off and Max fill that height
+  void set_height(lv_coord_t h);
+  // how tall a row should be in a column of n rows beside three side tiles: one
+  // row is a tile tall, two or three share the column, more scroll at tile height
+  static lv_coord_t row_height(int n);
   lv_obj_t *get_slider();
   lv_obj_t *get_off();
   lv_obj_t *get_max();

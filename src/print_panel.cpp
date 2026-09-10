@@ -3,27 +3,28 @@
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
+#include "icons.h"
+#include "theme.h"
 
+using namespace Theme;
+
+#include <algorithm>
 #include <map>
 #include <sstream>
-
-LV_IMG_DECLARE(info_img);
-LV_IMG_DECLARE(print);
-LV_IMG_DECLARE(back);
 
 #define SORTED_BY_MODIFIED  1 << 1
 
 PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatusPanel &ps)
   : NotifyConsumer(lock)
   , ws(websocket)
-  , files_cont(lv_obj_create(lv_scr_act()))
+  , files_cont(create_screen(NULL))
   , spinner(lv_spinner_create(files_cont, 1000, 60))
-  , left_cont(lv_obj_create(files_cont))
+  , left_cont(create_row(files_cont))
   , file_table(lv_table_create(left_cont))
-  , file_view(lv_obj_create(files_cont))
-  , status_btn(file_view, &info_img, "Status", &PrintPanel::_handle_status_btn, this)
-  , print_btn(file_view, &print, "Print", &PrintPanel::_handle_print_callback, this)
-  , back_btn(file_view, &back, "Back", &PrintPanel::_handle_back_btn, this)
+  , file_view(create_row(files_cont))
+  , status_btn(file_view, Icons::INFO_IMG, "Status", &PrintPanel::_handle_status_btn, this)
+  , print_btn(file_view, Icons::PRINT, "Print", &PrintPanel::_handle_print_callback, this)
+  , back_btn(file_view, Icons::BACK, "Back", &PrintPanel::_handle_back_btn, this)
   , root("", "", 0)
   , cur_dir(&root)
   , cur_file(NULL)
@@ -36,44 +37,49 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
 {
   LOG_TRACE("building print panel");
   lv_obj_move_background(files_cont);
-
-  lv_obj_set_size(files_cont, LV_PCT(100), LV_PCT(100));
-  lv_obj_clear_flag(files_cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_flex_flow(files_cont, LV_FLEX_FLOW_ROW);
-  lv_obj_set_style_pad_all(files_cont, 0, 0);
 
+  // the spinner would otherwise take LVGL's 130px default
+  lv_obj_set_size(spinner, scale_r(60), scale_r(60));
+  lv_obj_set_style_arc_width(spinner, scale_r(6), LV_PART_MAIN);
+  lv_obj_set_style_arc_width(spinner, scale_r(6), LV_PART_INDICATOR);
   lv_obj_add_flag(spinner, LV_OBJ_FLAG_FLOATING);
   lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 0);
   lv_obj_move_foreground(spinner);
 
-  // left side cont
-  lv_obj_set_size(left_cont, LV_PCT(50), LV_PCT(100));
-  lv_obj_clear_flag(left_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_flex_flow(left_cont, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_style_pad_all(left_cont, 0, 0);
+  // the file list is a panel on the left half, its scrollbar beside it
+  lv_obj_set_size(left_cont, 0, LV_PCT(100));
+  lv_obj_set_flex_grow(left_cont, 1);
+  lv_obj_set_flex_flow(left_cont, LV_FLEX_FLOW_ROW);
 
-  lv_obj_set_size(file_table, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_size(file_table, 0, LV_PCT(100));
+  lv_obj_set_flex_grow(file_table, 1);
   lv_table_set_col_width(file_table, 0, LV_PCT(100));
   lv_table_set_col_cnt(file_table, 1);
   lv_obj_add_event_cb(file_table, &PrintPanel::_handle_callback, LV_EVENT_ALL, this);
-  lv_obj_set_scroll_dir(file_table, LV_DIR_TOP | LV_DIR_BOTTOM);
-  lv_obj_set_style_pad_bottom(file_table, 60, 0);
+  manage_scroll(file_table);
+  // each row is a touch target: pad the cells so one is at least touch_h() tall
+  const lv_font_t *row_font = scale_font(14);
+  lv_obj_set_style_text_font(file_table, row_font, LV_PART_ITEMS);
+  lv_obj_set_style_pad_ver(file_table, std::max(gap(), (touch_h() - lv_font_get_line_height(row_font)) / 2), LV_PART_ITEMS);
 
-  lv_obj_set_size(file_view, LV_PCT(50), LV_PCT(100));
-  lv_obj_clear_flag(file_view, LV_OBJ_FLAG_SCROLLABLE);
+  // the selected file's details over its three actions, on the right half
+  lv_obj_set_size(file_view, 0, LV_PCT(100));
+  lv_obj_set_flex_grow(file_view, 1);
 
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(8), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  // a fixed action row: the tiles shrink their icons to fit it (fit_icon),
+  // leaving the detail panel the room a content-sized row would eat
+  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(1), 0, LV_GRID_TEMPLATE_LAST};
+  grid_main_row_dsc[1] = scale_r(72);
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(file_view, grid_main_col_dsc, grid_main_row_dsc);
-  lv_obj_set_grid_cell(file_panel.get_container(), LV_GRID_ALIGN_CENTER, 0, 3, LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_grid_cell(file_panel.get_container(), LV_GRID_ALIGN_STRETCH, 0, 3, LV_GRID_ALIGN_STRETCH, 0, 1);
 
-  lv_obj_set_grid_cell(status_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_END, 1, 1);
-  lv_obj_set_grid_cell(print_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_END, 1, 1);
-  lv_obj_set_grid_cell(back_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_END, 1, 1);
-
-  lv_obj_move_foreground(back_btn.get_container());
-  lv_obj_move_foreground(print_btn.get_container());
-  lv_obj_move_foreground(status_btn.get_container());
+  ButtonContainer *actions[] = {&status_btn, &print_btn, &back_btn};
+  for (int c = 0; c < 3; c++) {
+    actions[c]->use_card();
+    lv_obj_set_grid_cell(actions[c]->get_container(), LV_GRID_ALIGN_STRETCH, c, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
+  }
 
   ws.register_notify_update(this);
   ws.register_method_callback("notify_filelist_changed",
@@ -266,6 +272,7 @@ void PrintPanel::show_dir(Tree *dir, uint32_t sort_type) {
 
   lv_table_set_row_cnt(file_table, index);
   lv_obj_scroll_to_y(file_table, 0, LV_ANIM_OFF);
+  refresh_scroll(file_table);
 
   // XXX: maybe use the directory instead of file endpoint in moonraker
   for (auto &c : sorted_files) {

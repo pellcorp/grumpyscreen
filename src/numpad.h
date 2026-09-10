@@ -14,6 +14,8 @@ class Numpad {
   void handle_kb_input(lv_event_t *event);
   /* void handle_defocused(lv_event_t *event); */
   void foreground_reset();
+  // cover the parent from x (parent-content coordinates) to its right edge
+  void cover_from(lv_coord_t x);
 
   static void _handle_input(lv_event_t *event) {
     Numpad *panel = (Numpad*)event->user_data;

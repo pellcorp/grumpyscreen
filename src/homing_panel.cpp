@@ -2,68 +2,57 @@
 #include "state.h"
 #include "logger.h"
 #include "config.h"
-
-static const float distances[] = {0.1, 0.5, 1, 5, 10, 25, 50};
-
-LV_IMG_DECLARE(arrow_left);
-LV_IMG_DECLARE(arrow_up);
-LV_IMG_DECLARE(arrow_right);
-LV_IMG_DECLARE(arrow_down);
-LV_IMG_DECLARE(home);
-LV_IMG_DECLARE(back);
-LV_IMG_DECLARE(z_closer);
-LV_IMG_DECLARE(z_farther);
-LV_IMG_DECLARE(emergency);
-LV_IMG_DECLARE(motor_off_img);
+#include "icons.h"
+#include "theme.h"
 
 HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   : NotifyConsumer(lock)
   , ws(websocket_client)
-  , homing_cont(lv_obj_create(lv_scr_act()))
-  , home_all_btn(homing_cont, &home, "Home All", &HomingPanel::_handle_callback, this)
-  , home_xy_btn(homing_cont, &home, "Home XY", &HomingPanel::_handle_callback, this)
-  , y_up_btn(homing_cont, &arrow_up, "Y+", &HomingPanel::_handle_callback, this)
-  , y_down_btn(homing_cont, &arrow_down, "Y-", &HomingPanel::_handle_callback, this)
-  , x_up_btn(homing_cont, &arrow_right, "X+", &HomingPanel::_handle_callback, this)
-  , x_down_btn(homing_cont, &arrow_left, "X-", &HomingPanel::_handle_callback, this)
-  , z_up_btn(homing_cont, &z_closer, "Z+", &HomingPanel::_handle_callback, this)
-  , z_down_btn(homing_cont, &z_farther, "Z-", &HomingPanel::_handle_callback, this)
-  , emergency_btn(homing_cont, &emergency, "Stop", &HomingPanel::_handle_callback, this,
+  , homing_cont(Theme::create_screen(NULL))
+  , home_all_btn(homing_cont, Icons::HOME, "Home All", &HomingPanel::_handle_callback, this)
+  , home_xy_btn(homing_cont, Icons::HOME, "Home XY", &HomingPanel::_handle_callback, this)
+  , y_up_btn(homing_cont, Icons::ARROW_UP, "Y+", &HomingPanel::_handle_callback, this)
+  , y_down_btn(homing_cont, Icons::ARROW_DOWN, "Y-", &HomingPanel::_handle_callback, this)
+  , x_up_btn(homing_cont, Icons::ARROW_RIGHT, "X+", &HomingPanel::_handle_callback, this)
+  , x_down_btn(homing_cont, Icons::ARROW_LEFT, "X-", &HomingPanel::_handle_callback, this)
+  , z_up_btn(homing_cont, Icons::Z_CLOSER, "Z+", &HomingPanel::_handle_callback, this)
+  , z_down_btn(homing_cont, Icons::Z_FARTHER, "Z-", &HomingPanel::_handle_callback, this)
+  , emergency_btn(homing_cont, Icons::EMERGENCY, "Stop", &HomingPanel::_handle_callback, this,
 		  "Emergency Stop", Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
                   {"Back", "Emergency Stop"})
-  , motoroff_btn(homing_cont, &motor_off_img, "Motors Off", &HomingPanel::_handle_callback, this)
-  , back_btn(homing_cont, &back, "Back", &HomingPanel::_handle_callback, this)
+  , motoroff_btn(homing_cont, Icons::MOTOR_OFF_IMG, "Motors Off", &HomingPanel::_handle_callback, this)
+  , back_btn(homing_cont, Icons::BACK, "Back", &HomingPanel::_handle_callback, this)
+  // the keys fill whatever the row leaves below the title; the trailing "" is
+  // the btnmatrix map terminator
   , distance_selector(homing_cont, "Move Distance (mm)",
-		     {".1", ".5", "1", "5", "10", "25", "50", ""}, 2, 70, 15, &HomingPanel::_handle_selector_cb, this)
+		     {".1", ".5", "1", "5", "10", "25", "50", ""}, 2, &HomingPanel::_handle_selector_cb, this)
 {
-  lv_obj_clear_flag(homing_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_height(homing_cont, lv_pct(100));
-  lv_obj_set_width(homing_cont, lv_pct(100));
-
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(4), LV_GRID_FR(4), LV_GRID_FR(2), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
     LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
 
   lv_obj_set_grid_dsc_array(homing_cont, grid_main_col_dsc, grid_main_row_dsc);
 
-  // row 1
-  lv_obj_set_grid_cell(home_all_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(y_up_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(home_xy_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(z_up_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_CENTER, 0, 1); 
-  lv_obj_set_grid_cell(emergency_btn.get_container(), LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+  // two rows of five tiles, in reading order
+  ButtonContainer *tiles[] = {&home_all_btn, &y_up_btn, &home_xy_btn, &z_up_btn, &emergency_btn,
+                              &x_down_btn, &y_down_btn, &x_up_btn, &z_down_btn, &motoroff_btn};
+  for (int i = 0; i < 10; i++) {
+    tiles[i]->use_card();
+    lv_obj_set_grid_cell(tiles[i]->get_container(), LV_GRID_ALIGN_STRETCH, i % 5, 1, LV_GRID_ALIGN_STRETCH, i / 5, 1);
+  }
 
-  // row 2
-  lv_obj_set_grid_cell(x_down_btn.get_container(), LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(y_down_btn.get_container(), LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(x_up_btn.get_container(), LV_GRID_ALIGN_CENTER, 2, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(z_down_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-  lv_obj_set_grid_cell(motoroff_btn.get_container(), LV_GRID_ALIGN_CENTER, 4, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-
-  lv_obj_set_grid_cell(distance_selector.get_container(), LV_GRID_ALIGN_CENTER, 0, 4, LV_GRID_ALIGN_CENTER, 2, 1);
-
-  lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);  
-  lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 10, 0);
+  // The selector and Back share the bottom row, which is content-sized: the
+  // selector asks for the height a row of keys needs and the two tile rows
+  // above take whatever is left, so the keys can neither be squeezed off the
+  // bottom of the screen nor float above it. Both sit at the end of that row,
+  // a screen margin from the edge, where they have always been, and Back
+  // stands as tall as the selector so it lands in the same place whether or
+  // not it is wearing a card.
+  distance_selector.seat_at_row_bottom();
+  lv_obj_set_grid_cell(distance_selector.get_container(), LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_END, 2, 1);
+  back_btn.use_card();
+  lv_obj_set_grid_cell(back_btn.get_container(), LV_GRID_ALIGN_STRETCH, 4, 1, LV_GRID_ALIGN_END, 2, 1);
+  back_btn.match_height(homing_cont, distance_selector.get_container());
 
   ws.register_notify_update(this);
 }
@@ -151,12 +140,12 @@ void HomingPanel::foreground() {
   const bool inverted = Config::get_instance()->get<bool>("/ui/invert_z_icon");
   if (inverted) {
     // UP arrow
-    z_up_btn.set_image(&z_farther);
-    z_down_btn.set_image(&z_closer);
+    z_up_btn.set_image(Icons::Z_FARTHER);
+    z_down_btn.set_image(Icons::Z_CLOSER);
   } else {
     // DOWN arrow
-    z_up_btn.set_image(&z_closer);
-    z_down_btn.set_image(&z_farther);
+    z_up_btn.set_image(Icons::Z_CLOSER);
+    z_down_btn.set_image(Icons::Z_FARTHER);
   }
 
   lv_obj_move_foreground(homing_cont);

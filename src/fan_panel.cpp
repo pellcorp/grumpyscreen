@@ -2,33 +2,34 @@
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
+#include "theme.h"
+#include "icons.h"
 
-LV_IMG_DECLARE(cancel);
-LV_IMG_DECLARE(fan_on);
-LV_IMG_DECLARE(back);
+using namespace Theme;
 
 FanPanel::FanPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   : NotifyConsumer(lock)
   , ws(websocket_client)
-  , fanpanel_cont(lv_obj_create(lv_scr_act()))
-  , fans_cont(lv_obj_create(fanpanel_cont))
-  , back_btn(fanpanel_cont, &back, "Back", &FanPanel::_handle_callback, this)
+  , fanpanel_cont(create_screen(NULL))
+  , fans_cont(create_row(fanpanel_cont))
+  , side_cont(create_row(fanpanel_cont))
+  , all_on_btn(side_cont, Icons::FAN_ON, "All On", &FanPanel::_handle_callback, this)
+  , all_off_btn(side_cont, Icons::FAN_OFF_IMG, "All Off", &FanPanel::_handle_callback, this)
+  , back_btn(side_cont, Icons::BACK, "Back", &FanPanel::_handle_callback, this)
 {
-  lv_obj_set_style_pad_all(fanpanel_cont, 0, 0);
-  
-  lv_obj_clear_flag(fanpanel_cont, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_size(fanpanel_cont, LV_PCT(100), LV_PCT(100));
-
-  lv_obj_center(fans_cont);
-  lv_obj_set_size(fans_cont, lv_pct(100), lv_pct(100));
+  // the list takes the width, the action tiles their own column
+  lv_obj_set_flex_flow(fanpanel_cont, LV_FLEX_FLOW_ROW);
+  lv_obj_set_size(fans_cont, 0, lv_pct(100));
+  lv_obj_set_flex_grow(fans_cont, 1);
   lv_obj_set_flex_flow(fans_cont, LV_FLEX_FLOW_COLUMN);
-
-  lv_obj_add_flag(back_btn.get_container(), LV_OBJ_FLAG_FLOATING);
-  #ifdef GUPPY_SMALL_SCREEN
-      lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 20, -10);
-  #else
-      lv_obj_align(back_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT, 30, -5);
-  #endif
+  manage_scroll(fans_cont);
+  lv_obj_set_size(side_cont, scale_w(84), lv_pct(100));
+  lv_obj_set_flex_flow(side_cont, LV_FLEX_FLOW_COLUMN);
+  for (ButtonContainer *b : {&all_on_btn, &all_off_btn, &back_btn}) {
+    b->use_card();
+    lv_obj_set_width(b->get_container(), lv_pct(100));
+    lv_obj_set_flex_grow(b->get_container(), 1);  // the three share the column
+  }
   ws.register_notify_update(this);
 }
 
@@ -77,24 +78,16 @@ void FanPanel::create_fans(json &f) {
       // generic_fan, controller_fan, etc.
       fan_cb = &FanPanel::_handle_fan_update_generic;
     }
-    auto fptr = std::make_shared<SliderContainer>(fans_cont, display_name.c_str(), &cancel, "Off",
-						  &fan_on, "Max", fan_cb, this, "%");
-    fans.insert({key, fptr});
+    // a row is as tall as its controls: rows start at the top, one gap apart
+    fans.insert({key, std::make_shared<SliderContainer>(fans_cont, display_name.c_str(), Icons::CANCEL, "Off",
+						  Icons::FAN_ON, "Max", fan_cb, this, "%")});
   }
 
-#ifdef GUPPY_SMALL_SCREEN
-  if (fans.size() > 2) {
-#else
-  if (fans.size() > 3) {
-#endif
-    lv_obj_set_size(fans_cont, lv_pct(86), lv_pct(100));
-    lv_obj_align(fans_cont, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_add_flag(fans_cont, LV_OBJ_FLAG_SCROLLABLE);
-  } else {
-    lv_obj_clear_flag(fans_cont, LV_OBJ_FLAG_SCROLLABLE);    
-  }
-
-  lv_obj_move_foreground(back_btn.get_container());
+  // Any number of rows, any screen size: build them, then let the scroller
+  // measure whether they overflow; no row height or count is guessed anywhere
+  const lv_coord_t row_h = SliderContainer::row_height(fans.size());
+  for (auto &r : fans) r.second->set_height(row_h);
+  refresh_scroll(fans_cont);
 }
 
 void FanPanel::foreground() {
@@ -115,7 +108,6 @@ void FanPanel::foreground() {
     }
   }
   
-  lv_obj_move_foreground(back_btn.get_container());
   lv_obj_move_foreground(fanpanel_cont);
 }
 
@@ -123,10 +115,23 @@ void FanPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
   if (btn == back_btn.get_container()) {
     lv_obj_move_background(fanpanel_cont);
+  } else if (btn == all_off_btn.get_container() || btn == all_on_btn.get_container()) {
+    const bool on = btn == all_on_btn.get_container();
+    for (auto &f : fans) {
+      ws.gcode_script(fan_gcode(f.first, on ? 1.0 : 0.0));
+      f.second->update_value(on ? 100 : 0);
+    }
   }
   else {
     LOG_DEBUG("Unknown action button pressed");
   }
+}
+
+std::string FanPanel::fan_gcode(const std::string &key, double fraction) {
+  const std::string name = KUtils::get_obj_name(key);
+  if (key == "fan") return fmt::format("M106 S{}", fraction * 255);
+  if (key.rfind("output_pin ", 0) == 0) return fmt::format("SET_PIN PIN={} VALUE={}", name, fraction * 255);
+  return fmt::format("SET_FAN_SPEED FAN={} SPEED={}", name, fraction);
 }
 
 void FanPanel::handle_fan_update(lv_event_t *event) {

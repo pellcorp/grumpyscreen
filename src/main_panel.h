@@ -117,10 +117,11 @@ class MainPanel : public NotifyConsumer {
   PromptPanel prompt_panel;
   SpoolmanPanel &spoolman_panel;
   MmuPanel &mmu_panel;
-  
-  lv_style_t style;
 
   lv_obj_t *temp_cont;
+  // lv_chart draws primary-Y tick labels outside its own left edge, so the
+  // chart lives inside this box and the labels land in the box's padding
+  lv_obj_t *temp_chart_box;
   lv_obj_t *temp_chart;
 
   std::map<std::string, std::shared_ptr<SensorContainer>> sensors;
