@@ -587,8 +587,11 @@ void MmuPanel::create_edit_screen() {
                                           &MmuPanel::_handle_edit_action, this));
   edit_back_btn.reset(new ButtonContainer(action_row, Icons::BACK, "Back",
                                           &MmuPanel::_handle_edit_action, this));
+  // use_plain, not use_card: these sit inside the right-hand panel, and a set
+  // of controls gets one box round it, not a box each. The icon still takes
+  // the accent under a finger -- that comes with the tile, not with the card.
   for (ButtonContainer *b : {edit_backup_btn.get(), edit_save_btn.get(), edit_back_btn.get()}) {
-    b->use_card();
+    b->use_plain();
     lv_obj_set_width(b->get_container(), 0);
     lv_obj_set_height(b->get_container(), LV_PCT(100));
     lv_obj_set_flex_grow(b->get_container(), 1);
