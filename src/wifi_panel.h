@@ -13,9 +13,12 @@
 
 struct WifiPanelOptions {
   lv_obj_t *parent = nullptr;
-  bool show_back_button = true;
+  bool show_refresh_button = true;
   const char *footer_text = nullptr;
   std::function<void()> on_back;
+  int list_grow = 1;
+  int detail_grow = 1;
+  bool flush = false;
 };
 
 class WifiPanel {
@@ -25,7 +28,6 @@ class WifiPanel {
   ~WifiPanel();
 
   void foreground();
-  void handle_back_btn(lv_event_t *event);
   void handle_refresh_btn(lv_event_t *event);
   void handle_callback(lv_event_t *event);
   void remove_network(uint32_t btn_idx);
@@ -38,11 +40,6 @@ class WifiPanel {
   void update_connection_status_label(const std::string &network_name);
   void handle_ip_poll_timer();
   void restart_wifi();
-
-  static void _handle_back_btn(lv_event_t *event) {
-    WifiPanel *panel = (WifiPanel*)event->user_data;
-    panel->handle_back_btn(event);
-  };
 
   static void _handle_refresh_btn(lv_event_t *event) {
     WifiPanel *panel = (WifiPanel*)event->user_data;
@@ -72,6 +69,7 @@ class WifiPanel {
   std::mutex &lv_lock;
   WpaEvent wpa_event;
   lv_timer_t *ip_poll_timer = nullptr;
+  bool owns_cont;
   lv_obj_t *cont;
   lv_obj_t *spinner;
   lv_obj_t *top_cont;
@@ -82,7 +80,6 @@ class WifiPanel {
   lv_obj_t *password_input;
   lv_obj_t *footer_label;
   std::function<void()> on_back;
-  ButtonContainer back_btn;
   ButtonContainer refresh_btn;
   lv_obj_t *kb;
   std::string selected_network;

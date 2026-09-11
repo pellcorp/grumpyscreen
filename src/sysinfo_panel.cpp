@@ -24,7 +24,8 @@ static lv_obj_t *add_line(lv_obj_t *panel, const std::string &text, bool title =
 }
 
 SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
-  : cont(create_screen(parent))  // fills the tab: it is the page
+  : owns_cont(parent == NULL)
+  , cont(create_screen(parent))  // fills the tab: it is the page
   , left_cont(lv_obj_create(cont))
   , right_cont(lv_obj_create(cont))
 {
@@ -57,7 +58,7 @@ SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
 }
 
 SysInfoPanel::~SysInfoPanel() {
-  if (cont != NULL) {
+  if (owns_cont && cont != NULL) {
     lv_obj_del(cont);
     cont = NULL;
   }

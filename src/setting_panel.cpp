@@ -67,34 +67,65 @@ static void run_command_deferred(lv_obj_t * mbox,
     lv_timer_set_repeat_count(timer, 1);
 }
 
+static WifiPanelOptions embedded_wifi_options(lv_obj_t *parent) {
+  WifiPanelOptions opts;
+  opts.parent = parent;
+  opts.show_refresh_button = false;
+  opts.list_grow = 3;
+  opts.detail_grow = 2;
+  opts.flush = true;
+  return opts;
+}
+
 SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   : ws(c)
+  , owns_cont(parent == nullptr)
   , cont(Theme::create_screen(parent))  // fills the tab: it is the page
-  , wifi_panel(l)
-  , wifi_btn(cont, Icons::NETWORK_IMG, "WIFI", &SettingPanel::_handle_callback, this)
-  , restart_klipper_btn(cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
+  , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
+  , network_tab(lv_tabview_add_tab(tabview, "WiFi"))
+  , tools_tab(lv_tabview_add_tab(tabview, "Tools"))
+  , info_tab(lv_tabview_add_tab(tabview, "Info"))
+  , tools_cont(Theme::create_screen(tools_tab))
+  , wifi_panel(l, embedded_wifi_options(network_tab))
+  , sysinfo_panel(info_tab)
+  , restart_klipper_btn(tools_cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
         "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
-  , restart_firmware_btn(cont, Icons::REFRESH_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
+  , restart_firmware_btn(tools_cont, Icons::REFRESH_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
         "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
-  , guppy_restart_btn(cont, Icons::REFRESH_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
-  , support_zip_btn(cont, Icons::SD_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
-  , switch_to_stock_btn(cont, Icons::EMERGENCY, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+  , guppy_restart_btn(tools_cont, Icons::REFRESH_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
+  , support_zip_btn(tools_cont, Icons::SD_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
+  , switch_to_stock_btn(tools_cont, Icons::EMERGENCY, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
           SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"})
-  , factory_reset_btn(cont, Icons::EMERGENCY, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+  , factory_reset_btn(tools_cont, Icons::EMERGENCY, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
 		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"})
 #ifdef COSMOS
-  , update_btn(cont, Icons::UPDATE_IMG, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+  , update_btn(tools_cont, Icons::UPDATE_IMG, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
           UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, {"Back", "Update"})
 #else
-  , shutdown_host_btn(cont, Icons::EMERGENCY, "Shutdown Host", &SettingPanel::_handle_callback, this,
+  , shutdown_host_btn(tools_cont, Icons::EMERGENCY, "Shutdown Host", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
 #endif
 {
+  lv_obj_set_style_pad_all(cont, 0, 0);
+  lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
+  lv_obj_add_event_cb(tabview, &SettingPanel::_tabview_event_cb,
+                      LV_EVENT_VALUE_CHANGED, this);
+  lv_obj_set_style_pad_all(network_tab, 0, 0);
+  lv_obj_set_style_pad_all(tools_tab, 0, 0);
+  lv_obj_set_style_pad_all(info_tab, 0, 0);
+
+  lv_obj_t *tab_btns = lv_tabview_get_tab_btns(tabview);
+  lv_obj_set_style_radius(tab_btns, 0, LV_PART_ITEMS);
+  lv_obj_set_style_pad_all(tab_btns, 0, 0);
+  lv_obj_set_style_bg_opa(tab_btns, LV_OPA_COVER, 0);
+  lv_obj_set_style_bg_color(tab_btns, Theme::col(Theme::SURFACE), 0);
+  lv_obj_set_style_border_width(tab_btns, 0, 0);
+
   // the optional tiles only appear with a command behind them; the grid is
   // built from what is left, four across, so a hidden tile never leaves a hole
   Config *conf = Config::get_instance();
   auto has_cmd = [conf](const char *key) { return conf->get<std::string>(key) != ""; };
-  std::vector<ButtonContainer *> tiles = {&wifi_btn, &restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn};
+  std::vector<ButtonContainer *> tiles = {&restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn};
   struct Optional { ButtonContainer *tile; const char *cmd; };
   for (const Optional &o : {Optional{&support_zip_btn, "/commands/support_zip_cmd"},
                             Optional{&switch_to_stock_btn, "/commands/switch_to_stock_cmd"},
@@ -114,7 +145,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
       LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   if (tiles.size() <= cols) grid_row_dsc[1] = LV_GRID_TEMPLATE_LAST;  // at most eight tiles: one row or two
-  lv_obj_set_grid_dsc_array(cont, grid_col_dsc, grid_row_dsc);
+  lv_obj_set_grid_dsc_array(tools_cont, grid_col_dsc, grid_row_dsc);
 
   for (size_t i = 0; i < tiles.size(); i++) {
     tiles[i]->use_card();
@@ -124,7 +155,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 }
 
 SettingPanel::~SettingPanel() {
-  if (cont != NULL) {
+  if (owns_cont && cont != NULL) {
     lv_obj_del(cont);
     cont = NULL;
   }
@@ -134,12 +165,29 @@ lv_obj_t *SettingPanel::get_container() {
   return cont;
 }
 
+void SettingPanel::foreground() {
+  refresh_active_tab();
+}
+
+void SettingPanel::_tabview_event_cb(lv_event_t *event) {
+  if (lv_event_get_code(event) == LV_EVENT_VALUE_CHANGED) {
+    static_cast<SettingPanel *>(lv_event_get_user_data(event))->refresh_active_tab();
+  }
+}
+
+void SettingPanel::refresh_active_tab() {
+  const uint16_t idx = lv_tabview_get_tab_act(tabview);
+  if (idx == lv_obj_get_index(network_tab)) {
+    wifi_panel.foreground();
+  } else if (idx == lv_obj_get_index(info_tab)) {
+    sysinfo_panel.foreground();
+  }
+}
+
 void SettingPanel::handle_callback(lv_event_t *event) {
     if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
       lv_obj_t *btn = lv_event_get_current_target(event);
-    if (btn == wifi_btn.get_container()) {
-      wifi_panel.foreground();
-    } else if (btn == restart_klipper_btn.get_container()) {
+    if (btn == restart_klipper_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto restart_command = conf->get<std::string>("/commands/restart_klipper_cmd");
       auto ret = call_command(restart_command);
