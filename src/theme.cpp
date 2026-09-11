@@ -155,8 +155,12 @@ Styles &styles() {
   // follow the gap, so a roomier theme lifts the label off the edge (the icon
   // gives the room up, see ButtonContainer::fit_icon)
   lv_style_init(&s.tile);
+  // No vertical padding, which is what grumpyscreen's tiles have always had:
+  // the icon is fitted to the room the cell leaves, so a pad here is taken
+  // straight off the icon and the tiles read noticeably smaller than they used
+  // to. The sides stay tight so a seven-tile row fits one-word labels.
   lv_style_set_pad_hor(&s.tile, scale_r(4));
-  lv_style_set_pad_ver(&s.tile, gap());
+  lv_style_set_pad_ver(&s.tile, 0);
   lv_style_set_pad_row(&s.tile, scale_r(2));
 
   // A tapped card darkens, like every button: the accent is reserved for what

@@ -119,35 +119,55 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , load_btn(panel_cont, Icons::LOAD_FILAMENT_IMG, "Load", &ExtruderPanel::_handle_callback, this)
   , unload_btn(panel_cont, Icons::UNLOAD_FILAMENT_IMG, "Unload", &ExtruderPanel::_handle_callback, this)
   , cooldown_btn(panel_cont, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
-  , spoolman_btn(panel_cont, Icons::SPOOLMAN_IMG, "Spoolman", &ExtruderPanel::_handle_callback, this)
-  , extrude_btn(panel_cont, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
-  , retract_btn(panel_cont, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
-  , back_btn(panel_cont, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
+  , right_col(create_row(panel_cont))
+  , spoolman_btn(right_col, Icons::SPOOLMAN_IMG, "Spoolman", &ExtruderPanel::_handle_callback, this)
+  , extrude_btn(right_col, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
+  , retract_btn(right_col, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
+  , back_btn(right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
 {
   lv_obj_move_background(panel_cont);
 
-  // header: the readout across the left, Spoolman on the right, sized to the
-  // readout; then three equal rows of tiles | selectors | tiles. Eight presets
-  // in the middle column make ~29px keys at 480 wide: the grid cannot widen
-  // that without starving the tiles, so it stays.
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_CONTENT, LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
+  // A short header for the readout, then three rows of tiles | selectors. The
+  // right-hand tiles are not in these rows at all -- they have their own column
+  // spanning the lot -- so the header is free to be the readout's height and
+  // the selectors get the room they used to have.
+  // Eight presets in the middle column make ~29px keys at 480 wide: the grid
+  // cannot widen that without starving the tiles, so it stays.
+  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(3), LV_GRID_FR(6), LV_GRID_FR(6), LV_GRID_FR(6),
     LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(2), LV_GRID_FR(7), LV_GRID_FR(2), LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(panel_cont, grid_main_col_dsc, grid_main_row_dsc);
 
-  // the readout keeps its own row height; Spoolman matches it
+  // the readout keeps its own height, centred in the row it shares
   lv_obj_set_grid_cell(extruder_temp.get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
-  spoolman_btn.use_card();
-  lv_obj_set_grid_cell(spoolman_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  spoolman_btn.disable();  // until moonraker says spoolman is there
+  // Every tile on this panel is one kind of thing, so they are all styled in
+  // one place and only where they sit differs -- a change to how a tile looks
+  // has to reach all seven, not six of them.
+  ButtonContainer *all_tiles[] = {&spoolman_btn, &extrude_btn, &retract_btn, &back_btn,
+                                  &load_btn, &unload_btn, &cooldown_btn};
+  for (ButtonContainer *b : all_tiles) b->use_card();
+
+  // The right-hand four share one column, an even quarter of the screen each.
+  // No gap between them: four tiles plus their labels is all the height there
+  // is, and a gap would come off the icons.
+  lv_obj_set_grid_cell(right_col, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 4);
+  lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(right_col, 0, 0);
+  for (ButtonContainer *b : {&spoolman_btn, &extrude_btn, &retract_btn, &back_btn}) {
+    lv_obj_set_width(b->get_container(), LV_PCT(100));
+    lv_obj_set_height(b->get_container(), 0);
+    lv_obj_set_flex_grow(b->get_container(), 1);
+  }
 
   ButtonContainer *left[] = {&load_btn, &unload_btn, &cooldown_btn};
-  ButtonContainer *right[] = {&extrude_btn, &retract_btn, &back_btn};
+  for (int r = 0; r < 3; r++) {
+    lv_obj_set_grid_cell(left[r]->get_container(), LV_GRID_ALIGN_STRETCH, 0, 1,
+                         LV_GRID_ALIGN_STRETCH, r + 1, 1);
+  }
+  spoolman_btn.disable();  // state, not style: until moonraker says spoolman is there
+
   Selector *mid[] = {&speed_selector, &length_selector, &temp_selector};
   for (int r = 0; r < 3; r++) {
-    left[r]->use_card();
-    right[r]->use_card();
-    lv_obj_set_grid_cell(left[r]->get_container(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, r + 1, 1);
     // the selector panels fill their rows too, so their gaps match the tiles'
     lv_obj_set_grid_cell(mid[r]->get_container(), LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, r + 1, 1);
     // Three selectors share this column, so a cell here is shorter than a full
@@ -160,7 +180,6 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
     // insets them, so that inset is the margin under them and the padding on
     // top of it only costs key height in a cell this short
     lv_obj_set_style_pad_bottom(mid[r]->get_container(), 0, 0);
-    lv_obj_set_grid_cell(right[r]->get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, r + 1, 1);
   }
 
   ws.register_notify_update(this);    

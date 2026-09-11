@@ -47,6 +47,10 @@ class ExtruderPanel : public NotifyConsumer {
   ButtonContainer load_btn;
   ButtonContainer unload_btn;
   ButtonContainer cooldown_btn;
+  // the right-hand tiles share a column of their own, spanning every row, so
+  // the header can stay the height of the readout while they still get a full
+  // tile's worth of room each. Declared before them: it is their parent.
+  lv_obj_t *right_col;
   ButtonContainer spoolman_btn;
   ButtonContainer extrude_btn;
   ButtonContainer retract_btn;
