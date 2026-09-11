@@ -20,7 +20,14 @@ WARNINGS		:= -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wp
 					-Wno-format-nonliteral -Wno-cast-qual -Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-error=pedantic \
 					-Wno-sign-compare -Wdouble-promotion -Wclobbered -Wempty-body -Wtype-limits -Wshift-negative-value
 CFLAGS 			?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
-LDFLAGS 		?= -static -lm -Llibhv/lib -l:libhv.a -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -l:libwpa_client.a -lstdc++fs
+DEPS_KEY		?= $(if $(CROSS_COMPILE),$(patsubst %-,%,$(CROSS_COMPILE)),native)
+DEPS_DIR		?= build/deps/$(DEPS_KEY)
+DEPS_LIB_DIR	= $(DEPS_DIR)/lib
+LIBHV_A			= $(DEPS_LIB_DIR)/libhv.a
+WPA_CLIENT_A	= $(DEPS_LIB_DIR)/libwpa_client.a
+LIBHV_INPUTS	:= $(shell find libhv \( -path libhv/include -o -path libhv/lib \) -prune -o -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name 'Makefile*' -o -name 'config.mk' \) -print)
+WPA_CLIENT_INPUTS := $(shell find wpa_supplicant -type f \( -name '*.c' -o -name '*.h' -o -name 'Makefile*' -o -name '.config' \))
+LDFLAGS 		?= -static -lm -L$(DEPS_LIB_DIR) -l:libhv.a -latomic -lpthread -L$(DEPS_LIB_DIR) -l:libwpa_client.a -lstdc++fs
 BIN 			= bootstrap
 BUILD_DIR 		?= ./build-bootstrap
 BUILD_OBJ_DIR 	= $(BUILD_DIR)/obj
@@ -68,7 +75,7 @@ DEPS            = $(addprefix $(BUILD_OBJ_DIR)/, $(patsubst %.o, %.d, $(MAINOBJ)
 OBJS 			= $(AOBJS) $(COBJS) $(MAINOBJ)
 TARGET 			= $(addprefix $(BUILD_OBJ_DIR)/, $(patsubst ./%, %, $(OBJS)))
 
-INC 			:= -I./ -I./src -I./lvgl/ -I./lv_touch_calibration -I./fmt/include -I./libhv/include -I./wpa_supplicant/src/common
+INC 			:= -I./ -I./src -I./lvgl/ -I./lv_touch_calibration -I./fmt/include -I$(DEPS_DIR)/include -I./wpa_supplicant/src/common
 LDLIBS	 		:= -lm
 DEFINES			+= -D _GNU_SOURCE -DSPDLOG_COMPILED_LIB
 
@@ -94,18 +101,29 @@ COMPILE_CXX	= $(CXX) $(CFLAGS) $(INC) $(DEFINES)
 
 all: default
 
-libhv.a:
-	$(MAKE) -C libhv -j$(nproc) libhv
+libhv.a: $(LIBHV_A)
 
-wpaclient:
-	$(MAKE) -C wpa_supplicant/wpa_supplicant -j$(nproc) libwpa_client.a
+wpaclient: $(WPA_CLIENT_A)
 
-$(BUILD_OBJ_DIR)/%.o: %.cpp
+$(LIBHV_A): $(LIBHV_INPUTS)
+	$(MAKE) -C libhv clean
+	$(MAKE) -C libhv -j$$(nproc) libhv
+	@mkdir -p $(DEPS_LIB_DIR)
+	@cp libhv/lib/libhv.a $(LIBHV_A)
+	@cp -r libhv/include $(DEPS_DIR)/
+
+$(WPA_CLIENT_A): $(WPA_CLIENT_INPUTS)
+	$(MAKE) -C wpa_supplicant/wpa_supplicant clean
+	$(MAKE) -C wpa_supplicant/wpa_supplicant -j$$(nproc) libwpa_client.a
+	@mkdir -p $(DEPS_LIB_DIR)
+	@cp wpa_supplicant/wpa_supplicant/libwpa_client.a $(WPA_CLIENT_A)
+
+$(BUILD_OBJ_DIR)/%.o: %.cpp | $(LIBHV_A)
 	@mkdir -p $(dir $@)
 	@$(COMPILE_CXX) -std=c++17 $(CFLAGS) -c $< -o $@
 	@echo "CXX $<"
 
-$(BUILD_OBJ_DIR)/%.o: %.c
+$(BUILD_OBJ_DIR)/%.o: %.c | $(LIBHV_A)
 	@mkdir -p $(dir $@)
 	@$(COMPILE_CC) $(CFLAGS) -c $< -o $@
 	@echo "CC $<"
@@ -117,9 +135,12 @@ default: libhv.a wpaclient $(TARGET)
 
 libhvclean:
 	$(MAKE) -C libhv clean
+	rm -f $(LIBHV_A)
+	rm -rf $(DEPS_DIR)/include
 
 wpaclean:
 	$(MAKE) -C wpa_supplicant/wpa_supplicant clean
+	rm -f $(WPA_CLIENT_A)
 
 clean:
 	rm -rf $(BUILD_DIR)

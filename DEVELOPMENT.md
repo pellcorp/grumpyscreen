@@ -26,24 +26,28 @@ Clone the grumpyscreen repo (and submodules) and apply a couple of patches local
 ### Build for Creality OS (K1, K1M, Ender 3 V3 KE, etc) 
 
 ```
-./build.sh --setup mips [--small] --printer IP_ADDRESS_OF_PRINTER
+./build.sh mips [--small]
+./build.sh mips [--small] --printer IP_ADDRESS_OF_PRINTER --password PRINTER_PASSWORD
 ```
 
-This will directly deploy it to your printer or dev box!
+The second form directly deploys it to your printer or dev box.
 
 ### Build for RPI
 
 ```
-./build.sh --setup rpi [--small] --printer IP_ADDRESS_OF_PRINTER
+./build.sh rpi [--small]
+./build.sh rpi [--small] --printer IP_ADDRESS_OF_PRINTER [--username USERNAME]
 ```
 
-This will directly deploy it to your rpi based printer or dev box!
+The second form directly deploys it to your rpi based printer or dev box.
 
 ### Build Locally (SDL2)
 
 Mostly this is about getting good screenshots for the moment but you can build grumpyscreen locally with SDL2.
 
 ```
-./build.sh --setup sdl [--small]
+./build.sh sdl [--small]
 build/sdl/bin/grumpyscreen
 ```
+
+Add `--setup` before the target when you want to clean that target before building, for example `./build.sh --setup mips-small`.

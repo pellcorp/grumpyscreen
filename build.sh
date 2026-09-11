@@ -51,7 +51,8 @@ GUPPY_SMALL_SCREEN=false
 COSMOS=false
 SETUP=false
 PI_USERNAME=pi
-PASSWORD=Creality2023
+PASSWORD=
+MAKE_ARGS=()
 
 function target_base() {
     local target="${1%-small}"
@@ -84,9 +85,13 @@ function is_build_target() {
     [ "$base" = "mips" ] || [ "$base" = "rpi" ] || [ "$base" = "sdl" ]
 }
 
-while true; do
+while [ $# -gt 0 ]; do
     if [ "$1" = "--setup" ]; then
         shift
+        if [ -z "$1" ]; then
+          echo "ERROR: --setup requires a target"
+          exit 1
+        fi
         SETUP=true
         TARGET=$1
         TARGET_BASE=$(target_base "$TARGET")
@@ -104,71 +109,45 @@ while true; do
     elif [ "$1" = "--cosmos" ]; then
         export COSMOS=true
         shift
-    elif [ "$1" = "--username" ] && [ -n "$2" ]; then
+    elif [ "$1" = "--username" ]; then
+        if [ -z "$2" ]; then
+          echo "ERROR: --username requires a value"
+          exit 1
+        fi
         export PI_USERNAME=$2
         shift
         shift
-    elif [ "$1" = "--password" ] && [ -n "$2" ]; then
+    elif [ "$1" = "--password" ]; then
+        if [ -z "$2" ]; then
+          echo "ERROR: --password requires a value"
+          exit 1
+        fi
         export PASSWORD=$2
         shift
         shift
     elif [ "$1" = "--printer" ]; then
+        if [ -z "$2" ]; then
+          echo "ERROR: --printer requires a value"
+          exit 1
+        fi
         shift
         PRINTER_IP=$1
         shift
+    elif is_build_target "$1"; then
+        TARGET=$1
+        if target_is_small "$TARGET"; then
+          export GUPPY_SMALL_SCREEN=true
+        fi
+        shift
     else
-        break
+        MAKE_ARGS+=("$1")
+        shift
     fi
 done
 
-if [ -n "$1" ] && is_build_target "$1"; then
-  TARGET=$1
-  if target_is_small "$TARGET"; then
-    export GUPPY_SMALL_SCREEN=true
-  fi
-  shift
-fi
-
-if [ "$SETUP" = "true" ]; then
-  TARGET=$(normalize_build_target "$TARGET")
-  TARGET_BASE=$(target_base "$TARGET")
-
-  if [ "$TARGET_BASE" = "rpi" ]; then
-    echo "$TARGET" > $CURRENT_DIR/.target.cfg
-    echo "username=$PI_USERNAME" >> $CURRENT_DIR/.target.cfg
-  elif [ "$TARGET_BASE" = "mips" ]; then
-    echo "$TARGET" > $CURRENT_DIR/.target.cfg
-    echo "password=$PASSWORD" >> $CURRENT_DIR/.target.cfg
-  else
-    echo "$TARGET" > $CURRENT_DIR/.target.cfg
-  fi
-
-  if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
-    echo "small=true" >> $CURRENT_DIR/.target.cfg
-  fi
-
-  if [ "$COSMOS" = "true" ]; then
-    echo "cosmos=true" >> $CURRENT_DIR/.target.cfg
-  fi
-fi
-
-if [ -f $CURRENT_DIR/.target.cfg ]; then
-  TARGET=$(cat $CURRENT_DIR/.target.cfg | head -1)
-  if target_is_small "$TARGET"; then
-    export GUPPY_SMALL_SCREEN=true
-  fi
-  if [ $(cat $CURRENT_DIR/.target.cfg | grep "small=true" | wc -l) -gt 0 ]; then
-    export GUPPY_SMALL_SCREEN=true
-  fi
-  if [ $(cat $CURRENT_DIR/.target.cfg | grep "cosmos=true" | wc -l) -gt 0 ]; then
-    export COSMOS=true
-  fi
-  if [ $(cat $CURRENT_DIR/.target.cfg | grep "username=" | wc -l) -gt 0 ]; then
-    export PI_USERNAME=$(cat $CURRENT_DIR/.target.cfg | grep "username=" | awk -F '=' '{print $2}')
-  fi
-  if [ $(cat $CURRENT_DIR/.target.cfg | grep "password=" | wc -l) -gt 0 ]; then
-    export PASSWORD=$(cat $CURRENT_DIR/.target.cfg | grep "password=" | awk -F '=' '{print $2}')
-  fi
+if [ -n "$TARGET" ] && ! is_build_target "$TARGET"; then
+  echo "ERROR: mips, mips-small, rpi, rpi-small, sdl or sdl-small target must be specified"
+  exit 1
 fi
 
 if [ -z "$TARGET" ]; then
@@ -185,17 +164,20 @@ elif [ "$TARGET_BASE" = "mips" ]; then
   export CROSS_COMPILE=mipsel-buildroot-linux-musl-
 fi
 
+if [ -n "$PRINTER_IP" ] && [ "$TARGET_BASE" = "mips" ] && [ -z "$PASSWORD" ]; then
+  echo "ERROR: --password is required when deploying to a mips printer"
+  exit 1
+fi
+
 if [ "$SETUP" = "true" ]; then
     docker_make clean || exit $?
-    docker_make libhvclean || exit $?
-    docker_make wpaclean || exit $?
     #docker_make "bootstrap" clean || exit $?
 
     docker_make libhv.a || exit $?
     docker_make wpaclient || exit $?
 fi
 
-docker_make $1 || exit $?
+docker_make "${MAKE_ARGS[@]}" || exit $?
 #docker_make "bootstrap" $1 || exit $?
 
 cp $CURRENT_DIR/grumpyscreen.cfg "$BUILD_DIR/bin/"
