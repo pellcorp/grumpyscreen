@@ -49,6 +49,7 @@ class HhBackend : public MmuBackend {
   std::map<int, int> spool_weights;      // spool id -> grams remaining
   std::vector<int> fetched_spool_ids;    // ids covered by the last fetch
   std::chrono::steady_clock::time_point last_fetch;
+  bool fetch_failed = false;             // last fetch got nothing back
 
   bool enabled = true;          // MMU ENABLE=0 refuses every command
   bool filament_loaded = false; // in the extruder, from a gate or the bypass

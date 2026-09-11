@@ -7,6 +7,11 @@
 #include <cctype>
 #include <cmath>
 
+// How often weights may be re-asked for while a print is consuming them. Grams
+// move slowly and the panel shows them rounded, so this is about keeping the
+// number honest, not watching it tick.
+static constexpr auto WEIGHT_REFRESH = std::chrono::minutes(5);
+
 // Happy Hare's action strings (mmu_controller._get_action_string) onto the
 // neutral activity. Everything that is not resting blocks filament motion, so
 // anything unrecognised maps to Moving rather than Idle.
@@ -233,8 +238,15 @@ void HhBackend::refresh() {
   bypass = cur_tool == -2; // TOOL_GATE_BYPASS
   activity = hh_activity(action, changing, error);
 
-  // refresh spoolman weights whenever the set of assigned spool ids changes,
-  // and at least once a minute: printing eats grams without touching the map
+  // Refresh spoolman weights whenever the set of assigned spool ids changes.
+  // That covers every way the map itself can move, so the only reason to ask
+  // again on a clock is consumption -- printing eats grams without touching
+  // the map -- and that is gated on the print. An idle printer asks once and
+  // then stays quiet.
+  //
+  // A fetch that came back empty retries on the same clock whether or not a
+  // print is running: spoolman being unreachable should not leave the weights
+  // blank until something else happens to move.
   if (spoolman) {
     const auto now = std::chrono::steady_clock::now();
     std::vector<int> ids;
@@ -245,7 +257,8 @@ void HhBackend::refresh() {
         }
       }
     }
-    if (!ids.empty() && (ids != fetched_spool_ids || now - last_fetch > std::chrono::seconds(60))) {
+    const bool overdue = (in_print || fetch_failed) && now - last_fetch > WEIGHT_REFRESH;
+    if (!ids.empty() && (ids != fetched_spool_ids || overdue)) {
       fetched_spool_ids = ids;
       last_fetch = now;
       fetch_spoolman_weights();
@@ -256,16 +269,19 @@ void HhBackend::refresh() {
 void HhBackend::fetch_spoolman_weights() {
   json params = {
     { "request_method", "GET" },
-    { "path", "/v1/spool?allow_archived=true" },
+    { "path", "/v1/spool" },  // archived spools are not on a gate
   };
   ws.send_jsonrpc("server.spoolman.proxy", params, [this](json &d) {
     auto &spools = d["/result"_json_pointer];
     if (!spools.is_array()) {
       // leave fetched_spool_ids in place: clearing it here re-fired this
-      // request on every status frame while spoolman was unreachable; the
-      // minute timer retries instead
+      // request on every status frame while spoolman was unreachable. The
+      // retry is the clock in refresh(), which this flag keeps running even
+      // when no print is consuming anything.
+      fetch_failed = true;
       return;
     }
+    fetch_failed = false;
     for (auto &s : spools) {
       if (s.contains("id") && s["id"].is_number()) {
         int grams = 0;
