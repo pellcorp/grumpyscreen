@@ -85,8 +85,12 @@
  *-------------------*/
 
 /* SDL based drivers for display, mouse, mousewheel and keyboard*/
-#ifndef USE_SDL
-# define USE_SDL 0
+#ifdef GUPPY_SDL
+# define USE_SDL 1
+#else
+# ifndef USE_SDL
+#  define USE_SDL 0
+# endif
 #endif
 
 /* Hardware accelerated SDL driver */
@@ -95,8 +99,12 @@
 #endif
 
 #if USE_SDL || USE_SDL_GPU
-#  define SDL_HOR_RES     480
-#  define SDL_VER_RES     272
+#  ifndef SDL_HOR_RES
+#    define SDL_HOR_RES     480
+#  endif
+#  ifndef SDL_VER_RES
+#    define SDL_VER_RES     272
+#  endif
 
 /* Scale window by this factor (useful when simulating small screens) */
 #  define SDL_ZOOM        1
