@@ -223,7 +223,7 @@ int main(void) {
     const std::string footer_text = fmt::format("Build {}", GUPPYSCREEN_VERSION);
     WifiPanel wifi_panel(lv_lock, WifiPanelOptions{
         lv_scr_act(),
-        false,
+        true,
         footer_text.c_str(),
         {}
     });

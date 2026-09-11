@@ -30,6 +30,7 @@ static void draw_part_event_cb(lv_event_t * e) {
 
 WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   : lv_lock(l)
+  , owns_cont(options.parent == nullptr)
   , cont(Theme::create_screen(options.parent))
   , spinner(lv_spinner_create(cont, 1000, 60))
   , top_cont(Theme::create_row(cont))
@@ -40,10 +41,10 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   , password_input(lv_textarea_create(prompt_cont))
   , footer_label(options.footer_text != nullptr ? lv_label_create(cont) : nullptr)
   , on_back(options.on_back)
-  , back_btn(cont, Icons::BACK, "Back", &WifiPanel::_handle_back_btn, this)
   , refresh_btn(cont, Icons::REFRESH_IMG, "Refresh", &WifiPanel::_handle_refresh_btn, this)
   , kb(lv_keyboard_create(cont))
 {
+  if (options.flush) lv_obj_set_style_pad_left(cont, 0, LV_STATE_DEFAULT);
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
   lv_obj_add_flag(cont, LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_CLICKABLE);
 
@@ -53,14 +54,9 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   lv_obj_set_style_arc_width(spinner, Theme::scale_r(6), LV_PART_INDICATOR);
   lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 0);
 
-  back_btn.float_bottom_right();
   refresh_btn.float_bottom_right();
-  if (options.show_back_button) {
-    // Refresh sits one tile to the left of Back
-    lv_obj_align(refresh_btn.get_container(), LV_ALIGN_BOTTOM_RIGHT,
-                 -(ButtonContainer::float_w() + Theme::gap()), 0);
-  } else {
-    back_btn.hide();
+  if (!options.show_refresh_button) {
+    refresh_btn.hide();
   }
 
   lv_obj_set_flex_grow(top_cont, 1);
@@ -71,7 +67,7 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   // whatever the icon column leaves (set once the table has its width, see
   // handle_callback), and rows are tall enough for a finger
   lv_obj_set_size(wifi_table, 0, LV_PCT(100));
-  lv_obj_set_flex_grow(wifi_table, 1);
+  lv_obj_set_flex_grow(wifi_table, options.list_grow);
   lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
   lv_table_set_col_width(wifi_table, 1, Theme::scale_w(100));
   const lv_coord_t row_text_h = lv_font_get_line_height(lv_obj_get_style_text_font(wifi_table, LV_PART_ITEMS));
@@ -85,7 +81,7 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   Theme::manage_scroll(wifi_table);  // beside the list, clear of its corners; re-fits when the keyboard shrinks it
 
   // the prompt column: status text over the password entry, one gap apart
-  lv_obj_set_flex_grow(wifi_right, 1);
+  lv_obj_set_flex_grow(wifi_right, options.detail_grow);
   lv_obj_set_height(wifi_right, LV_PCT(100));
   lv_obj_set_flex_flow(wifi_right, LV_FLEX_FLOW_COLUMN);
   lv_obj_add_flag(wifi_right, LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_CLICKABLE);
@@ -133,7 +129,7 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
 
 WifiPanel::~WifiPanel() {
   stop_ip_poll();
-  if (cont != NULL) {
+  if (owns_cont && cont != NULL) {
     lv_obj_del(cont);
     cont = NULL;
   }
@@ -145,22 +141,6 @@ void WifiPanel::foreground() {
   lv_obj_move_foreground(cont);
   lv_obj_clear_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   wpa_event.send_command("SCAN");
-}
-
-void WifiPanel::handle_back_btn(lv_event_t *e) {
-  lv_event_code_t code = lv_event_get_code(e);
-  if(code == LV_EVENT_CLICKED) {
-    LOG_TRACE("wifi panel bg");
-    stop_ip_poll();
-    if (on_back) {
-      on_back();
-      return;
-    }
-    lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
-    Theme::refresh_scroll(wifi_table);  // the bar goes with it
-    lv_obj_add_flag(prompt_cont, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_background(cont);
-  }
 }
 
 void WifiPanel::handle_refresh_btn(lv_event_t *e) {

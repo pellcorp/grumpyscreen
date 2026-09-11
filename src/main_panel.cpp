@@ -18,7 +18,6 @@ LV_FONT_DECLARE(materialdesign_font_40);
 // leave the icons looking lost. This is the width it has always been.
 #define TAB_BAR_W 60
 
-#define INFO_SYMBOL    u8"\U000F02FD"
 #define SETTING_SYMBOL u8"\U000F1064"
 #define HOME_SYMBOL    u8"\U000F02DC"
 #define CONSOLE_SYMBOL u8"\U000F018D"
@@ -40,8 +39,6 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , console_panel(ws, lock, console_tab)
   , setting_tab(lv_tabview_add_tab(tabview, SETTING_SYMBOL))
   , setting_panel(websocket, lock, setting_tab)
-  , sysinfo_tab(lv_tabview_add_tab(tabview, INFO_SYMBOL))
-  , sysinfo_panel(sysinfo_tab)
   , main_cont(create_screen(main_tab))  // fills the tab: it is the page
   , print_status_panel(websocket, lock, main_cont)
   , print_panel(ws, lock, print_status_panel)
@@ -151,8 +148,8 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
 
     const uint16_t idx = lv_tabview_get_tab_act(tv);
 
-    if (idx == lv_obj_get_index(self->sysinfo_tab)) {
-        self->sysinfo_panel.foreground();
+    if (idx == lv_obj_get_index(self->setting_tab)) {
+        self->setting_panel.foreground();
     }
 }
 
@@ -201,7 +198,7 @@ void MainPanel::create_panel() {
   lv_obj_set_style_bg_color(lv_scr_act(), col(BG), 0);
   lv_obj_set_style_bg_color(tabview, col(BG), 0);
   lv_obj_set_style_bg_opa(tabview, LV_OPA_COVER, 0);
-  for (lv_obj_t *tab : {main_tab, console_tab, setting_tab, sysinfo_tab, mmu_tab}) {
+  for (lv_obj_t *tab : {main_tab, console_tab, setting_tab, mmu_tab}) {
     if (tab == NULL) continue;
     lv_obj_add_style(tab, &styles().screen, 0);
     // the tab is only a page behind a panel that pads itself; without this

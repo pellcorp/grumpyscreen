@@ -3,6 +3,7 @@
 
 #include "platform.h"
 #include "wifi_panel.h"
+#include "sysinfo_panel.h"
 #include "button_container.h"
 #include "websocket_client.h"
 #include "lvgl/lvgl.h"
@@ -15,6 +16,7 @@ class SettingPanel {
   ~SettingPanel();
 
   lv_obj_t *get_container();
+  void foreground();
 
   void handle_callback(lv_event_t *event);
 
@@ -24,12 +26,20 @@ class SettingPanel {
   };
 
  private:
+  static void _tabview_event_cb(lv_event_t *event);
+  void refresh_active_tab();
+
   KWebSocketClient &ws;
+  bool owns_cont;
   lv_obj_t *cont;
-
+  lv_obj_t *tabview;
+  lv_obj_t *network_tab;
+  lv_obj_t *tools_tab;
+  lv_obj_t *info_tab;
+  lv_obj_t *tools_cont;
   WifiPanel wifi_panel;
+  SysInfoPanel sysinfo_panel;
 
-  ButtonContainer wifi_btn;
   ButtonContainer restart_klipper_btn;
   ButtonContainer restart_firmware_btn;
   ButtonContainer guppy_restart_btn;

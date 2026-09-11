@@ -15,6 +15,7 @@ class SysInfoPanel {
   void foreground();
 
  private:
+  bool owns_cont;
   lv_obj_t *cont;
   lv_obj_t *left_cont;
   lv_obj_t *right_cont;
