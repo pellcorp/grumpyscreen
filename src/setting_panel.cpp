@@ -71,6 +71,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   : ws(c)
   , cont(Theme::create_screen(parent))  // fills the tab: it is the page
   , wifi_panel(l)
+#ifdef COSMOS
+  , update_manager(c, l)
+#endif
   , wifi_btn(cont, Icons::NETWORK_IMG, "WIFI", &SettingPanel::_handle_callback, this)
   , restart_klipper_btn(cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
         "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
@@ -157,12 +160,8 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       }
 #ifdef COSMOS
     } else if (btn == update_btn.get_container()) {
-      Config *conf = Config::get_instance();
-      auto update_cmd = conf->get<std::string>(std::string("/commands/cosmos_update_cmd"));
-      lv_obj_t *mbox = create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Initiated", UPDATE_BUTTON_SUCCESS, false, false);
-      run_command_deferred(mbox, update_cmd,
-                           UPDATE_BUTTON_TITLE " Failed", UPDATE_BUTTON_FAILURE,
-                           DEFERRED_COMMAND_DELAY_MS);
+      // Moonraker runs the update and reports its progress to every UI.
+      update_manager.start();
 #else
     } else if (btn == shutdown_host_btn.get_container()) {
       Config *conf = Config::get_instance();

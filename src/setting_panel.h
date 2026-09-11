@@ -5,6 +5,9 @@
 #include "wifi_panel.h"
 #include "button_container.h"
 #include "websocket_client.h"
+#ifdef COSMOS
+#include "update_manager_client.h"
+#endif
 #include "lvgl/lvgl.h"
 
 #include <mutex>
@@ -28,6 +31,9 @@ class SettingPanel {
   lv_obj_t *cont;
 
   WifiPanel wifi_panel;
+#ifdef COSMOS
+  UpdateManagerClient update_manager;
+#endif
 
   ButtonContainer wifi_btn;
   ButtonContainer restart_klipper_btn;
