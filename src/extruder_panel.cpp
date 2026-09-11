@@ -119,7 +119,7 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , load_btn(panel_cont, Icons::LOAD_FILAMENT_IMG, "Load", &ExtruderPanel::_handle_callback, this)
   , unload_btn(panel_cont, Icons::UNLOAD_FILAMENT_IMG, "Unload", &ExtruderPanel::_handle_callback, this)
   , cooldown_btn(panel_cont, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
-  , spoolman_btn(create_text_btn(panel_cont, "Spoolman", &ExtruderPanel::_handle_callback, this))
+  , spoolman_btn(panel_cont, Icons::SPOOLMAN_IMG, "Spoolman", &ExtruderPanel::_handle_callback, this)
   , extrude_btn(panel_cont, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
   , retract_btn(panel_cont, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
   , back_btn(panel_cont, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
@@ -137,9 +137,9 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 
   // the readout keeps its own row height; Spoolman matches it
   lv_obj_set_grid_cell(extruder_temp.get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
-  lv_obj_set_grid_cell(spoolman_btn, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
-  // no font of its own: it wears the one the tile labels beside it wear
-  lv_obj_add_state(spoolman_btn, LV_STATE_DISABLED);  // until moonraker says spoolman is there
+  spoolman_btn.use_card();
+  lv_obj_set_grid_cell(spoolman_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);
+  spoolman_btn.disable();  // until moonraker says spoolman is there
 
   ButtonContainer *left[] = {&load_btn, &unload_btn, &cooldown_btn};
   ButtonContainer *right[] = {&extrude_btn, &retract_btn, &back_btn};
@@ -178,7 +178,7 @@ void ExtruderPanel::foreground() {
 }
 
 void ExtruderPanel::enable_spoolman() {
-  lv_obj_clear_state(spoolman_btn, LV_STATE_DISABLED);
+  spoolman_btn.enable();
 }
 
 void ExtruderPanel::consume(json& j) {
@@ -294,9 +294,8 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       ws.gcode_script(cooldown_macro);
     }
 
-    // it looks like a label rather than a button, so it also has to ignore a
-    // tap while it is off: nothing else stops the click
-    if (btn == spoolman_btn && !lv_obj_has_state(spoolman_btn, LV_STATE_DISABLED)) {
+    // disable() clears the clickable flag, so a tap cannot arrive while it is off
+    if (btn == spoolman_btn.get_container()) {
       spoolman_panel.foreground();
     }
   }

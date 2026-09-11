@@ -47,7 +47,7 @@ class ExtruderPanel : public NotifyConsumer {
   ButtonContainer load_btn;
   ButtonContainer unload_btn;
   ButtonContainer cooldown_btn;
-  lv_obj_t *spoolman_btn;
+  ButtonContainer spoolman_btn;
   ButtonContainer extrude_btn;
   ButtonContainer retract_btn;
   ButtonContainer back_btn;

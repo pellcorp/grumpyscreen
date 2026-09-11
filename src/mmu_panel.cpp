@@ -716,8 +716,8 @@ void MmuPanel::rebuild_grid(size_t page_count) {
     // button grey inside the same hairline every button set wears, and the
     // accent under a finger.
     lv_obj_add_style(card.cont, &styles().card, 0);
-    lv_obj_add_style(card.cont, &styles().card_pressed, LV_STATE_PRESSED);
     lv_obj_set_style_bg_color(card.cont, tile_bg(), 0);
+    lv_obj_set_style_bg_color(card.cont, theme_primary(), LV_STATE_PRESSED);
     lv_obj_set_style_radius(card.cont, radius_sm(), 0);
     lv_obj_clear_flag(card.cont, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(card.cont, LV_OBJ_FLAG_CLICKABLE);
