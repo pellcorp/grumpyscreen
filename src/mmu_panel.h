@@ -2,10 +2,12 @@
 #define __MMU_PANEL_H__
 
 #include "mmu_backend.h"
+#include "button_container.h"
 #include "websocket_client.h"
 #include "notify_consumer.h"
 #include "lvgl/lvgl.h"
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -119,7 +121,10 @@ class MmuPanel : public NotifyConsumer {
   lv_obj_t *edit_mat_lbl;
   lv_obj_t *edit_load_btn;   // toggles between Load and Unload with slot state
   lv_obj_t *edit_eject_btn;
-  lv_obj_t *edit_backup_btn; // infinite spool: backup assignment for the slot
+  // Backup, Save and Back are icon tiles like the ones on the extruder panel,
+  // so they answer a tap the same way -- the icon takes the accent. They are
+  // built with the edit screen rather than in the constructor, hence pointers.
+  std::unique_ptr<ButtonContainer> edit_backup_btn;  // infinite spool assignment
   lv_obj_t *edit_swatches_row1;
   lv_obj_t *edit_swatches_row2;
   std::vector<lv_obj_t*> colour_swatch_btns;
@@ -127,8 +132,8 @@ class MmuPanel : public NotifyConsumer {
   std::vector<std::string> materials;        // inline row, first few from config
   std::vector<std::string> material_catalog; // popout: config values then built-ins
   std::vector<lv_obj_t*> material_btns;
-  lv_obj_t *edit_save_btn;
-  lv_obj_t *edit_back_btn;
+  std::unique_ptr<ButtonContainer> edit_save_btn;
+  std::unique_ptr<ButtonContainer> edit_back_btn;
 
   // Backup picker popout: choose which slot this one backs up
   lv_obj_t *backup_picker;

@@ -210,11 +210,8 @@ MmuPanel::MmuPanel(KWebSocketClient &c, std::mutex &l)
   , edit_mat_lbl(NULL)
   , edit_load_btn(NULL)
   , edit_eject_btn(NULL)
-  , edit_backup_btn(NULL)
   , edit_swatches_row1(NULL)
   , edit_swatches_row2(NULL)
-  , edit_save_btn(NULL)
-  , edit_back_btn(NULL)
   , backup_picker(NULL)
   , backup_picker_list(NULL)
   , colour_picker(NULL)
@@ -392,6 +389,14 @@ void MmuPanel::create_edit_screen() {
   edit_eject_btn = create_flat_btn(left_actions, "Eject Spool", &MmuPanel::_handle_edit_action, this);
   lv_obj_set_size(edit_eject_btn, LV_PCT(100), scale_r(40));
 
+  // These two take the accent under a finger, the way a lane tile does. The
+  // colour filter LVGL's own theme puts on a pressed button is switched off
+  // for that state, or it would darken the accent instead of showing it.
+  for (lv_obj_t *b : {edit_load_btn, edit_eject_btn}) {
+    lv_obj_set_style_bg_color(b, theme_primary(), LV_STATE_PRESSED);
+    lv_obj_set_style_color_filter_opa(b, LV_OPA_TRANSP, LV_STATE_PRESSED);
+  }
+
   // Right Column: colour presets, material, backup, save/back
   lv_obj_t *right_col = lv_obj_create(edit_panel_cont);
   lv_obj_set_height(right_col, LV_PCT(100));
@@ -411,18 +416,25 @@ void MmuPanel::create_edit_screen() {
   // takes the height the fixed-height rows below leave, and the two swatch
   // rows split it, so the grid can never push the buttons off the screen
   lv_obj_t *colour_sec = create_row(right_col);
-  lv_obj_set_width(colour_sec, LV_PCT(100));
-  lv_obj_set_flex_grow(colour_sec, 1);
+  lv_obj_set_size(colour_sec, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(colour_sec, LV_FLEX_FLOW_COLUMN);
 
   lv_obj_t *col_title = lv_label_create(colour_sec);
   lv_label_set_text(col_title, "COLOUR PRESETS:");
   lv_obj_add_style(col_title, &styles().dim_label, 0);
 
+  // One colour out of a set, so the set gets the tray the materials and the
+  // extruder's selectors wear: the hairline goes round the group, never round
+  // each swatch. Content-sized, because the swatches below are squares and so
+  // decide the height themselves.
+  lv_obj_t *colour_tray = create_row(colour_sec);
+  lv_obj_add_style(colour_tray, &styles().key_tray, 0);
+  lv_obj_set_size(colour_tray, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(colour_tray, LV_FLEX_FLOW_COLUMN);
+
   for (lv_obj_t **row : {&edit_swatches_row1, &edit_swatches_row2}) {
-    *row = create_row(colour_sec);
+    *row = create_row(colour_tray);
     lv_obj_set_width(*row, LV_PCT(100));
-    lv_obj_set_flex_grow(*row, 1);
     lv_obj_set_flex_flow(*row, LV_FLEX_FLOW_ROW);
   }
 
@@ -476,6 +488,18 @@ void MmuPanel::create_edit_screen() {
   lv_obj_center(cc_icon);
   lv_obj_add_event_cb(custom_colour_btn, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
 
+  // A swatch is a square. Its width is its share of the row, so the row is
+  // given that as its height and the swatches -- full height, equal width --
+  // come out square. Measured rather than assumed: the row's width is whatever
+  // the tray leaves after its own padding.
+  lv_obj_update_layout(colour_tray);
+  const lv_coord_t swatch_row_w = lv_obj_get_content_width(edit_swatches_row1);
+  const lv_coord_t swatch_side =
+      (swatch_row_w - (lv_coord_t)(per_row - 1) * gap()) / (lv_coord_t)per_row;
+  for (lv_obj_t *row : {edit_swatches_row1, edit_swatches_row2}) {
+    lv_obj_set_height(row, swatch_side);
+  }
+
 
   // 2. Materials: inline commons plus the catalog popout
   lv_obj_t *mat_sec = create_row(right_col);
@@ -486,8 +510,12 @@ void MmuPanel::create_edit_screen() {
   lv_label_set_text(mat_title, "MATERIAL:");
   lv_obj_add_style(mat_title, &styles().dim_label, 0);
 
+  // One material out of a set, which is what a selector is, so it wears the
+  // selector's tray: the hairline goes round the set, never round each chip.
+  // The row grows by the tray's inset so the chips keep their own height.
   lv_obj_t *mat_row = create_row(mat_sec);
-  lv_obj_set_size(mat_row, LV_PCT(100), scale_r(40));
+  lv_obj_add_style(mat_row, &styles().key_tray, 0);
+  lv_obj_set_size(mat_row, LV_PCT(100), scale_r(40) + 2 * (scale_r(4) + border_w()));
   lv_obj_set_flex_flow(mat_row, LV_FLEX_FLOW_ROW);
 
   // Configured materials head the catalog, so anything past the four the
@@ -544,28 +572,27 @@ void MmuPanel::create_edit_screen() {
   lv_obj_center(mm_icon);
   lv_obj_add_event_cb(more_mat_btn, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
 
-  // 3. Infinite spool: the button is self-descriptive, no section title
-  edit_backup_btn = create_flat_btn(right_col, "Use as Backup", &MmuPanel::_handle_edit_action, this);
-  lv_obj_set_size(edit_backup_btn, LV_PCT(100), scale_r(40));
+  // 3. Backup, Save and Back: three icon tiles sharing a row, built and
+  // styled the way the extruder panel's tiles are, so a tap turns the icon the
+  // accent colour rather than shading a box.
+  lv_obj_t *action_row = create_row(right_col);
+  lv_obj_set_width(action_row, LV_PCT(100));
+  lv_obj_set_height(action_row, 0);
+  lv_obj_set_flex_grow(action_row, 1);  // the leftover height, so the icons fill it
+  lv_obj_set_flex_flow(action_row, LV_FLEX_FLOW_ROW);
 
-  // 4. Save / Back row
-  lv_obj_t *save_row = create_row(right_col);
-  lv_obj_set_size(save_row, LV_PCT(100), scale_r(40));
-  lv_obj_set_flex_flow(save_row, LV_FLEX_FLOW_ROW);
-
-  edit_save_btn = create_flat_btn(save_row, "Save", &MmuPanel::_handle_edit_action, this);
-  lv_obj_set_height(edit_save_btn, LV_PCT(100));
-  lv_obj_set_flex_grow(edit_save_btn, 1);
-
-  // an icon-only button: the glyph fits the button height less a little air
-  edit_back_btn = lv_btn_create(save_row);
-  lv_obj_set_height(edit_back_btn, LV_PCT(100));
-  lv_obj_set_width(edit_back_btn, scale_w(76));
-  lv_obj_t *back_icon = lv_img_create(edit_back_btn);
-  lv_img_set_src(back_icon, Icons::BACK);
-  fit_img(back_icon, scale_r(32), scale_r(32));
-  lv_obj_center(back_icon);
-  lv_obj_add_event_cb(edit_back_btn, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
+  edit_backup_btn.reset(new ButtonContainer(action_row, Icons::REFRESH_IMG, "Backup",
+                                            &MmuPanel::_handle_edit_action, this));
+  edit_save_btn.reset(new ButtonContainer(action_row, Icons::SD_IMG, "Save",
+                                          &MmuPanel::_handle_edit_action, this));
+  edit_back_btn.reset(new ButtonContainer(action_row, Icons::BACK, "Back",
+                                          &MmuPanel::_handle_edit_action, this));
+  for (ButtonContainer *b : {edit_backup_btn.get(), edit_save_btn.get(), edit_back_btn.get()}) {
+    b->use_card();
+    lv_obj_set_width(b->get_container(), 0);
+    lv_obj_set_height(b->get_container(), LV_PCT(100));
+    lv_obj_set_flex_grow(b->get_container(), 1);
+  }
 
   // built hidden below everything; open_edit() lifts it
   lv_obj_add_flag(edit_panel_cont, LV_OBJ_FLAG_HIDDEN);
@@ -1053,11 +1080,14 @@ void MmuPanel::update_edit_preview() {
   // whatever the backend says about setting a new one
   bool backup = is_backup_slot(edit_slot_idx);
   bool can_toggle = backup || (backend != NULL && backend->can_set_backup(edit_slot_idx));
-  set_btn_label(edit_backup_btn, backup ? "Backup: On" : "Use as Backup");
-  set_action_btn(edit_backup_btn, can_toggle,
-                 backup ? theme_primary() : col(RAISED));
+  // An icon tile has no "on" fill, so an assigned backup says so the way an
+  // active icon does anywhere else: the glyph wears the accent.
+  if (can_toggle) edit_backup_btn->enable(); else edit_backup_btn->disable();
+  lv_obj_set_style_img_recolor(edit_backup_btn->get_button(), theme_primary(), 0);
+  lv_obj_set_style_img_recolor_opa(edit_backup_btn->get_button(),
+                                   backup ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
 
-  set_action_btn(edit_save_btn, configurable, col(RAISED));
+  if (configurable) edit_save_btn->enable(); else edit_save_btn->disable();
 
   // Update square colour swatches active outline
   const std::string cur_hex = normalise_hex(draft_colour);
@@ -1111,11 +1141,11 @@ void MmuPanel::save_edit() {
 void MmuPanel::handle_edit_action(lv_event_t *e) {
   lv_obj_t *target = lv_event_get_current_target(e);
 
-  if (target == edit_back_btn) {
+  if (edit_back_btn != nullptr && target == edit_back_btn->get_container()) {
     close_edit();
     return;
   }
-  if (target == edit_save_btn) {
+  if (edit_save_btn != nullptr && target == edit_save_btn->get_container()) {
     save_edit();
     return;
   }
@@ -1135,7 +1165,7 @@ void MmuPanel::handle_edit_action(lv_event_t *e) {
     close_edit();
     return;
   }
-  if (target == edit_backup_btn) {
+  if (edit_backup_btn != nullptr && target == edit_backup_btn->get_container()) {
     if (is_backup_slot(edit_slot_idx)) {
       // turning it off clears every slot pointing here -- the button is a
       // single toggle, so there is nothing finer for the user to aim at
