@@ -34,6 +34,12 @@ static inline void simple_dialog_btnm_draw_part_cb(lv_event_t *e) {
     if (dsc == nullptr || dsc->part != LV_PART_ITEMS) return;
     if (static_cast<int32_t>(dsc->id) != ctx->highlighted_button_idx) return;
 
+    lv_obj_t *btnm = lv_event_get_current_target(e);
+    if (lv_obj_has_state(btnm, LV_STATE_PRESSED) &&
+        lv_btnmatrix_get_selected_btn(btnm) == static_cast<int32_t>(dsc->id)) {
+        return;
+    }
+
     dsc->rect_dsc->bg_color = Theme::col(Theme::DANGER);
     dsc->rect_dsc->bg_opa = LV_OPA_COVER;
     dsc->label_dsc->color = Theme::col(Theme::ON_PRIMARY);
