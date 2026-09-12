@@ -14,7 +14,6 @@
 #include "print_panel.h"
 #include "console_panel.h"
 #include "setting_panel.h"
-#include "sysinfo_panel.h"
 #include "print_status_panel.h"
 #include "spoolman_panel.h"
 #include "mmu_panel.h"
@@ -107,8 +106,6 @@ class MainPanel : public NotifyConsumer {
   ConsolePanel console_panel;
   lv_obj_t *setting_tab;
   SettingPanel setting_panel;
-  lv_obj_t *sysinfo_tab;
-  SysInfoPanel sysinfo_panel;
   lv_obj_t *main_cont;
   PrintStatusPanel print_status_panel;
   PrintPanel print_panel;
