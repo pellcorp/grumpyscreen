@@ -56,7 +56,6 @@ LV_IMG_DECLARE(sd_img);
 LV_IMG_DECLARE(speed_up_img);
 LV_IMG_DECLARE(spoolman_img);
 LV_IMG_DECLARE(unload_filament_img);
-LV_IMG_DECLARE(update_img);
 LV_IMG_DECLARE(z_closer);
 LV_IMG_DECLARE(z_farther);
 
@@ -104,7 +103,6 @@ inline constexpr const lv_img_dsc_t *SD_IMG = &sd_img;
 inline constexpr const lv_img_dsc_t *SPEED_UP_IMG = &speed_up_img;
 inline constexpr const lv_img_dsc_t *SPOOLMAN_IMG = &spoolman_img;
 inline constexpr const lv_img_dsc_t *UNLOAD_FILAMENT_IMG = &unload_filament_img;
-inline constexpr const lv_img_dsc_t *UPDATE_IMG = &update_img;
 inline constexpr const lv_img_dsc_t *Z_CLOSER = &z_closer;
 inline constexpr const lv_img_dsc_t *Z_FARTHER = &z_farther;
 

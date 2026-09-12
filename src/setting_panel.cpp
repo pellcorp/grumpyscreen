@@ -104,10 +104,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &, lv_obj_t *parent)
   , factory_reset_btn(danger_cont, Icons::EMERGENCY, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
 		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"})
 #ifdef COSMOS
-  , update_btn(danger_cont, Icons::UPDATE_IMG, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+  , update_btn(danger_cont, Icons::EMERGENCY, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
           UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, {"Back", "Update"})
 #endif
-  , shutdown_host_btn(danger_cont, Icons::EMERGENCY, "Shutdown Host", &SettingPanel::_handle_callback, this,
+  , shutdown_host_btn(danger_cont, Icons::EMERGENCY, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
 {
   lv_obj_set_style_pad_all(cont, 0, 0);
@@ -127,14 +127,17 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &, lv_obj_t *parent)
     if (has_cmd(o.cmd)) service_tiles.push_back(o.tile); else o.tile->hide();
   }
   for (const Optional &o : {Optional{&switch_to_stock_btn, "/commands/switch_to_stock_cmd"},
-                            Optional{&factory_reset_btn, "/commands/factory_reset_cmd"},
-                            Optional{&shutdown_host_btn, "/commands/shutdown_host_cmd"},
+                            Optional{&factory_reset_btn, "/commands/factory_reset_cmd"}
                             }) {
     if (has_cmd(o.cmd)) danger_tiles.push_back(o.tile); else o.tile->hide();
   }
 #ifdef COSMOS
   danger_tiles.push_back(&update_btn);
 #endif
+
+  for (const Optional &o : {Optional{&shutdown_host_btn, "/commands/shutdown_host_cmd"}}) {
+    if (has_cmd(o.cmd)) danger_tiles.push_back(o.tile); else o.tile->hide();
+  }
 
   layout_tiles(service_cont, service_tiles);
   layout_tiles(danger_cont, danger_tiles);
