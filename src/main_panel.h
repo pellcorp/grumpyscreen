@@ -29,7 +29,7 @@ class MainPanel : public NotifyConsumer {
   MainPanel(KWebSocketClient &ws,
 	    std::mutex &lv_lock,
 	    SpoolmanPanel &sm,
-	    MmuPanel &mmu);
+	    MmuPanel *mmu);
 
   ~MainPanel();
   void consume(json &data);
@@ -38,7 +38,7 @@ class MainPanel : public NotifyConsumer {
   void enable_spoolman();
   void enable_mmu();
   void disable_mmu();
-  MmuPanel &mmu() { return mmu_panel; }
+  MmuPanel *mmu() { return mmu_panel; }
   
   void create_panel();
   void create_sensors(json &temp_sensors);
@@ -116,7 +116,7 @@ class MainPanel : public NotifyConsumer {
   ExtruderPanel extruder_panel;
   PromptPanel prompt_panel;
   SpoolmanPanel &spoolman_panel;
-  MmuPanel &mmu_panel;
+  MmuPanel *mmu_panel;
 
   lv_obj_t *temp_cont;
   // lv_chart draws primary-Y tick labels outside its own left edge, so the

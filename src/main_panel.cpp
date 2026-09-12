@@ -27,7 +27,7 @@ LV_FONT_DECLARE(materialdesign_font_40);
 MainPanel::MainPanel(KWebSocketClient &websocket,
 		     std::mutex &lock,
 		     SpoolmanPanel &sm,
-		     MmuPanel &mmu)
+		     MmuPanel *mmu)
   : NotifyConsumer(lock)
   , ws(websocket)
   , homing_panel(ws, lock)
@@ -35,7 +35,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , led_panel(ws, lock)    
   , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, TAB_BAR_W))
   , main_tab(lv_tabview_add_tab(tabview, HOME_SYMBOL))
-  , mmu_tab(MmuPanel::enabled() ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
+  , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
   , console_panel(ws, lock, console_tab)
   , setting_tab(lv_tabview_add_tab(tabview, TOOLS_SYMBOL))
@@ -100,7 +100,7 @@ void MainPanel::init(json &j) {
   }
   auto fans = State::get_instance()->get_display_fans();
   print_status_panel.init(fans);
-  mmu_panel.init_state();
+  if (mmu_panel != NULL) mmu_panel->init_state();
 }
 
 void MainPanel::consume(json &j) {  
@@ -429,11 +429,11 @@ void MainPanel::enable_spoolman() {
 }
 
 void MainPanel::enable_mmu() {
-  if (mmu_tab == NULL) return;
+  if (mmu_tab == NULL || mmu_panel == NULL) return;
 
   LOG_DEBUG("enabling mmu panel");
   std::lock_guard<std::mutex> lock(lv_lock);
-  mmu_panel.create(mmu_tab);
+  mmu_panel->create(mmu_tab);
   lv_btnmatrix_clear_btn_ctrl(lv_tabview_get_tab_btns(tabview),
                               lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
 }
@@ -442,11 +442,11 @@ void MainPanel::enable_mmu() {
 // built and showing the previous session's slots, so empty it and take the
 // user off it before greying the button again.
 void MainPanel::disable_mmu() {
-  if (mmu_tab == NULL) return;
+  if (mmu_tab == NULL || mmu_panel == NULL) return;
 
   LOG_DEBUG("disabling mmu panel");
   std::lock_guard<std::mutex> lock(lv_lock);
-  mmu_panel.clear();
+  mmu_panel->clear();
   const uint16_t idx = lv_obj_get_index(mmu_tab);
   if (lv_tabview_get_tab_act(tabview) == idx) {
     lv_tabview_set_act(tabview, lv_obj_get_index(main_tab), LV_ANIM_OFF);
