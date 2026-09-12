@@ -27,6 +27,11 @@ class SettingPanel {
   KWebSocketClient &ws;
   bool owns_cont;
   lv_obj_t *cont;
+  lv_obj_t *tabview;
+  lv_obj_t *service_tab;
+  lv_obj_t *danger_tab;
+  lv_obj_t *service_cont;
+  lv_obj_t *danger_cont;
 
   ButtonContainer restart_klipper_btn;
   ButtonContainer restart_firmware_btn;
@@ -36,9 +41,8 @@ class SettingPanel {
   ButtonContainer factory_reset_btn;
 #ifdef COSMOS
   ButtonContainer update_btn;
-#else
-  ButtonContainer shutdown_host_btn;
 #endif
+  ButtonContainer shutdown_host_btn;
 };
 
 #endif // __SETTING_PANEL_H__

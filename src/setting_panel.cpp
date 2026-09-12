@@ -67,59 +67,77 @@ static void run_command_deferred(lv_obj_t * mbox,
     lv_timer_set_repeat_count(timer, 1);
 }
 
-SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &, lv_obj_t *parent)
-  : ws(c)
-  , owns_cont(parent == nullptr)
-  , cont(Theme::create_screen(parent))  // fills the tab: it is the page
-  , restart_klipper_btn(cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
-        "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
-  , restart_firmware_btn(cont, Icons::REFRESH_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
-        "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
-  , guppy_restart_btn(cont, Icons::REFRESH_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
-  , support_zip_btn(cont, Icons::SD_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
-  , switch_to_stock_btn(cont, Icons::EMERGENCY, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-          SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"})
-  , factory_reset_btn(cont, Icons::EMERGENCY, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"})
-#ifdef COSMOS
-  , update_btn(cont, Icons::UPDATE_IMG, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-          UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, {"Back", "Update"})
-#else
-  , shutdown_host_btn(cont, Icons::EMERGENCY, "Shutdown Host", &SettingPanel::_handle_callback, this,
-          "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
-#endif
-{
-  // the optional tiles only appear with a command behind them; the grid is
-  // built from what is left, four across, so a hidden tile never leaves a hole
-  Config *conf = Config::get_instance();
-  auto has_cmd = [conf](const char *key) { return conf->get<std::string>(key) != ""; };
-  std::vector<ButtonContainer *> tiles = {&restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn};
-  struct Optional { ButtonContainer *tile; const char *cmd; };
-  for (const Optional &o : {Optional{&support_zip_btn, "/commands/support_zip_cmd"},
-                            Optional{&switch_to_stock_btn, "/commands/switch_to_stock_cmd"},
-                            Optional{&factory_reset_btn, "/commands/factory_reset_cmd"},
-#ifndef COSMOS
-                            Optional{&shutdown_host_btn, "/commands/shutdown_host_cmd"},
-#endif
-                            }) {
-    if (has_cmd(o.cmd)) tiles.push_back(o.tile); else o.tile->hide();
-  }
-#ifdef COSMOS
-  tiles.push_back(&update_btn);
-#endif
-
+static void layout_tiles(lv_obj_t *cont, const std::vector<ButtonContainer *> &tiles) {
   static const size_t cols = 4;
   static lv_coord_t grid_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
       LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t grid_row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  if (tiles.size() <= cols) grid_row_dsc[1] = LV_GRID_TEMPLATE_LAST;  // at most eight tiles: one row or two
+  static lv_coord_t grid_row_dsc[] = {LV_GRID_CONTENT, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
+  if (tiles.size() <= cols) grid_row_dsc[1] = LV_GRID_TEMPLATE_LAST;
+  else grid_row_dsc[1] = LV_GRID_CONTENT;
   lv_obj_set_grid_dsc_array(cont, grid_col_dsc, grid_row_dsc);
 
   for (size_t i = 0; i < tiles.size(); i++) {
     tiles[i]->use_card();
+    lv_obj_set_height(tiles[i]->get_container(), Theme::scale_r(92));
     lv_obj_set_grid_cell(tiles[i]->get_container(), LV_GRID_ALIGN_STRETCH, i % cols, 1,
                          LV_GRID_ALIGN_STRETCH, i / cols, 1);
   }
+}
+
+SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &, lv_obj_t *parent)
+  : ws(c)
+  , owns_cont(parent == nullptr)
+  , cont(Theme::create_screen(parent))  // fills the tab: it is the page
+  , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
+  , service_tab(lv_tabview_add_tab(tabview, "Machine"))
+  , danger_tab(lv_tabview_add_tab(tabview, "Danger"))
+  , service_cont(Theme::create_screen(service_tab))
+  , danger_cont(Theme::create_screen(danger_tab))
+  , restart_klipper_btn(service_cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
+        "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
+  , restart_firmware_btn(service_cont, Icons::REFRESH_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
+        "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
+  , guppy_restart_btn(service_cont, Icons::REFRESH_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
+  , support_zip_btn(service_cont, Icons::SD_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
+  , switch_to_stock_btn(danger_cont, Icons::EMERGENCY, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+          SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"})
+  , factory_reset_btn(danger_cont, Icons::EMERGENCY, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"})
+#ifdef COSMOS
+  , update_btn(danger_cont, Icons::UPDATE_IMG, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+          UPDATE_BUTTON_TITLE, UPDATE_BUTTON_PROMPT, {"Back", "Update"})
+#endif
+  , shutdown_host_btn(danger_cont, Icons::EMERGENCY, "Shutdown Host", &SettingPanel::_handle_callback, this,
+          "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
+{
+  lv_obj_set_style_pad_all(cont, 0, 0);
+  lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_style_pad_all(service_tab, 0, 0);
+  lv_obj_set_style_pad_all(danger_tab, 0, 0);
+  Theme::style_embedded_tabview(tabview);
+
+  // Optional tiles only appear with a command behind them; each tab grid is
+  // built from what is left, four across, so a hidden tile never leaves a hole.
+  Config *conf = Config::get_instance();
+  auto has_cmd = [conf](const char *key) { return conf->get<std::string>(key) != ""; };
+  std::vector<ButtonContainer *> service_tiles = {&restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn};
+  std::vector<ButtonContainer *> danger_tiles;
+  struct Optional { ButtonContainer *tile; const char *cmd; };
+  for (const Optional &o : {Optional{&support_zip_btn, "/commands/support_zip_cmd"}}) {
+    if (has_cmd(o.cmd)) service_tiles.push_back(o.tile); else o.tile->hide();
+  }
+  for (const Optional &o : {Optional{&switch_to_stock_btn, "/commands/switch_to_stock_cmd"},
+                            Optional{&factory_reset_btn, "/commands/factory_reset_cmd"},
+                            Optional{&shutdown_host_btn, "/commands/shutdown_host_cmd"},
+                            }) {
+    if (has_cmd(o.cmd)) danger_tiles.push_back(o.tile); else o.tile->hide();
+  }
+#ifdef COSMOS
+  danger_tiles.push_back(&update_btn);
+#endif
+
+  layout_tiles(service_cont, service_tiles);
+  layout_tiles(danger_cont, danger_tiles);
 }
 
 SettingPanel::~SettingPanel() {
@@ -163,7 +181,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       run_command_deferred(mbox, update_cmd,
                            UPDATE_BUTTON_TITLE " Failed", UPDATE_BUTTON_FAILURE,
                            DEFERRED_COMMAND_DELAY_MS);
-#else
+#endif
     } else if (btn == shutdown_host_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto shutdown_host_cmd = conf->get<std::string>("/commands/shutdown_host_cmd");
@@ -171,7 +189,6 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       run_command_deferred(mbox, shutdown_host_cmd,
                            "Shutdown Host Failed", "Failed to shutdown host!",
                            DEFERRED_COMMAND_DELAY_MS);
-#endif
     } else if (btn == support_zip_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");

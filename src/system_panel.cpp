@@ -26,13 +26,7 @@ SystemPanel::SystemPanel(std::mutex &l, lv_obj_t *parent)
                       LV_EVENT_VALUE_CHANGED, this);
   lv_obj_set_style_pad_all(network_tab, 0, 0);
   lv_obj_set_style_pad_all(info_tab, 0, 0);
-
-  lv_obj_t *tab_btns = lv_tabview_get_tab_btns(tabview);
-  lv_obj_set_style_radius(tab_btns, 0, LV_PART_ITEMS);
-  lv_obj_set_style_pad_all(tab_btns, 0, 0);
-  lv_obj_set_style_bg_opa(tab_btns, LV_OPA_COVER, 0);
-  lv_obj_set_style_bg_color(tab_btns, Theme::col(Theme::SURFACE), 0);
-  lv_obj_set_style_border_width(tab_btns, 0, 0);
+  Theme::style_embedded_tabview(tabview);
 }
 
 SystemPanel::~SystemPanel() {

@@ -446,6 +446,15 @@ lv_obj_t *create_screen(lv_obj_t *parent) {
   return scr;
 }
 
+void style_embedded_tabview(lv_obj_t *tabview) {
+  lv_obj_t *tab_btns = lv_tabview_get_tab_btns(tabview);
+  lv_obj_set_style_radius(tab_btns, 0, LV_PART_ITEMS);
+  lv_obj_set_style_pad_all(tab_btns, 0, 0);
+  lv_obj_set_style_bg_opa(tab_btns, LV_OPA_COVER, 0);
+  lv_obj_set_style_bg_color(tab_btns, col(SURFACE), 0);
+  lv_obj_set_style_border_width(tab_btns, 0, 0);
+}
+
 // the btn look itself comes from the theme callback (every lv_btn wears it);
 // this only adds the label and the click
 lv_obj_t *create_flat_btn(lv_obj_t *parent, const char *text, lv_event_cb_t cb, void *user_data) {
