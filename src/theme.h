@@ -206,6 +206,9 @@ lv_obj_t *create_row(lv_obj_t *parent);
 // screen when parent is NULL), padded by gap() all round, no scrolling. The
 // caller still hides it / moves it to the background as its lifecycle needs.
 lv_obj_t *create_screen(lv_obj_t *parent);
+// shared chrome for tabviews embedded inside a top-level page, such as System
+// and Settings. The parent panel owns sizing and tab padding.
+void style_embedded_tabview(lv_obj_t *tabview);
 lv_obj_t *create_flat_btn(lv_obj_t *parent, const char *text, lv_event_cb_t cb, void *user_data);
 // A flat button whose label does what an icon does: the word turns the accent
 // under a finger and greys out when disabled, rather than the box alone
