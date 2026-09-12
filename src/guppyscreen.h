@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <functional>
+#include <memory>
 
 #ifdef GUPPY_CALIBRATE
 #include "lv_tc.h"
@@ -35,12 +36,12 @@ class GuppyScreen {
   static std::mutex lv_lock;
   static KWebSocketClient ws;
   SpoolmanPanel spoolman_panel;
-  MmuPanel mmu_panel;
+  std::unique_ptr<MmuPanel> mmu_panel;
 #ifdef MMU_BACKEND_AFC
-  AfcBackend afc_backend;
+  std::unique_ptr<AfcBackend> afc_backend;
 #endif
 #ifdef MMU_BACKEND_HH
-  HhBackend hh_backend;
+  std::unique_ptr<HhBackend> hh_backend;
 #endif
   
   MainPanel main_panel;

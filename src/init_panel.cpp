@@ -90,7 +90,8 @@ void InitPanel::connected(KWebSocketClient &ws) {
 
       // runs again on every klipper reconnect, so the tab has to follow the
       // backend back down as well as up
-      if (this->main_panel.mmu().select_backend() != NULL) {
+      MmuPanel *mmu = this->main_panel.mmu();
+      if (mmu != NULL && mmu->select_backend() != NULL) {
         this->main_panel.enable_mmu();
       } else {
         this->main_panel.disable_mmu();

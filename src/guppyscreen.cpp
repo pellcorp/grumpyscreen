@@ -34,22 +34,26 @@ std::mutex GuppyScreen::lv_lock;
 
 GuppyScreen::GuppyScreen()
   : spoolman_panel(ws, lv_lock)
-  , mmu_panel(ws, lv_lock)
+  , mmu_panel(MmuPanel::enabled() ? std::make_unique<MmuPanel>(ws, lv_lock) : nullptr)
 #ifdef MMU_BACKEND_AFC
-  , afc_backend(ws)
+  , afc_backend(mmu_panel != nullptr ? std::make_unique<AfcBackend>(ws) : nullptr)
 #endif
 #ifdef MMU_BACKEND_HH
-  , hh_backend(ws)
+  , hh_backend(mmu_panel != nullptr ? std::make_unique<HhBackend>(ws) : nullptr)
 #endif
-  , main_panel(ws, lv_lock, spoolman_panel, mmu_panel)
+  , main_panel(ws, lv_lock, spoolman_panel, mmu_panel.get())
   , init_panel(main_panel, lv_lock)
 {
   // the ids here are the values accepted by /mmu/backend
+  if (mmu_panel == nullptr) {
+    main_panel.create_panel();
+    return;
+  }
 #ifdef MMU_BACKEND_AFC
-  mmu_panel.add_backend("afc", &afc_backend);
+  if (afc_backend != nullptr) mmu_panel->add_backend("afc", afc_backend.get());
 #endif
 #ifdef MMU_BACKEND_HH
-  mmu_panel.add_backend("hh", &hh_backend);
+  if (hh_backend != nullptr) mmu_panel->add_backend("hh", hh_backend.get());
 #endif
   main_panel.create_panel();
 }
