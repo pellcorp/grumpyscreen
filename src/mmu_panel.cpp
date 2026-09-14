@@ -112,18 +112,6 @@ static void style_spool_icon(lv_obj_t *spool, lv_obj_t *hole, int diameter) {
   lv_obj_clear_flag(spool, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_clear_flag(spool, LV_OBJ_FLAG_CLICKABLE);
 
-  // The empty-slot transparency grid is a tiled background image, switched on
-  // and off with bg_img_opa: with clip_corner set LVGL draws a bg image in a
-  // second, radius-masked pass, so it lands inside the circle. It used to be a
-  // 4x4 grid of child objects per spool -- ~150 across a full page of cards,
-  // for a fixed pattern. The image is 1-bit alpha: its set bits are painted in
-  // bg_img_recolor and bg_color shows through the rest.
-  lv_obj_set_style_bg_img_src(spool, Icons::CHECKER, 0);
-  lv_obj_set_style_bg_img_tiled(spool, true, 0);
-  lv_obj_set_style_bg_img_recolor(spool, col(SURFACE), 0);
-  lv_obj_set_style_bg_img_recolor_opa(spool, LV_OPA_COVER, 0);
-  lv_obj_set_style_bg_img_opa(spool, LV_OPA_TRANSP, 0);
-
   // the hole shows the page through the spool
   int hole_size = std::max(scale_r(10), diameter / 3);
   lv_obj_set_size(hole, hole_size, hole_size);
@@ -142,26 +130,26 @@ static void style_spool_icon(lv_obj_t *spool, lv_obj_t *hole, int diameter) {
 // The spool shows what is in the lane, never whether it is the loaded one:
 // that is the lane's own accent border and its accent tool label, and a third
 // marker on the same card only competes with them.
+// The disc for a slot that has a colour to show: filament, or a configured
+// colour on an empty slot. A slot with neither never gets here -- show_slot_glyph
+// puts the empty mark in the disc's place instead.
 static void paint_spool_icon(lv_obj_t *spool, lv_obj_t *hole, lv_color_t colour,
-                             bool colour_valid, bool has_filament) {
+                             bool has_filament) {
   if (has_filament) {
     // Ready (assumed normal state). Dark filament blends into the card
     // background, so give it a grey rim instead of a darkened one
-    lv_obj_set_style_bg_img_opa(spool, LV_OPA_TRANSP, 0);
     lv_obj_set_style_bg_color(spool, colour, 0);
     lv_obj_set_style_bg_opa(spool, LV_OPA_COVER, 0);
     const bool dark = lv_color_brightness(colour) < DARK_COLOUR;
-    const lv_color_t rim = dark ? col(TEXT_DIM) : lv_color_darken(colour, LV_OPA_30);
+    const lv_color_t rim = dark ? col(BORDER_DIM) : lv_color_darken(colour, LV_OPA_30);
     lv_obj_set_style_border_color(spool, rim, 0);
     lv_obj_set_style_border_width(spool, spool_rim(), 0);
-    // the hole is rimmed like the disc, so it reads as a hole and not a gap
     if (hole != NULL) {
       lv_obj_set_style_border_color(hole, rim, 0);
       lv_obj_set_style_border_width(hole, spool_rim(), 0);
     }
-  } else if (colour_valid) {
+  } else {
     // Empty but a colour is configured: show it translucent so fill state stays readable
-    lv_obj_set_style_bg_img_opa(spool, LV_OPA_TRANSP, 0);
     lv_obj_set_style_bg_color(spool, colour, 0);
     lv_obj_set_style_bg_opa(spool, LV_OPA_50, 0);
     lv_obj_set_style_border_color(spool, col(BORDER_DIM), 0);
@@ -169,20 +157,23 @@ static void paint_spool_icon(lv_obj_t *spool, lv_obj_t *hole, lv_color_t colour,
     if (hole != NULL) {
       lv_obj_set_style_border_width(hole, 0, 0);
     }
+  }
+}
+
+// What sits in a slot's icon place: the disc when there is a colour to draw it
+// from, otherwise the empty mark. The card and the edit screen's preview share
+// this so they cannot disagree.
+static void show_slot_glyph(lv_obj_t *spool, lv_obj_t *hole, lv_obj_t *icon, int diam,
+                            lv_color_t colour, bool colour_valid, bool has_filament) {
+  if (!has_filament && !colour_valid) {
+    lv_img_set_src(icon, Icons::EMPTY_IMG);
+    fit_img(icon, diam, diam);
+    lv_obj_clear_flag(icon, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(spool, LV_OBJ_FLAG_HIDDEN);
   } else {
-    // Empty spool, no colour -> alpha-channel checkerboard, the light tiles
-    // being the spool's own background showing through the image
-    lv_obj_set_style_bg_img_opa(spool, LV_OPA_COVER, 0);
-    lv_obj_set_style_bg_color(spool, col(DISABLED), 0);
-    lv_obj_set_style_bg_opa(spool, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(spool, col(BORDER_DIM), 0);
-    lv_obj_set_style_border_width(spool, spool_rim(), 0);
-    if (hole != NULL) {
-      // the same grey as the disc's own rim: RAISED is a shade off the hole's
-      // fill, so it read as a slightly bigger hole rather than a ring
-      lv_obj_set_style_border_color(hole, col(BORDER_DIM), 0);
-      lv_obj_set_style_border_width(hole, spool_rim(), 0);
-    }
+    paint_spool_icon(spool, hole, colour, has_filament);
+    lv_obj_add_flag(icon, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(spool, LV_OBJ_FLAG_HIDDEN);
   }
 }
 
@@ -202,6 +193,7 @@ MmuPanel::MmuPanel(KWebSocketClient &c, std::mutex &l)
   , nav_label(NULL)
   , current_page(0)
   , built_page_count(SIZE_MAX)
+  , spool_diam(0)
   , edit_panel_cont(NULL)
   , edit_preview_spool(NULL)
   , edit_preview_hole(NULL)
@@ -364,6 +356,9 @@ void MmuPanel::create_edit_screen() {
   edit_preview_spool = lv_obj_create(preview_box);
   edit_preview_hole = lv_obj_create(edit_preview_spool);
   style_spool_icon(edit_preview_spool, edit_preview_hole, scale_r(48));
+  edit_preview_icon = lv_img_create(preview_box);
+  lv_obj_clear_flag(edit_preview_icon, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_flag(edit_preview_icon, LV_OBJ_FLAG_HIDDEN);
 
   // both info lines can grow ("PLA - 750g (locked)", "Tool: T0 - Backup for
   // T1, T2"), so they truncate rather than spill out of the column
@@ -725,7 +720,7 @@ void MmuPanel::rebuild_grid(size_t page_count) {
   built_page_count = page_count;
 
   bool single_row_mode = page_count <= CARDS_PER_ROW;
-  int spool_diam = single_row_mode ? scale_r(60) : scale_r(42);
+  spool_diam = single_row_mode ? scale_r(60) : scale_r(42);
 
   // rows flex-grow, so hiding row 2 hands its share of the height to row 1
   if (single_row_mode) {
@@ -759,6 +754,13 @@ void MmuPanel::rebuild_grid(size_t page_count) {
     card.spool = lv_obj_create(card.cont);
     card.hole = lv_obj_create(card.spool);
     style_spool_icon(card.spool, card.hole, spool_diam);
+
+    // Takes the disc's place when the slot has nothing to draw a disc from.
+    // fit_img sizes it to the disc's own box, so it lands at the spool's size
+    // and follows it on a bigger panel.
+    card.icon = lv_img_create(card.cont);
+    lv_obj_clear_flag(card.icon, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(card.icon, LV_OBJ_FLAG_HIDDEN);
 
     // Group the two text lines tightly; SPACE_EVENLY on the card then puts
     // the breathing room above the spool and below the text
@@ -853,7 +855,8 @@ void MmuPanel::populate() {
     lv_color_t colour = slot_colour(slot, &colour_valid);
     bool backup = is_backup_slot((int)slot_idx);
 
-    paint_spool_icon(card.spool, card.hole, colour, colour_valid, has_filament);
+    show_slot_glyph(card.spool, card.hole, card.icon, spool_diam,
+                    colour, colour_valid, has_filament);
 
     // Line 1: Tool / Name (e.g. "T0", "T0 (B)")
     std::string tool_str = slot_label(slot);
@@ -1023,7 +1026,9 @@ void MmuPanel::update_edit_preview() {
   bool draft_colour_valid = parse_colour(draft_colour, &colour);
 
   bool has_filament = slot.prepped || slot.ready || slot.tool_loaded;
-  paint_spool_icon(edit_preview_spool, edit_preview_hole, colour, draft_colour_valid, has_filament);
+  // the draft filament, as the card would show it
+  show_slot_glyph(edit_preview_spool, edit_preview_hole, edit_preview_icon, scale_r(48),
+                  colour, draft_colour_valid, has_filament);
 
   // Material line: "PLA - 750g" when a spool weight is known, else just
   // "PLA". A bare empty slot shows nothing; the weight belongs to the

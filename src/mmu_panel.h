@@ -72,6 +72,7 @@ class MmuPanel : public NotifyConsumer {
     lv_obj_t *cont;
     lv_obj_t *spool;
     lv_obj_t *hole;
+    lv_obj_t *icon;   // the empty mark, in the disc's place when there is no disc
     lv_obj_t *title;
     lv_obj_t *material;
   };
@@ -111,11 +112,15 @@ class MmuPanel : public NotifyConsumer {
   std::vector<Card> visible_cards;
   size_t current_page;
   size_t built_page_count; // card count the current grid was built for
+  // the disc size the current grid was built at; the empty mark is fitted to
+  // it so it lands at exactly the spool's size, one row or two
+  int spool_diam;
 
   // Full-Screen Native Spool Edit Panel (attached to lv_scr_act())
   lv_obj_t *edit_panel_cont;
   lv_obj_t *edit_preview_spool;
   lv_obj_t *edit_preview_hole;
+  lv_obj_t *edit_preview_icon;  // the card's empty mark, for the draft
   lv_obj_t *edit_name_lbl;
   lv_obj_t *edit_tool_lbl;
   lv_obj_t *edit_mat_lbl;
