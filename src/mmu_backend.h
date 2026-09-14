@@ -37,7 +37,28 @@ enum class MmuActivity {
   Swapping,   // exchanging one slot for another
   Ejecting,   // backing filament out of the unit
   Moving,     // moving for some other reason (docking, calibrating, restoring)
-  Error,      // stopped, needs reset_failure() before anything else
+  Error,      // stopped; recovery is the printer's own RESUME, not ours
+};
+
+// A question for the user. A backend raises one when its vendor has stopped
+// and wants something done -- and only when the vendor puts up no dialog of
+// its own: a klipper action:prompt reaches the screen with no help from here,
+// and a second box for the same fault is worse than none. The panel draws it
+// as the standard popout (title banner, message, one row of keys); a tap sends
+// that key's gcode and closes it. Pure state, filled by refresh() like the
+// rest: `id` names the situation, and the panel shows a given id once -- so
+// refresh() may fill the same prompt on every pass, a new id replaces the box,
+// and an empty id takes it down.
+struct MmuPrompt {
+  struct Button {
+    std::string label;
+    std::string gcode;
+    bool danger = false;  // drawn in the danger colour: cancel, abort
+  };
+  std::string id;      // "" = no prompt
+  std::string title;
+  std::string text;
+  std::vector<Button> buttons;
 };
 
 // The MMU panel renders slots and calls these verbs; it never knows which
@@ -71,7 +92,6 @@ class MmuBackend {
   virtual void set_colour(int slot, const std::string &hex) = 0;  // "" clears
   virtual void set_material(int slot, const std::string &material) = 0;
   virtual void set_backup(int slot, int backup) = 0;              // -1 clears
-  virtual void reset_failure() = 0;
 
   // May the panel offer a verb right now? It greys the control when the answer
   // is false and never second-guesses a true, so this is where a vendor's own
@@ -97,13 +117,6 @@ class MmuBackend {
   // than offering a tap that quietly stores something invalid.
   virtual bool can_clear_colour() const { return true; }
 
-  // Acknowledge the current `message`. Optional: only backends that hold
-  // messages in a queue of their own have anything to do here, and for them a
-  // local dismissal is not enough -- an unacknowledged message sits at the head
-  // of that queue and hides every later one. Backends whose message is derived
-  // from live state have nothing to pop and leave this alone.
-  virtual void dismiss_message() {}
-
   // mid-operation: filament is moving, or the unit is stopped needing a reset
   bool busy() const { return activity != MmuActivity::Idle; }
 
@@ -111,11 +124,13 @@ class MmuBackend {
   std::vector<MmuSlot> slots;
   int loaded_slot = -1;     // slot currently loaded to the tool
   MmuActivity activity = MmuActivity::Idle;
-  std::string message;      // banner text ("" = none)
-  bool message_error = false; // banner is a failure, not information
-  bool error = false;       // unit stopped; tapping the banner resets it
+  // Unit stopped; greys the verbs (busy()). Not drawn: what the user sees
+  // and acts on is `prompt`, the vendor's own dialog, or the print panel's
+  // Resume -- recovery gcode is always the vendor's, never a panel verb.
+  bool error = false;
   bool bypass = false;      // unit bypassed, printing from a single spool
   bool spoolman = false;    // weights are meaningful
+  MmuPrompt prompt;         // see MmuPrompt; id "" = none
 
   // Backend-initiated update, for state that arrives outside refresh() -- an
   // async RPC response, typically. Set by the panel; may be null.

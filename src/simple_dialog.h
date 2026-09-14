@@ -138,7 +138,17 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
     lv_obj_set_style_pad_all(content, text_pad, 0);
     // the text area grows with the message but never past what the screen can
     // show with the title and buttons still visible: beyond that it scrolls.
-    const lv_coord_t button_h = Theme::touch_h();
+    // the button matrix stacks a row per "\n" in the map; every row is a
+    // full touch target, with a gap between rows
+    int button_rows = 0;
+    if (options.buttons != nullptr) {
+        button_rows = 1;
+        for (const char **b = options.buttons; *b != nullptr && (*b)[0] != '\0'; ++b) {
+            if ((*b)[0] == '\n') ++button_rows;
+        }
+    }
+    const lv_coord_t button_h = button_rows == 0 ? 0
+        : button_rows * Theme::touch_h() + (button_rows - 1) * Theme::gap();
     lv_obj_set_style_max_height(content,
         Theme::popout_max_h() - Theme::gap()
         - (lv_font_get_line_height(Theme::scale_font(18)) + 2 * Theme::gap())
@@ -162,7 +172,10 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
     if (options.buttons != nullptr) {
         lv_coord_t widest = 0;
         int count = 0;
-        for (const char **b = options.buttons; *b != nullptr && (*b)[0] != '\0'; ++b, ++count) {
+        int row_count = 0;
+        for (const char **b = options.buttons; *b != nullptr && (*b)[0] != '\0'; ++b) {
+            if ((*b)[0] == '\n') { row_count = 0; continue; }  // the fullest row sets the width
+            count = std::max(count, ++row_count);
             lv_point_t s;
             lv_txt_get_size(&s, *b, Theme::scale_font(16), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
             widest = std::max(widest, s.x);
@@ -195,6 +208,7 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
         // the buttons line up with the message above them
         lv_obj_set_size(btnm, LV_PCT(100), button_h);
         lv_obj_set_style_pad_hor(btnm, Theme::popout_pad(), 0);
+        lv_obj_set_style_pad_row(btnm, Theme::gap(), 0);
 
         SimpleDialogContext *ctx = new SimpleDialogContext{
             options.result_cb,

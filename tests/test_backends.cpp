@@ -48,6 +48,10 @@ void State::consume(json &j) { set_data("printer_state", j, "/params/0"); }
 KWebSocketClient::KWebSocketClient(hv::EventLoopPtr loop)
   : hv::WebSocketClient(loop), id(0) {}
 KWebSocketClient::~KWebSocketClient() {}
+// the HH backend subscribes to console output on construction; the tests feed
+// it lines directly through handle_gcode_response instead
+void KWebSocketClient::register_method_callback(std::string, std::string,
+                                                std::function<void(json&)>) {}
 
 int KWebSocketClient::gcode_script(const std::string &gcode) {
   sent.push_back(gcode);
@@ -233,36 +237,80 @@ static void test_activity(KWebSocketClient &ws) {
   CHECK(afc.busy());
 }
 
-static void test_messages(KWebSocketClient &ws) {
-  // a warning is information, and is not a fault
+// AFC puts up no dialog of its own, so the backend raises the panel's prompt
+// on error_state, worded with the head of AFC's message queue. Reset always;
+// Resume only while the print is paused, which is when AFC's wrapper acts.
+static void test_afc_prompt(KWebSocketClient &ws) {
+  json j = afc_status();
+  json &afc = j["printer_state"]["AFC"];
+  load_state(j);
+  {
+    AfcBackend b(ws);
+    b.refresh();
+    CHECK(b.prompt.id.empty());
+  }
+
+  afc["error_state"] = true;
+  afc["message"] = {{"message", "lane2 failed to load"}, {"type", "error"}};
+  load_state(j);
+  {
+    AfcBackend b(ws);
+    b.refresh();
+    CHECK(b.prompt.id == "error:lane2 failed to load");
+    CHECK(b.prompt.text == "lane2 failed to load");
+    CHECK(b.prompt.buttons.size() == 1);
+    CHECK(b.prompt.buttons[0].gcode == "RESET_FAILURE");
+  }
+
+  j["printer_state"]["print_stats"]["state"] = "paused";
+  load_state(j);
+  {
+    AfcBackend b(ws);
+    b.refresh();
+    CHECK(b.prompt.buttons.size() == 2);
+    CHECK(b.prompt.buttons[1].gcode == "RESUME");
+  }
+
+  // no text: still a prompt, with a generic line
+  afc["message"] = {{"message", ""}, {"type", ""}};
+  load_state(j);
+  {
+    AfcBackend b(ws);
+    b.refresh();
+    CHECK(b.prompt.id == "error:");
+    CHECK(!b.prompt.text.empty());
+  }
+
+  afc["error_state"] = false;
+  load_state(j);
+  {
+    AfcBackend b(ws);
+    b.refresh();
+    CHECK(b.prompt.id.empty());
+  }
+}
+
+// AFC's `message` queue never becomes a banner or a fault on its own: AFC_logger
+// puts every entry there alongside a console send of the same text, so the
+// console panel already shows it. It only words the prompt error_state raises.
+static void test_message_queue_ignored(KWebSocketClient &ws) {
   json j = afc_status();
   j["printer_state"]["AFC"]["message"] = {{"message", "lane3 runout"}, {"type", "warning"}};
   load_state(j);
   {
     AfcBackend afc(ws);
     afc.refresh();
-    CHECK_EQ(afc.message, std::string("lane3 runout"));
-    CHECK(!afc.message_error);
-    CHECK(!afc.error);
+    CHECK(!afc.error);  // a queued warning is not a fault
   }
 
-  j["printer_state"]["AFC"]["message"] = {{"message", "hub not clear"}, {"type", "error"}};
-  load_state(j);
-  {
-    AfcBackend afc(ws);
-    afc.refresh();
-    CHECK(afc.message_error);
-  }
-
-  // a fault with no queued text still reads as a fault
+  // a fault is reported by error_state alone, queued text or not
   j["printer_state"]["AFC"]["message"] = {{"message", ""}, {"type", ""}};
   j["printer_state"]["AFC"]["error_state"] = true;
   load_state(j);
   {
     AfcBackend afc(ws);
     afc.refresh();
-    CHECK(afc.message.empty());
-    CHECK(afc.message_error);
+    CHECK(afc.error);
   }
 }
 
@@ -430,15 +478,6 @@ static void test_verbs(KWebSocketClient &ws) {
   afc.set_backup(0, -1);
   CHECK_EQ(sent[0], std::string("SET_RUNOUT LANE=lane1 RUNOUT=NONE"));
 
-  sent.clear();
-  afc.reset_failure();
-  CHECK_EQ(sent[0], std::string("RESET_FAILURE"));
-
-  // AFC keeps messages in a queue it only pops on request
-  sent.clear();
-  afc.dismiss_message();
-  CHECK_EQ(sent[0], std::string("AFC_CLEAR_MESSAGE"));
-
   // an out-of-range slot sends nothing rather than a command naming no lane
   sent.clear();
   afc.load(99);
@@ -592,7 +631,7 @@ static void test_hh_gate_mapping(KWebSocketClient &ws) {
   CHECK_EQ(hh.slots[2].backup, 3);
   CHECK(!hh.spoolman);
   CHECK(hh.slots[0].can_configure);
-  CHECK(!hh.error && hh.message.empty() && !hh.bypass);
+  CHECK(!hh.error && !hh.bypass);
 
   // endless spool off: groups are stored but inert, so no backups
   mmu["endless_spool_enabled"] = false;
@@ -657,26 +696,101 @@ static void test_hh_activity(KWebSocketClient &ws) {
   CHECK(!hh.slots[2].tool_loaded);
 }
 
+// Standalone, HH reports a fault as one console line and nothing else, so
+// that line becomes the prompt. It is not re-raised on every refresh, a repeat
+// of the same text is a new prompt, and it goes when HH moves again. The
+// in-print line comes with HH's own dialog and is ignored here.
+static void test_hh_issue_prompt(KWebSocketClient &ws) {
+  json j = hh_status();
+  json &mmu = j["printer_state"]["mmu"];
+  load_state(j);
+  HhBackend hh(ws);
+  hh.refresh();
+  CHECK(hh.prompt.id.empty());
+
+  json line = {{"params", json::array({"!! MMU issue: Filament stuck in gate 2"})}};
+  hh.handle_gcode_response(line);
+  hh.refresh();
+  CHECK(hh.prompt.id == "issue:1:Filament stuck in gate 2");
+  CHECK(hh.prompt.text == "Filament stuck in gate 2");
+  CHECK(hh.prompt.buttons.size() == 1);
+  CHECK(hh.prompt.buttons[0].gcode.empty());
+
+  hh.refresh();
+  CHECK(hh.prompt.id == "issue:1:Filament stuck in gate 2");  // same id: the panel shows it once
+
+  hh.handle_gcode_response(line);
+  hh.refresh();
+  CHECK(hh.prompt.id == "issue:2:Filament stuck in gate 2");
+
+  json in_print = {{"params", json::array({"!! MMU issue detected. Print will be paused\nReason: x"})}};
+  hh.handle_gcode_response(in_print);
+  hh.refresh();
+  CHECK(hh.prompt.id == "issue:2:Filament stuck in gate 2");
+
+  json chatter = {{"params", json::array({"MMU: Gate 2 selected"})}};
+  hh.handle_gcode_response(chatter);
+  hh.refresh();
+  CHECK(hh.prompt.id == "issue:2:Filament stuck in gate 2");
+
+  mmu["action"] = "Loading";
+  load_state(j);
+  hh.refresh();
+  CHECK(hh.prompt.id.empty());
+  mmu["action"] = "Idle";
+  load_state(j);
+  hh.refresh();
+  CHECK(hh.prompt.id.empty());
+
+  // the way it really arrives: the line lands while the status still says
+  // Loading, and Idle follows a moment later. The prompt survives both.
+  mmu["action"] = "Loading";
+  load_state(j);
+  hh.refresh();
+  hh.handle_gcode_response(line);
+  hh.refresh();
+  CHECK(hh.prompt.id == "issue:3:Filament stuck in gate 2");
+  mmu["action"] = "Idle";
+  load_state(j);
+  hh.refresh();
+  CHECK(hh.prompt.id == "issue:3:Filament stuck in gate 2");
+  // and the retry clears it
+  mmu["action"] = "Loading";
+  load_state(j);
+  hh.refresh();
+  CHECK(hh.prompt.id.empty());
+}
+
 static void test_hh_faults(KWebSocketClient &ws) {
   json j = hh_status();
   json &mmu = j["printer_state"]["mmu"];
 
-  // an MMU fault pauses the print and says why; RESUME is the way out
-  for (const char *state : {"paused", "pause_locked"}) {
-    mmu["print_state"] = state;
-    mmu["reason_for_pause"] = "Filament stuck in gate 1";
-    load_state(j);
+  // pause_locked is HH's own fault stop: the unit is locked until MMU_UNLOCK,
+  // so it is an error and every motion verb is refused. Recovery is the
+  // printer's RESUME, which the print status panel already offers.
+  mmu["print_state"] = "pause_locked";
+  mmu["reason_for_pause"] = "Filament stuck in gate 1";
+  load_state(j);
+  {
     HhBackend hh(ws);
     hh.refresh();
-    CHECK(hh.error && hh.message_error);
+    CHECK(hh.error);
     CHECK(hh.activity == MmuActivity::Error);
-    CHECK_EQ(hh.message, std::string("Filament stuck in gate 1"));
     CHECK(!hh.can_load(0) && !hh.can_unload() && !hh.can_eject(0));
     CHECK(hh.can_set_backup(0));
-    sent.clear();
-    hh.reset_failure();
-    CHECK_EQ(sent.size(), (size_t)1);
-    CHECK_EQ(sent[0], std::string("RESUME"));
+  }
+
+  // A plain pause is not a fault: it may be the user's, and after MMU_UNLOCK it
+  // is the state HH expects recovery to be run from. The unit is idle and its
+  // verbs are available.
+  mmu["print_state"] = "paused";
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(!hh.error);
+    CHECK(hh.activity != MmuActivity::Error);
+    CHECK(hh.can_load(0));
   }
 
   // klipper's own job error is not an MMU fault: HH has nothing to reset
@@ -687,7 +801,6 @@ static void test_hh_faults(KWebSocketClient &ws) {
     HhBackend hh(ws);
     hh.refresh();
     CHECK(!hh.error);
-    CHECK(hh.message.empty());
     CHECK(hh.can_load(0));
   }
 
@@ -709,8 +822,7 @@ static void test_hh_faults(KWebSocketClient &ws) {
   {
     HhBackend hh(ws);
     hh.refresh();
-    CHECK(!hh.error && !hh.message_error);
-    CHECK_EQ(hh.message, std::string("MMU disabled"));
+    CHECK(!hh.error);  // disabled is not a fault
     CHECK(!hh.can_load(0));
   }
 
@@ -882,7 +994,8 @@ int main() {
 
   test_lane_mapping(ws);
   test_activity(ws);
-  test_messages(ws);
+  test_message_queue_ignored(ws);
+  test_afc_prompt(ws);
   test_spoolman(ws);
   test_permissions(ws);
   test_verbs(ws);
@@ -890,6 +1003,7 @@ int main() {
 #ifdef MMU_BACKEND_HH
   test_hh_gate_mapping(ws);
   test_hh_activity(ws);
+  test_hh_issue_prompt(ws);
   test_hh_faults(ws);
   test_hh_verbs(ws);
   test_hh_hostile_status(ws);

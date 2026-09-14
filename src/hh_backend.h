@@ -6,11 +6,23 @@
 
 #include <chrono>
 #include <map>
+#include <mutex>
 
 // Happy Hare driver: reads the single "mmu" printer object, speaks MMU_*.
+//
+// Errors. In a print HH pauses (print_state pause_locked) and its own
+// _MMU_ERROR_DIALOG macro raises a klipper prompt, which the prompt panel
+// shows -- nothing to add here. Standalone, HH changes no published state at
+// all: handle_mmu_error() writes one console line, "!! MMU issue: <reason>",
+// and returns. That line is the whole report, so it is picked up from the
+// gcode responses and offered as the panel's prompt; otherwise a failed load
+// from the panel would look like nothing happened.
 class HhBackend : public MmuBackend {
  public:
-  HhBackend(KWebSocketClient &ws) : ws(ws) {}
+  HhBackend(KWebSocketClient &ws);
+
+  // notify_gcode_response; public for the tests, the websocket client calls it
+  void handle_gcode_response(json &j);
 
   const char *vendor() const override { return "Happy Hare"; }
 
@@ -24,10 +36,9 @@ class HhBackend : public MmuBackend {
   void set_colour(int slot, const std::string &hex) override;
   void set_material(int slot, const std::string &material) override;
   void set_backup(int slot, int backup) override;
-  void reset_failure() override;
 
   // Happy Hare refuses filament motion mid-print (its own toolchanges drive it
-  // then) and while it is paused waiting to be recovered.
+  // then) and while a fault has it locked (pause_locked, until RESUME).
   bool can_load(int slot) const override;
   bool can_unload() const override;
   bool can_eject(int slot) const override;
@@ -40,7 +51,7 @@ class HhBackend : public MmuBackend {
   void gate_map(int slot, const std::string &args);
   void send_groups(const std::vector<int> &groups);
   std::vector<int> current_groups() const;
-  // busy() already covers the paused states: they report Error
+  // busy() already covers pause_locked: it reports Error
   bool motion_ok() const { return enabled && !busy() && !in_print; }
 
   KWebSocketClient &ws;
@@ -55,7 +66,15 @@ class HhBackend : public MmuBackend {
   bool filament_loaded = false; // in the extruder, from a gate or the bypass
   // from print_state: HH's own job state machine, not klipper's
   bool in_print = false;  // started | printing
-  bool paused = false;    // paused | pause_locked, cleared by RESUME
+
+  // the last standalone "MMU issue" line, waiting to become the prompt. Set on
+  // the websocket thread, read by refresh() under the UI lock, hence the
+  // mutex; the count keeps a repeat of the same text a new prompt. Cleared
+  // once HH is doing something again.
+  std::mutex issue_lock;
+  std::string issue;
+  int issue_count = 0;
+  bool was_moving = false;  // last refresh's action != Idle
 };
 
 #endif // __HH_BACKEND_H__

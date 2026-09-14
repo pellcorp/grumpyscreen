@@ -10,7 +10,7 @@ Reference implementation: `src/afc_backend.{h,cpp}` (AFC).
 
 ## Implement
 
-Eleven methods are pure virtual.
+Ten methods are pure virtual.
 
 ### Identity and detection
 
@@ -34,7 +34,6 @@ arrives via the subscription. `slot` is an index into `slots`.
 | `void set_colour(int slot, const std::string &hex)` | `"RRGGBB"`, no `#`. `""` clears, and is only ever sent when `can_clear_colour()` |
 | `void set_material(int slot, const std::string &material)` | |
 | `void set_backup(int slot, int backup)` | `backup` is a slot index, `-1` clears |
-| `void reset_failure()` | clear the error state / resume |
 
 The panel closes the edit screen on `load` and `unload` and waits for
 `loaded_slot` to follow, so a backend that only moved a selector here would
@@ -47,7 +46,7 @@ in the verbs — `AfcBackend::lane_id()`.
 
 ### Permissions
 
-Six have defaults you can leave alone; `can_*` is where your own rules live.
+Five have defaults you can leave alone; `can_*` is where your own rules live.
 
 | Method | Default | Override to say |
 |---|---|---|
@@ -56,7 +55,6 @@ Six have defaults you can leave alone; `can_*` is where your own rules live.
 | `bool can_eject(int slot) const` | slot has filament, unit not busy | |
 | `bool can_set_backup(int slot) const` | more than one slot | |
 | `bool can_clear_colour() const` | true | false if `set_colour(slot, "")` would not really clear it; the panel then drops its clear control |
-| `void dismiss_message()` | does nothing | see below |
 
 The panel greys a control when the answer is false and never second-guesses a
 true, so this is the one place a verb's rules belong. A verb the vendor does not
@@ -69,12 +67,6 @@ reset is not a unit that should be taking motion commands.
 Two gates stay in the panel and are not yours to relax: unload is offered on
 the loaded slot only, and a slot must be unloaded before it can be ejected.
 Those protect the nozzle rather than model a vendor.
-
-`dismiss_message()` matters only if your vendor holds messages in a queue of
-its own: an unacknowledged message sits at the head and hides every later one,
-so the panel hiding it locally is not enough. `AfcBackend` sends
-`AFC_CLEAR_MESSAGE`. A backend whose message is derived from live state has
-nothing to pop and leaves the default alone.
 
 ---
 
@@ -90,7 +82,7 @@ than leaving stale values.
 | `name` | `string` | display name, unique in the unit (`Lane 1`, `Gate 0`) |
 | `map` | `string` | tool label(s), `T0` or `T0,T1`. `""` = unmapped |
 | `material` | `string` | `""` = unset |
-| `colour` | `string` | `RRGGBB` no `#`. `""` = unset, draws the checkerboard |
+| `colour` | `string` | `RRGGBB` no `#`. `""` = unset, draws the empty mark |
 | `backup` | `int` | slot **index** taking over on runout, `-1` = none |
 | `weight` | `int` | grams remaining, `0` = unknown |
 | `prepped` | `bool` | filament physically present at the slot |
@@ -109,11 +101,55 @@ load actually needs.
 |---|---|---|
 | `loaded_slot` | `int` | index loaded to the tool, `-1` = none |
 | `activity` | `MmuActivity` | `Idle`, `Loading`, `Unloading`, `Swapping`, `Ejecting`, `Moving`, `Error` — map your own status onto the nearest, and report `Moving` for anything else that moves. The panel owns the wording it shows |
-| `message` | `string` | banner text, `""` = none |
-| `message_error` | `bool` | the banner is a fault (red) rather than information (amber) |
-| `error` | `bool` | unit stopped; tapping the banner calls `reset_failure()` |
+| `error` | `bool` | unit stopped. Greys the verbs (via `busy()`), draws nothing |
 | `bypass` | `bool` | unit bypassed, single spool |
 | `spoolman` | `bool` | `weight` is meaningful |
+| `prompt` | `MmuPrompt` | a question for the user, `id == ""` = none. See below |
+
+### Errors and prompts
+
+The panel draws no banner and no fault icon. A stopped unit greys its verbs,
+and the rest of the story is told the way klipper already tells it: the
+console panel shows every line the vendor writes there, and the prompt panel
+shows any `action:prompt` dialog a vendor macro raises, no MMU code involved.
+
+`prompt` is for the vendor that stops and asks nothing. Fill it in `refresh()`
+when the vendor is in a state the user has to act on and the vendor puts up no
+dialog of its own. The panel renders it as the standard popout — title
+banner, message, one row of keys — over whatever screen is showing. A tap sends
+that key's gcode and closes the box.
+
+| Field | Meaning |
+|---|---|
+| `id` | names the situation. The panel shows each id **once**: fill the same prompt on every refresh and the box is not re-raised, and a user who tapped it away is not nagged. A different id replaces the box, `""` takes it down |
+| `title`, `text` | banner and body. Use the vendor's own words for the body — the line it sent to the console |
+| `buttons` | `{label, gcode, danger}`. Every button sends gcode and closes; there is no callback into the backend, and no button is a plain "close" — tapping the dim overlay is not a thing either, so give the user a real way out. `danger` paints the key in the danger colour (cancel, abort) |
+
+Make `id` carry the reason text (`"error:" + text`), so a new fault after a
+tapped-away one gets a fresh box.
+
+**Do not raise one for a vendor that already prompts.** Happy Hare's
+`_MMU_ERROR_DIALOG` macro raises a klipper prompt on every in-print fault and
+the prompt panel shows it; a second box from here for the same fault is worse
+than none. So `HhBackend` fills nothing for `pause_locked`. `AfcBackend` does
+fill one on `error_state`: AFC writes a console line but raises no dialog
+(its prompt helper serves calibration and test flows only), so the backend
+offers `RESET_FAILURE` (AFC's own recovery) and, while the print is paused,
+`RESUME`.
+
+**A fault that is only a console line is still a fault.** Standalone, Happy
+Hare's `handle_mmu_error()` writes `!! MMU issue: <reason>` and changes no
+published state, so a failed load from the panel would otherwise look like
+nothing happened. `HhBackend` subscribes to `notify_gcode_response`, keeps
+that one line, and fills a prompt with it — an `OK` key with no gcode, since
+there is no state to reset. Event-driven prompts follow the same rule as any
+other event: store what arrived, call `changed()`, and let `refresh()` fill
+`prompt` from it. Put a counter in the id so the same text twice is two
+prompts, and clear it when the vendor moves again.
+
+Recovery gcode is the vendor's, never a panel verb: there is no
+`reset_failure()` in the interface, because both vendors route it through the
+printer's own RESUME and the print panel's Resume button already does that.
 
 ---
 
@@ -203,7 +239,7 @@ Where the two current vendors differ is instructive:
 | load verb | `TOOL_LOAD` fresh, `CHANGE_TOOL` to swap | `MMU_CHANGE_TOOL` either way; unmapped gates need `MMU_SELECT` + `MMU_LOAD` |
 | backup | a runout pointer per lane (`SET_RUNOUT`) | endless-spool groups, a set per gate |
 | busy | `current_state` enum | `action` string, plus a pending `next_tool` for a swap |
-| fault | `error_state` + a message queue to pop, `RESET_FAILURE` clears | `print_state` of `paused`/`pause_locked`, message in `reason_for_pause`, `RESUME` clears |
+| fault | `error_state`, message queue for the text, no dialog — `prompt` filled, `RESET_FAILURE`/`RESUME` clear | `print_state` `pause_locked` + its own `_MMU_ERROR_DIALOG` klipper prompt — no `prompt` filled, `RESUME` clears |
 | clear a colour | impossible, `can_clear_colour()` false | empty `COLOR=` is accepted |
 | metadata owner | spoolman owns a lane with a `spool_id`, so `can_configure` false there | spoolman owns the whole gate map in `pull` mode only |
 

@@ -45,10 +45,9 @@ void AfcBackend::refresh() {
   lane_ids.clear();
   loaded_slot = -1;
   activity = MmuActivity::Idle;
-  message = "";
-  message_error = false;
   error = false;
   bypass = false;
+  prompt = MmuPrompt();
 
   // AFC drives its own toolchanges during a print; nothing the panel offers
   // may cut into that
@@ -61,28 +60,37 @@ void AfcBackend::refresh() {
   auto &load_j = afc["/current_load"_json_pointer];
   if (load_j.is_string()) current_load = load_j.template get<std::string>();
 
-  // message is a {message, type} pair. Reading it with a nested json pointer
-  // would throw if AFC ever published something else there, and a throw on the
-  // websocket thread takes the UI down, so resolve it a level at a time.
-  auto msg_it = afc.find("message");
-  if (msg_it != afc.end() && msg_it->is_object()) {
-    auto text = msg_it->find("message");
-    if (text != msg_it->end() && text->is_string()) message = text->template get<std::string>();
-    // AFC tags queued messages "error" or "warning"; only the former is a fault
-    auto type = msg_it->find("type");
-    message_error = type != msg_it->end() && type->is_string() &&
-                    type->template get<std::string>() == "error";
-  }
-
   auto &err = afc["/error_state"_json_pointer];
   if (err.is_boolean()) error = err.template get<bool>();
+
+  // AFC stops with error_state and a console line, and puts up no dialog of
+  // its own, so this is the one place the user gets asked. The text is the
+  // head of AFC's message queue, the same line AFC_logger sent to the console
+  // (read a level at a time: a nested pointer would throw on the websocket
+  // thread if AFC ever publishes something else there). RESET_FAILURE is
+  // AFC's own way out; RESUME is its wrapper that also clears the error, and
+  // only does anything while the print is paused.
+  if (error) {
+    std::string text;
+    auto msg_it = afc.find("message");
+    if (msg_it != afc.end() && msg_it->is_object()) {
+      auto t = msg_it->find("message");
+      if (t != msg_it->end() && t->is_string()) text = t->template get<std::string>();
+    }
+    prompt.id = "error:" + text;
+    prompt.title = "AFC Error";
+    prompt.text = text.empty() ? "AFC stopped. Fix the fault, then reset." : text;
+    prompt.buttons.push_back({"Reset", "RESET_FAILURE"});
+    if (pstat.is_string() && pstat.template get<std::string>() == "paused") {
+      prompt.buttons.push_back({"Resume", "RESUME"});
+    }
+  }
 
   auto &byp = afc["/bypass_state"_json_pointer];
   if (byp.is_boolean()) bypass = byp.template get<bool>();
 
   auto &cur_state = afc["/current_state"_json_pointer];
   activity = afc_activity(cur_state.is_string() ? cur_state.template get<std::string>() : "", error);
-  if (error) message_error = true;
 
   // AFC reports spoolman as a bool (or a URL string in some versions)
   auto &spm = afc["/spoolman"_json_pointer];
@@ -251,12 +259,3 @@ void AfcBackend::set_backup(int slot, int backup) {
   }
 }
 
-void AfcBackend::reset_failure() {
-  ws.gcode_script("RESET_FAILURE");
-}
-
-// AFC exposes message[0] of a queue it only pops on request, so an
-// unacknowledged message hides every one behind it.
-void AfcBackend::dismiss_message() {
-  ws.gcode_script("AFC_CLEAR_MESSAGE");
-}

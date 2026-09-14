@@ -97,6 +97,28 @@ bool HhBackend::owns_update(json &j) {
   return status.is_object() && status.contains("mmu");
 }
 
+HhBackend::HhBackend(KWebSocketClient &ws) : ws(ws) {
+  ws.register_method_callback("notify_gcode_response", "HhBackend",
+                              [this](json &d) { handle_gcode_response(d); });
+}
+
+// Only the standalone line. The in-print one reads "!! MMU issue detected."
+// and comes with HH's own dialog, so it is left to the prompt panel.
+void HhBackend::handle_gcode_response(json &j) {
+  auto &v = j["/params/0"_json_pointer];
+  if (!v.is_string()) return;
+  const std::string line = v.template get<std::string>();
+  static const std::string PREFIX = "!! MMU issue: ";
+  if (line.rfind(PREFIX, 0) != 0) return;
+  {
+    std::lock_guard<std::mutex> g(issue_lock);
+    issue = line.substr(PREFIX.size());
+    ++issue_count;
+  }
+  // websocket thread, no UI lock held: exactly what changed() needs
+  if (changed) changed();
+}
+
 void HhBackend::refresh() {
   State *state = State::get_instance();
   json &mmu = state->get_data("/printer_state/mmu"_json_pointer);
@@ -104,12 +126,9 @@ void HhBackend::refresh() {
   slots.clear();
   loaded_slot = -1;
   activity = MmuActivity::Idle;
-  message = "";
-  message_error = false;
   error = false;
   bypass = false;
   in_print = false;
-  paused = false;
   enabled = true;
   filament_loaded = false;
 
@@ -140,11 +159,13 @@ void HhBackend::refresh() {
   // print_state is HH's own job state machine (mmu_print_state_machine):
   // initialized | ready | started | printing | complete | cancelled | error |
   // pause_locked | paused | standby | idle. is_paused/is_locked/is_in_print
-  // are deprecated aliases of it. pause_locked is the moment between an MMU
-  // fault and its pause macro finishing; both mean "paused by the MMU".
+  // are deprecated aliases of it. pause_locked is HH's own doing -- an MMU
+  // fault stopped the print and the unit is locked until MMU_UNLOCK. paused is
+  // any pause, the user's included, and after an unlock it is where HH expects
+  // recovery commands to be run from, so only the locked state is a fault.
   const std::string print_state = str_at(mmu, "print_state");
   in_print = print_state == "started" || print_state == "printing";
-  paused = print_state == "paused" || print_state == "pause_locked";
+  const bool locked = print_state == "pause_locked";
 
   const std::string spoolman_mode = str_at(mmu, "spoolman_support");
   spoolman = !spoolman_mode.empty() && spoolman_mode != "off";
@@ -225,18 +246,29 @@ void HhBackend::refresh() {
 
   // An MMU fault mid-print pauses the printer, and the user has to fix it and
   // RESUME before anything else. print_state "error" is not that: it mirrors
-  // klipper's own job error, nothing of HH's clears it, so it is not a banner.
-  error = paused;
-  message_error = error;
-  if (error) {
-    // reason_for_pause carries the actual failure text while HH is paused
-    message = str_at(mmu, "reason_for_pause");
-    if (message.empty()) message = "MMU paused";
-  } else if (!enabled) {
-    message = "MMU disabled";
-  }
+  // klipper's own job error, nothing of HH's clears it, so it is not a fault.
+  error = locked;
   bypass = cur_tool == -2; // TOOL_GATE_BYPASS
   activity = hh_activity(action, changing, error);
+
+  // A standalone fault stays on offer until the user taps it away or HH
+  // starts moving again -- a retry is the user saying they have dealt with
+  // it. The transition, not the state: the console line lands before the
+  // status frame that puts action back to Idle, so at arrival HH still reads
+  // as moving. There is no state to reset: the box only says what went wrong.
+  const bool moving = action != "Idle";
+  prompt = MmuPrompt();
+  {
+    std::lock_guard<std::mutex> g(issue_lock);
+    if (moving && !was_moving) issue.clear();
+    if (!issue.empty()) {
+      prompt.id = fmt::format("issue:{}:{}", issue_count, issue);
+      prompt.title = "MMU Error";
+      prompt.text = issue;
+      prompt.buttons.push_back({"OK", ""});
+    }
+  }
+  was_moving = moving;
 
   // Refresh spoolman weights whenever the set of assigned spool ids changes.
   // That covers every way the map itself can move, so the only reason to ask
@@ -413,12 +445,4 @@ void HhBackend::set_backup(int slot, int backup) {
     groups[backup] = groups[slot];
   }
   send_groups(groups);
-}
-
-void HhBackend::reset_failure() {
-  // HH's own instruction on a fault: "After fixing, call RESUME to continue
-  // printing". Its RESUME wrapper clears the pause state; MMU_UNLOCK only
-  // restores the extruder temperature and MMU_RECOVER only resyncs filament
-  // position, and neither ends the pause.
-  ws.gcode_script("RESUME");
 }

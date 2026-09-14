@@ -1,5 +1,6 @@
 #include "mmu_panel.h"
 #include "config.h"
+#include "simple_dialog.h"
 #include "icons.h"
 #include "state.h"
 #include "logger.h"
@@ -47,7 +48,6 @@ static std::vector<std::string> split_csv(const std::string &s) {
   return out;
 }
 
-static const int HEADER_HEIGHT = 40;  // the status bar is tappable: a full touch target
 static const size_t CARDS_PER_PAGE = 8;
 static const size_t CARDS_PER_ROW = 4;
 // below this brightness a filament colour blends into the card, so its rim is
@@ -191,9 +191,6 @@ MmuPanel::MmuPanel(KWebSocketClient &c, std::mutex &l)
   , ws(c)
   , backend(NULL)
   , cont(NULL)
-  , header_row(NULL)
-  , status_bar(NULL)
-  , status_label(NULL)
   , cards_row1(NULL)
   , cards_row2(NULL)
   , nav_row(NULL)
@@ -227,10 +224,6 @@ MmuPanel::MmuPanel(KWebSocketClient &c, std::mutex &l)
   , more_mat_btn(NULL)
   , edit_slot_idx(-1)
   , loaded_idx(-1)
-  , activity(MmuActivity::Idle)
-  , message_error(false)
-  , error_state(false)
-  , bypass(false)
 {
   // screens are built lazily in create() so printers without AFC
   // never allocate any of this panel's LVGL objects
@@ -269,34 +262,8 @@ void MmuPanel::create(lv_obj_t *parent) {
   cont = create_screen(parent);  // fills the tab: it is the page
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
 
-  // Top Header Row (status container)
-  header_row = create_row(cont);
-  lv_obj_set_size(header_row, LV_PCT(100), scale_r(HEADER_HEIGHT));
-  lv_obj_set_flex_flow(header_row, LV_FLEX_FLOW_ROW);
-
-  // Status Bar inside header row (Flex grow fills available space)
-  status_bar = lv_obj_create(header_row);
-  lv_obj_set_height(status_bar, LV_PCT(100));
-  lv_obj_set_flex_grow(status_bar, 1);
-  lv_obj_add_style(status_bar, &styles().card, 0);
-  lv_obj_add_style(status_bar, &styles().card_pressed, LV_STATE_PRESSED);
-  lv_obj_set_style_bg_color(status_bar, tile_bg(), 0);  // it is a button, so it wears one
-  lv_obj_set_style_pad_hor(status_bar, gap() * 2, 0);
-  lv_obj_set_style_pad_ver(status_bar, gap() / 2, 0);
-  lv_obj_clear_flag(status_bar, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_add_flag(status_bar, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_add_event_cb(status_bar, &MmuPanel::_handle_status_bar, LV_EVENT_CLICKED, this);
-
-  status_label = lv_label_create(status_bar);
-  lv_label_set_long_mode(status_label, LV_LABEL_LONG_DOT);
-  lv_label_set_text(status_label, "MMU Standby");
-  lv_obj_set_style_text_font(status_label, scale_font(12), 0);
-  lv_obj_align(status_label, LV_ALIGN_LEFT_MID, 0, 0);
-  lv_obj_set_width(status_label, LV_PCT(100));
-  lv_obj_clear_flag(status_label, LV_OBJ_FLAG_CLICKABLE);
-
   // Row 1: Spools 1 - 4. The card rows flex-grow to split whatever height
-  // the header and nav rows leave over
+  // the nav row leaves over
   cards_row1 = create_row(cont);
   lv_obj_set_width(cards_row1, LV_PCT(100));
   lv_obj_set_flex_grow(cards_row1, 1);
@@ -662,11 +629,6 @@ void MmuPanel::clear() {
 void MmuPanel::refresh() {
   slots.clear();
   loaded_idx = -1;
-  activity = MmuActivity::Idle;
-  message = "";
-  message_error = false;
-  error_state = false;
-  bypass = false;
   spoolman_active = false;
 
   if (backend == NULL) return;
@@ -674,31 +636,7 @@ void MmuPanel::refresh() {
   backend->refresh();
   slots = backend->slots;
   loaded_idx = backend->loaded_slot;
-  activity = backend->activity;
-  message = backend->message;
-  message_error = backend->message_error;
-  error_state = backend->error;
-  bypass = backend->bypass;
   spoolman_active = backend->spoolman;
-
-  // Stop suppressing as soon as the backend reports something else. Only
-  // clearing on an empty message would swallow a repeat: a queue-backed
-  // backend can go A -> B -> A without ever passing through "".
-  if (message != dismissed_message) dismissed_message.clear();
-}
-
-// The backend reports a neutral activity; the wording is the panel's
-static const char *activity_text(MmuActivity a) {
-  switch (a) {
-    case MmuActivity::Loading:   return "Loading";
-    case MmuActivity::Unloading: return "Unloading";
-    case MmuActivity::Swapping:  return "Swapping";
-    case MmuActivity::Ejecting:  return "Ejecting";
-    case MmuActivity::Moving:    return "Moving";
-    case MmuActivity::Error:     return "Error";
-    case MmuActivity::Idle:      break;
-  }
-  return "Idle";
 }
 
 // a slot is a backup when another slot names it as its backup (infinite spool)
@@ -875,36 +813,7 @@ void MmuPanel::populate() {
     lv_obj_set_style_border_width(card.cont, slot.tool_loaded ? scale_r(2) : border_w(), 0);
   }
 
-  // Header status & message display. A message the backend does not flag as an
-  // error is information -- amber, like the bypass banner -- and it can sit
-  // there for good, so it can be tapped away locally. A fault is only ever
-  // cleared by the backend, so that tap asks it to recover instead.
-  if (error_state || (!message.empty() && message != dismissed_message)) {
-    lv_obj_set_style_bg_color(status_bar, col(message_error || error_state ? DANGER : WARNING), 0);
-    lv_label_set_text(status_label, fmt::format("{}{}", message.empty() ? "MMU error" : message,
-                                                error_state ? " - Tap to reset"
-                                                            : " - Tap to dismiss").c_str());
-  } else if (bypass) {
-    lv_obj_set_style_bg_color(status_bar, col(WARNING), 0);
-    lv_label_set_text(status_label, "Bypass Active - Single Spool");
-  } else {
-    lv_obj_set_style_bg_color(status_bar, tile_bg(), 0);  // resting: same fill as a lane
-    std::string text;
-    if (activity != MmuActivity::Idle) {
-      text = activity == MmuActivity::Error ? activity_text(activity)
-                                            : fmt::format("{}...", activity_text(activity));
-    } else if (loaded_idx >= 0 && (size_t)loaded_idx < slots.size()) {
-      const MmuSlot &slot = slots[loaded_idx];
-      std::string desc = slot.material.empty() ? slot.name : slot.material;
-      if (!slot.map.empty()) desc = fmt::format("{} - {}", slot.map, desc);
-      text = fmt::format("Loaded: {}", desc);
-    } else if (slots.empty()) {
-      text = "No slots reported";
-    } else {
-      text = "Tap spool to configure / load";
-    }
-    lv_label_set_text(status_label, text.c_str());
-  }
+  sync_prompt();
 
   // Keep an open edit screen in sync. The index alone is not enough: the
   // backend rebuilds `slots` on every refresh and a slot can disappear from
@@ -941,6 +850,47 @@ void MmuPanel::consume(json &j) {
   populate();
 }
 
+// One box per prompt id. The user closing it is final for that id: the state
+// behind it has not changed, so the box does not come back until the backend
+// has something else to say. A new id replaces whatever is up, "" clears.
+void MmuPanel::sync_prompt() {
+  const std::string id = backend != NULL ? backend->prompt.id : "";
+  if (id == shown_prompt.id) return;
+  if (prompt_box != NULL) {
+    simple_dialog_close(prompt_box);
+    prompt_box = NULL;
+  }
+  shown_prompt = id.empty() ? MmuPrompt() : backend->prompt;
+  if (id.empty()) return;
+
+  prompt_map.clear();
+  int danger_idx = -1;
+  for (const auto &b : shown_prompt.buttons) {
+    if (b.danger && danger_idx < 0) danger_idx = (int)prompt_map.size();
+    prompt_map.push_back(b.label.c_str());
+  }
+  prompt_map.push_back("");
+
+  SimpleDialogOptions options{};
+  options.buttons = shown_prompt.buttons.empty() ? nullptr : prompt_map.data();
+  options.error = true;
+  options.highlighted_button_idx = danger_idx;
+  options.result_cb = _handle_prompt_button;
+  options.user_data = this;
+  prompt_box = create_configurable_dialog(lv_scr_act(), shown_prompt.title.c_str(),
+                                          shown_prompt.text.c_str(), options);
+  lv_obj_add_event_cb(prompt_box, [](lv_event_t *e) {
+    if (lv_event_get_code(e) == LV_EVENT_DELETE) ((MmuPanel*)lv_event_get_user_data(e))->prompt_box = NULL;
+  }, LV_EVENT_DELETE, this);
+}
+
+void MmuPanel::handle_prompt_button(uint32_t idx) {
+  // the dialog closes itself after this; the DELETE callback drops the pointer
+  if (idx < shown_prompt.buttons.size() && !shown_prompt.buttons[idx].gcode.empty()) {
+    ws.gcode_script(shown_prompt.buttons[idx].gcode);
+  }
+}
+
 void MmuPanel::handle_card(lv_event_t *e) {
   lv_obj_t *card = lv_event_get_current_target(e);
   int idx = (int)(intptr_t)lv_obj_get_user_data(card);
@@ -960,20 +910,6 @@ void MmuPanel::handle_page_next(lv_event_t *e) {
   if (current_page + 1 < total_pages) {
     current_page++;
     populate();
-  }
-}
-
-void MmuPanel::handle_status_bar(lv_event_t *e) {
-  if (backend == NULL) return;
-  if (error_state) {
-    backend->reset_failure();
-  } else if (!message.empty()) {
-    // ask the backend to acknowledge it -- a queued message it never pops
-    // would hide every later one -- and stop showing this text meanwhile, so
-    // the tap feels immediate whether or not the backend has anything to do.
-    backend->dismiss_message();
-    dismissed_message = message;
-    populate(); // already on the UI thread, which holds lv_lock
   }
 }
 
