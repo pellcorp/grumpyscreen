@@ -17,6 +17,7 @@ Eleven methods are pure virtual.
 | Method | Called | Must do |
 |---|---|---|
 | `const char *vendor() const` | on selection, for the log line | return a display name |
+| `const char *backup_label() const` | when the edit screen opens | optional; the vendor's own name for a runout takeover, worn by the edit screen's tile. Default `Backup`; AFC says `Infinite Spool`, Happy Hare `Endless Spool`. Two short words at most |
 | `bool detect()` | when klipper starts, and again on **every** reconnect | true if this vendor's objects are in `/printer_objs/objects`. No status data exists yet |
 | `bool owns_update(json &j)` | on **every** websocket notification | true if `j` contains this vendor's objects. Keep cheap — returning false skips the redraw |
 | `void refresh()` | before every redraw, UI lock held | rebuild **Fill** (below) from `State` |

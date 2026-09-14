@@ -12,6 +12,7 @@ class AfcBackend : public MmuBackend {
   AfcBackend(KWebSocketClient &ws) : ws(ws) {}
 
   const char *vendor() const override { return "AFC"; }
+  const char *backup_label() const override { return "Infinite\nSpool"; }
 
   bool detect() override;
   bool owns_update(json &j) override;

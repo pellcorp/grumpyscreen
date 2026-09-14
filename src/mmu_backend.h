@@ -50,6 +50,11 @@ class MmuBackend {
   virtual ~MmuBackend() {}
 
   virtual const char *vendor() const = 0;
+  // What this vendor calls a slot taking over on runout -- the edit screen's
+  // tile wears it, so the user reads the term their own docs use ("Infinite
+  // Spool", "Endless Spool"). Keep it to two short words: it sits under an
+  // icon in a tile a third of a column wide.
+  virtual const char *backup_label() const { return "Backup"; }
 
   // this backend's objects are present in the current klipper config
   virtual bool detect() = 0;
