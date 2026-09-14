@@ -581,7 +581,9 @@ void MmuPanel::create_edit_screen() {
   lv_obj_set_flex_grow(action_row, 1);  // the leftover height, so the icons fill it
   lv_obj_set_flex_flow(action_row, LV_FLEX_FLOW_ROW);
 
-  edit_backup_btn.reset(new ButtonContainer(action_row, Icons::REFRESH_IMG, "Backup",
+  // the label is the vendor's own term for the feature, set when the screen
+  // opens (no backend is selected yet when this is built)
+  edit_backup_btn.reset(new ButtonContainer(action_row, Icons::INFINITY_IMG, "Backup",
                                             &MmuPanel::_handle_edit_action, this));
   edit_save_btn.reset(new ButtonContainer(action_row, Icons::SD_IMG, "Save",
                                           &MmuPanel::_handle_edit_action, this));
@@ -1085,6 +1087,7 @@ void MmuPanel::update_edit_preview() {
   bool can_toggle = backup || (backend != NULL && backend->can_set_backup(edit_slot_idx));
   // An icon tile has no "on" fill, so an assigned backup says so the way an
   // active icon does anywhere else: the glyph wears the accent.
+  if (backend != NULL) edit_backup_btn->set_label(backend->backup_label());
   if (can_toggle) edit_backup_btn->enable(); else edit_backup_btn->disable();
   lv_obj_set_style_img_recolor(edit_backup_btn->get_button(), theme_primary(), 0);
   lv_obj_set_style_img_recolor_opa(edit_backup_btn->get_button(),

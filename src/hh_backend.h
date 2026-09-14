@@ -13,6 +13,7 @@ class HhBackend : public MmuBackend {
   HhBackend(KWebSocketClient &ws) : ws(ws) {}
 
   const char *vendor() const override { return "Happy Hare"; }
+  const char *backup_label() const override { return "Endless\nSpool"; }
 
   bool detect() override;
   bool owns_update(json &j) override;
