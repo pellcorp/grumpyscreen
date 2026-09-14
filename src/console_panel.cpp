@@ -47,8 +47,15 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   lv_obj_set_size(bottom_cont, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(bottom_cont, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(bottom_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_size(input, 0, LV_SIZE_CONTENT);
-  lv_obj_set_style_min_height(input, scale_r(34), 0);  // the same height as the clear tile beside it
+  // the same height as the clear tile beside it, with the text centred in it:
+  // a one-line textarea draws its text at the top, so on a taller line the
+  // box has to give up the extra height as padding above and below
+  const int line_h = scale_r(34);
+  const lv_font_t *input_font = lv_obj_get_style_text_font(input, LV_PART_MAIN);
+  const int text_pad = std::max(0, (line_h - lv_font_get_line_height(input_font)) / 2
+                                   - lv_obj_get_style_border_width(input, LV_PART_MAIN));
+  lv_obj_set_size(input, 0, line_h);
+  lv_obj_set_style_pad_ver(input, text_pad, 0);
   lv_obj_set_flex_grow(input, 1);
   lv_textarea_set_one_line(input, true);
   lv_textarea_set_placeholder_text(input, "Send gcode...");
