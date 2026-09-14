@@ -186,6 +186,10 @@ void ButtonContainer::_handle_pressed_transition_timer(lv_timer_t *timer) {
   lv_obj_add_flag(button_container->btn_cont, LV_OBJ_FLAG_CLICKABLE);
 }
 
+void ButtonContainer::set_label(const char *text) {
+  lv_label_set_text(label, text);
+}
+
 void ButtonContainer::set_image(const void *img) {
   lv_img_set_src(btn, img);
 }

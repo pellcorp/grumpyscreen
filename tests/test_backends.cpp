@@ -838,6 +838,14 @@ static void test_hh_verbs(KWebSocketClient &ws) {
   CHECK(hh.can_set_backup(0));
 }
 
+// the edit screen's runout tile wears the vendor's own name for the feature
+static void test_vendor_terms(KWebSocketClient &ws) {
+  AfcBackend afc(ws);
+  HhBackend hh(ws);
+  CHECK(std::string(afc.backup_label()) == "Infinite\nSpool");
+  CHECK(std::string(hh.backup_label()) == "Endless\nSpool");
+}
+
 static void test_hh_hostile_status(KWebSocketClient &ws) {
   const char *fields[] = {"num_gates", "ttg_map", "gate_status", "gate_material",
                           "gate_color", "gate_color_rgb", "gate_spool_id",
@@ -893,6 +901,7 @@ int main() {
   test_hh_faults(ws);
   test_hh_verbs(ws);
   test_hh_hostile_status(ws);
+  test_vendor_terms(ws);
 #endif
 
   if (failures > 0) {
