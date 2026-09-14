@@ -42,17 +42,18 @@ class MmuPanel : public NotifyConsumer {
   void consume(json &j);
 
   void handle_card(lv_event_t *e);
-  void handle_status_bar(lv_event_t *e);
+  // the backend's MmuPrompt, as the shared popout dialog
+  void sync_prompt();
+  void handle_prompt_button(uint32_t idx);
+  static void _handle_prompt_button(lv_obj_t *, uint32_t idx, void *user_data) {
+    ((MmuPanel*)user_data)->handle_prompt_button(idx);
+  };
   void handle_page_prev(lv_event_t *e);
   void handle_page_next(lv_event_t *e);
   void handle_edit_action(lv_event_t *e);
 
   static void _handle_card(lv_event_t *e) {
     ((MmuPanel*)e->user_data)->handle_card(e);
-  };
-
-  static void _handle_status_bar(lv_event_t *e) {
-    ((MmuPanel*)e->user_data)->handle_status_bar(e);
   };
 
   static void _handle_page_prev(lv_event_t *e) {
@@ -99,9 +100,6 @@ class MmuPanel : public NotifyConsumer {
   lv_obj_t *cont;
 
   // Main Tab Spool Grid
-  lv_obj_t *header_row;
-  lv_obj_t *status_bar;
-  lv_obj_t *status_label;
   lv_obj_t *cards_row1;
   lv_obj_t *cards_row2;
   lv_obj_t *nav_row;
@@ -178,13 +176,14 @@ class MmuPanel : public NotifyConsumer {
   // local copy of the active backend's state, refreshed before each redraw
   std::vector<MmuSlot> slots;
   int loaded_idx;
-  MmuActivity activity;
-  std::string message;
-  std::string dismissed_message; // tapped away locally; cleared when it changes
-  bool message_error;            // banner is a fault, not information
-  bool error_state;
-  bool bypass;
   bool spoolman_active = false; // weights only mean something via spoolman
+
+  // the prompt on screen, or the one the user tapped away: its id is what a
+  // backend's next prompt is compared against. The key map points into it and
+  // is the msgbox's own button matrix source, so both outlive the box.
+  MmuPrompt shown_prompt;
+  lv_obj_t *prompt_box = NULL;
+  std::vector<const char *> prompt_map;
 };
 
 #endif // __MMU_PANEL_H__

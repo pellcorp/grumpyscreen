@@ -23,8 +23,6 @@ class AfcBackend : public MmuBackend {
   void set_colour(int slot, const std::string &hex) override;
   void set_material(int slot, const std::string &material) override;
   void set_backup(int slot, int backup) override;
-  void reset_failure() override;
-  void dismiss_message() override;
 
   // AFC refuses filament motion while a print is running (its own toolchanges
   // drive it then) and while the unit is bypassed or in an error state.
