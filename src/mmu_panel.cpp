@@ -1387,6 +1387,8 @@ void MmuPanel::open_backup_picker() {
   lv_obj_t *cancel = create_flat_btn(backup_picker_list, "Cancel",
                                      &MmuPanel::_handle_edit_action, this);
   lv_obj_set_size(cancel, LV_PCT(100), scale_r(40));
+  lv_obj_set_style_bg_color(cancel, theme_primary(), LV_STATE_PRESSED);
+  lv_obj_set_style_color_filter_opa(cancel, LV_OPA_TRANSP, LV_STATE_PRESSED);
   backup_pick_btns.push_back(cancel); // no name: falls through as "cancel"
 
   lv_obj_scroll_to_y(backup_picker_list, 0, LV_ANIM_OFF);
