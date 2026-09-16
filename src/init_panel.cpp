@@ -56,7 +56,9 @@ void InitPanel::connected(KWebSocketClient &ws) {
 
     // spoolman
     ws.send_jsonrpc("server.info", [this](json &j) {
-      LOG_DEBUG("server_info {}", j.dump());
+      if (get_log_level() <= LogLevel::DEBUG) {
+        LOG_DEBUG("server_info {}", j.dump());
+      }
       State::get_instance()->set_data("server_info", j, "/result");
 
       auto &components = j["/result/components"_json_pointer];
@@ -106,7 +108,9 @@ void InitPanel::connected(KWebSocketClient &ws) {
           return;
         }
 
-        LOG_DEBUG("subscribing to {}", subs.dump());
+        if (get_log_level() <= LogLevel::DEBUG) {
+          LOG_DEBUG("subscribing to {}", subs.dump());
+        }
         ws.send_jsonrpc("printer.objects.subscribe", subs, [this](json &data) {
           State::get_instance()->set_data("printer_state", data, "/result/status");
           this->main_panel.init(data);

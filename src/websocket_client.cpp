@@ -160,7 +160,9 @@ int KWebSocketClient::send_jsonrpc(const std::string &method, const json &params
   rpc["params"] = params;
   rpc["id"] = id++;
 
-  LOG_DEBUG("send_jsonrpc: {}", rpc.dump());
+  if (get_log_level() <= LogLevel::DEBUG) {
+    LOG_DEBUG("send_jsonrpc: {}", rpc.dump());
+  }
   return send(rpc.dump());
 }
 
@@ -170,7 +172,9 @@ int KWebSocketClient::send_jsonrpc(const std::string &method) {
   rpc["method"] = method;
   rpc["id"] = id++;
 
-  LOG_DEBUG("send_jsonrpc: {}", rpc.dump());
+  if (get_log_level() <= LogLevel::DEBUG) {
+    LOG_DEBUG("send_jsonrpc: {}", rpc.dump());
+  }
   return send(rpc.dump());
 }
 

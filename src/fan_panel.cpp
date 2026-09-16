@@ -68,7 +68,9 @@ void FanPanel::create_fans(json &f) {
 
   for (auto &fan : f.items()) {
     std::string key = fan.key();
-    LOG_TRACE("create fan {}, {}", f.dump(), fan.value().dump());
+    if (get_log_level() <= LogLevel::TRACE) {
+      LOG_TRACE("create fan {}, {}", f.dump(), fan.value().dump());
+    }
     std::string display_name = fan.value()["display_name"].template get<std::string>();
 
     lv_event_cb_t fan_cb = &FanPanel::_handle_fan_update;

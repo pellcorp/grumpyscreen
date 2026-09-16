@@ -105,7 +105,9 @@ void ta_add_text_limit_lines(lv_obj_t * ta, const std::string &line) {
 }
 
 void ConsolePanel::handle_macro_response(json &j) {
-  LOG_TRACE("console macro response {}", j.dump());
+  if (get_log_level() <= LogLevel::TRACE) {
+    LOG_TRACE("console macro response {}", j.dump());
+  }
 
   if (j.contains("params")) {
     std::lock_guard<std::mutex> lock(lv_lock);
