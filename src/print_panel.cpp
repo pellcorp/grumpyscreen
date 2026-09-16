@@ -104,7 +104,9 @@ void PrintPanel::handle_file_list_change(json &j) {
     return;
   }
 
-  LOG_TRACE("file list change response {}", j.dump());
+  if (get_log_level() <= LogLevel::TRACE) {
+    LOG_TRACE("file list change response {}", j.dump());
+  }
   refresh_pending = true;
   if (!visible) {
     return;

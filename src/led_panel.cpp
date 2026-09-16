@@ -109,12 +109,16 @@ void LedPanel::init(json &l) {
   for (auto &led : l) {
     auto id_it = led.find("id");
     if (id_it == led.end() || !id_it->is_string()) {
-      LOG_DEBUG("skipping malformed LED config entry: {}", led.dump());
+      if (get_log_level() <= LogLevel::DEBUG) {
+        LOG_DEBUG("skipping malformed LED config entry: {}", led.dump());
+      }
       continue;
     }
 
     std::string key = id_it->template get<std::string>();
-    LOG_DEBUG("create led {}, {}", l.dump(), led.dump());
+    if (get_log_level() <= LogLevel::DEBUG) {
+      LOG_DEBUG("create led {}, {}", l.dump(), led.dump());
+    }
     std::string display_name = get_led_display_name(led, KUtils::get_obj_name(key));
     bool pwm = get_led_pwm(led);
     const bool is_output_pin = key.rfind("output_pin ", 0) == 0;

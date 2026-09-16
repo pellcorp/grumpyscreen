@@ -121,7 +121,9 @@ void PromptPanel::handle_callback(lv_event_t *event) {
 }
 
 void PromptPanel::handle_macro_response(json &j) {
-  LOG_TRACE("macro response: {}", j.dump());
+  if (get_log_level() <= LogLevel::TRACE) {
+    LOG_TRACE("macro response: {}", j.dump());
+  }
   auto &v = j["/params/0"_json_pointer];
 
   if (!v.is_null()) {

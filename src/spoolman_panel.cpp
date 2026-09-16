@@ -135,7 +135,9 @@ void SpoolmanPanel::init() {
   });
 
   ws.send_jsonrpc("server.spoolman.get_spool_id", [this](json &d) {
-    LOG_TRACE("got spool active id {}", d.dump());
+    if (get_log_level() <= LogLevel::TRACE) {
+      LOG_TRACE("got spool active id {}", d.dump());
+    }
     auto &v = d["/result/spool_id"_json_pointer];
     if (!v.is_null()) {
       this->active_id = v.template get<int>();
@@ -172,7 +174,9 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
     bool skip_archive = !lv_obj_has_state(show_archived, LV_STATE_CHECKED);
 
     for (auto &el : sorted_spools) {
-      LOG_TRACE("spool {}", el.dump());
+      if (get_log_level() <= LogLevel::TRACE) {
+        LOG_TRACE("spool {}", el.dump());
+      }
       bool is_archived = el["archived"].template get<bool>();
       if (skip_archive && is_archived) {
 	      continue;
@@ -255,7 +259,9 @@ void SpoolmanPanel::layout_columns() {
 }
 
 void SpoolmanPanel::handle_active_id_update(json &j) {
-  LOG_TRACE("active spool id update {}", j.dump());
+  if (get_log_level() <= LogLevel::TRACE) {
+    LOG_TRACE("active spool id update {}", j.dump());
+  }
   auto &v = j["/params/0/spool_id"_json_pointer];
   if (!v.is_null()) {
     active_id = v.template get<int>();
