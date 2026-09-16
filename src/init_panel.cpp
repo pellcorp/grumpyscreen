@@ -98,14 +98,23 @@ void InitPanel::connected(KWebSocketClient &ws) {
       }
 
       json subs = {{ "objects", sub_objs }};
-      LOG_DEBUG("subscribing to {}", subs.dump());
-      ws.send_jsonrpc("printer.objects.subscribe", subs, [this](json &data) {
-        State::get_instance()->set_data("printer_state", data, "/result/status");
-        this->main_panel.init(data);
-        LOG_DEBUG("done init");
-        std::lock_guard<std::mutex> lock(this->lv_lock);
-        lv_obj_add_flag(this->cont, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_move_background(this->cont);
+      ws.send_jsonrpc("printer.info", [this, &ws, subs](json& info) {
+        State::get_instance()->set_data("printer_info", info, "/result");
+        const std::string klippy_state = info.value("/result/state"_json_pointer, std::string());
+        if (klippy_state != "ready") {
+          LOG_DEBUG("Klipper is not ready (state: {})", klippy_state.empty() ? "unknown" : klippy_state);
+          return;
+        }
+
+        LOG_DEBUG("subscribing to {}", subs.dump());
+        ws.send_jsonrpc("printer.objects.subscribe", subs, [this](json &data) {
+          State::get_instance()->set_data("printer_state", data, "/result/status");
+          this->main_panel.init(data);
+          LOG_DEBUG("done init");
+          std::lock_guard<std::mutex> lock(this->lv_lock);
+          lv_obj_add_flag(this->cont, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_move_background(this->cont);
+        });
       });
     }
   });
