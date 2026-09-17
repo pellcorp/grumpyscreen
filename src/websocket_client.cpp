@@ -39,7 +39,9 @@ int KWebSocketClient::connect(const char* url,
   };
   onmessage = [this, connected, disconnected](const std::string &msg) {
     auto j = json::parse(msg);
-
+    if (get_log_level() <= LogLevel::TRACE) {
+      LOG_TRACE("recv_jsonrpc: {}", j.dump());
+    }
     if (j.contains("id")) {
       // XXX: get rid of consumers and use function ptrs for callback
       const auto &entry = consumers.find(j["id"]);

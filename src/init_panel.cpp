@@ -61,8 +61,9 @@ void InitPanel::connected(KWebSocketClient &ws) {
       }
       State::get_instance()->set_data("server_info", j, "/result");
 
-      auto &components = j["/result/components"_json_pointer];
-      if (!components.is_null()) {
+      const auto components_ptr = "/result/components"_json_pointer;
+      if (j.contains(components_ptr) && !j[components_ptr].is_null()) {
+        auto &components = j[components_ptr];
         const auto &has_spoolman = components.template get<std::vector<std::string>>();
         if (std::find(has_spoolman.begin(), has_spoolman.end(), "spoolman") != has_spoolman.end()) {
           this->main_panel.enable_spoolman();
@@ -80,8 +81,9 @@ void InitPanel::connected(KWebSocketClient &ws) {
     this->main_panel.create_leds(display_leds);
 
     // subscribe to all objects except gcode_macro
-    auto objs = d["/result/objects"_json_pointer];
-    if (!objs.is_null()) {
+    const auto objects_ptr = "/result/objects"_json_pointer;
+    if (d.contains(objects_ptr) && !d[objects_ptr].is_null()) {
+      auto objs = d[objects_ptr];
       json sub_objs;
       for (auto &obj : objs) {
         std::string obj_name = obj.template get<std::string>();

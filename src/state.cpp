@@ -49,7 +49,12 @@ void State::reset() {
 
 void State::set_data(const std::string &key, json &j, const std::string &json_path) {
   std::lock_guard<std::mutex> guard(lock);
-  auto patch = j[json::json_pointer(json_path)];
+  const auto ptr = json::json_pointer(json_path);
+  if (!j.contains(ptr)) {
+    LOG_DEBUG("state update for {} missing {}", key, json_path);
+    return;
+  }
+  auto patch = j[ptr];
   if (!patch.is_null()) {
     data[key].merge_patch(patch);
   }
