@@ -18,12 +18,35 @@ using namespace Theme;
 static const lv_opa_t HEADER_TINT = LV_OPA_20;
 static const lv_opa_t ZEBRA_TINT = LV_OPA_40;
 
+static std::string string_at(const json &j, const json::json_pointer &ptr, const std::string &def = "") {
+  if (!j.contains(ptr)) return def;
+  const auto &v = j[ptr];
+  return v.is_string() ? v.template get<std::string>() : def;
+}
+
+static double number_at(const json &j, const json::json_pointer &ptr, double def = 0.0) {
+  if (!j.contains(ptr)) return def;
+  const auto &v = j[ptr];
+  return v.is_number() ? v.template get<double>() : def;
+}
+
+static uint32_t uint_at(const json &j, const json::json_pointer &ptr, uint32_t def = 0) {
+  if (!j.contains(ptr)) return def;
+  const auto &v = j[ptr];
+  return v.is_number_unsigned() || v.is_number_integer() ? v.template get<uint32_t>() : def;
+}
+
+static bool bool_at(const json &j, const json::json_pointer &ptr, bool def = false) {
+  if (!j.contains(ptr)) return def;
+  const auto &v = j[ptr];
+  return v.is_boolean() ? v.template get<bool>() : def;
+}
+
 // "Vendor - Filament", either half blank when spoolman has none
 static std::string spool_name(const json &spool) {
-  auto &vendor = spool["/filament/vendor/name"_json_pointer];
-  auto &name = spool["/filament/name"_json_pointer];
-  return fmt::format("{} - {}", vendor.is_null() ? "" : vendor.template get<std::string>(),
-                     name.is_null() ? "" : name.template get<std::string>());
+  return fmt::format("{} - {}",
+                     string_at(spool, "/filament/vendor/name"_json_pointer),
+                     string_at(spool, "/filament/name"_json_pointer));
 }
 
 SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
@@ -119,8 +142,9 @@ void SpoolmanPanel::init() {
   };
 
   ws.send_jsonrpc("server.spoolman.proxy", param, [this](json &d) {
-    auto &s = d["/result"_json_pointer];
-    if (!s.is_null() && !s.empty()) {
+    const auto result_ptr = "/result"_json_pointer;
+    if (d.contains(result_ptr) && !d[result_ptr].is_null() && !d[result_ptr].empty()) {
+      auto &s = d[result_ptr];
       spools.clear();
       for (auto &e : s) {
         if (e.contains("id")) {
@@ -138,9 +162,9 @@ void SpoolmanPanel::init() {
     if (get_log_level() <= LogLevel::TRACE) {
       LOG_TRACE("got spool active id {}", d.dump());
     }
-    auto &v = d["/result/spool_id"_json_pointer];
-    if (!v.is_null()) {
-      this->active_id = v.template get<int>();
+    const auto spool_id_ptr = "/result/spool_id"_json_pointer;
+    if (d.contains(spool_id_ptr) && !d[spool_id_ptr].is_null()) {
+      this->active_id = d[spool_id_ptr].template get<int>();
 
       std::lock_guard<std::mutex> lock(this->lv_lock);
       repopulate();
@@ -156,7 +180,7 @@ void SpoolmanPanel::foreground() {
 void SpoolmanPanel::repopulate() {
   std::vector<json> sorted_spools;
   KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [](json &a, json &b) {
-    return a["id"].template get<uint32_t>() < b["id"].template get<uint32_t>();
+    return uint_at(a, "/id"_json_pointer) < uint_at(b, "/id"_json_pointer);
   });
   sorted_by = SORTED_BY_ID;
   populate_spools(sorted_spools);
@@ -177,24 +201,17 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
       if (get_log_level() <= LogLevel::TRACE) {
         LOG_TRACE("spool {}", el.dump());
       }
-      bool is_archived = el["archived"].template get<bool>();
+      bool is_archived = bool_at(el, "/archived"_json_pointer);
       if (skip_archive && is_archived) {
 	      continue;
       }
       
-      auto id = el["/id"_json_pointer].template get<uint32_t>();
+      auto id = uint_at(el, "/id"_json_pointer);
       bool is_active = id == active_id;
 
-      auto material_json = el["/filament/material"_json_pointer];
-      auto material = !material_json.is_null() ? material_json.template get<std::string>(): "";
-
-      auto remaining_weight_json = el["/remaining_weight"_json_pointer];
-      auto remaining_weight = !remaining_weight_json.is_null() ? remaining_weight_json.template get<double>() : 0.0;
-
-      auto remaining_len_json = el["/remaining_length"_json_pointer];
-      auto remaining_len = !remaining_len_json.is_null()
-      	? remaining_len_json.template get<double>() / 1000 // mm to m;
-      	: 0.0;
+      auto material = string_at(el, "/filament/material"_json_pointer);
+      auto remaining_weight = number_at(el, "/remaining_weight"_json_pointer);
+      auto remaining_len = number_at(el, "/remaining_length"_json_pointer) / 1000; // mm to m
 
       lv_table_set_cell_value(spool_table, row_idx, 0, std::to_string(id).c_str());
       lv_table_set_cell_value(spool_table, row_idx, 1, spool_name(el).c_str());
@@ -262,9 +279,9 @@ void SpoolmanPanel::handle_active_id_update(json &j) {
   if (get_log_level() <= LogLevel::TRACE) {
     LOG_TRACE("active spool id update {}", j.dump());
   }
-  auto &v = j["/params/0/spool_id"_json_pointer];
-  if (!v.is_null()) {
-    active_id = v.template get<int>();
+  const auto spool_id_ptr = "/params/0/spool_id"_json_pointer;
+  if (j.contains(spool_id_ptr) && !j[spool_id_ptr].is_null()) {
+    active_id = j[spool_id_ptr].template get<int>();
 
     std::lock_guard<std::mutex> lock(lv_lock);
     repopulate();
@@ -307,8 +324,8 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
         bool reversed = sorted_by & SORTED_BY_ID;
         std::vector<json> sorted_spools;
         KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = a["/id"_json_pointer].template get<uint32_t>();
-          auto y = b["/id"_json_pointer].template get<uint32_t>();
+          auto x = uint_at(a, "/id"_json_pointer);
+          auto y = uint_at(b, "/id"_json_pointer);
 	        return reversed ? x > y : y > x;
 	      });
 
@@ -330,8 +347,8 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
         bool reversed = sorted_by & SORTED_BY_MAT;
         std::vector<json> sorted_spools;
         KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = a["/filament/material"_json_pointer].template get<std::string>();
-          auto y = b["/filament/material"_json_pointer].template get<std::string>();
+          auto x = string_at(a, "/filament/material"_json_pointer);
+          auto y = string_at(b, "/filament/material"_json_pointer);
 
           return reversed ? x > y : y > x;
         });
@@ -346,8 +363,8 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
         bool reversed = sorted_by & SORTED_BY_WT;
         std::vector<json> sorted_spools;
         KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = a["/remaining_weight"_json_pointer].template get<double>();
-          auto y = b["/remaining_weight"_json_pointer].template get<double>();
+          auto x = number_at(a, "/remaining_weight"_json_pointer);
+          auto y = number_at(b, "/remaining_weight"_json_pointer);
 
           return reversed ? x > y : y > x;
         });
@@ -359,8 +376,8 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
         bool reversed = sorted_by & SORTED_BY_LEN;
         std::vector<json> sorted_spools;
         KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = a["/remaining_length"_json_pointer].template get<double>();
-          auto y = b["/remaining_length"_json_pointer].template get<double>();
+          auto x = number_at(a, "/remaining_length"_json_pointer);
+          auto y = number_at(b, "/remaining_length"_json_pointer);
           return reversed ? x > y : y > x;
         });
         sorted_by = (sorted_by ^ SORTED_BY_LEN) & SORTED_BY_LEN;
@@ -431,10 +448,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
         uint32_t id = std::stoi(spool_id);
         const auto &spool = spools.find(id);
         if (spool != spools.end()) {
-          auto &c = spool->second["/filament/color_hex"_json_pointer];
+          const auto color = string_at(spool->second, "/filament/color_hex"_json_pointer);
           lv_color_t colour;
           // a spool without a colour, or with one spoolman spells oddly, keeps the row colour
-          if (c.is_string() && parse_colour(c.template get<std::string>(), &colour)) {
+          if (parse_colour(color, &colour)) {
             dsc->rect_dsc->bg_color = colour;
           }
         }
