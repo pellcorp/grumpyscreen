@@ -102,6 +102,14 @@ void InitPanel::connected(KWebSocketClient &ws) {
       }
 
       json subs = {{ "objects", sub_objs }};
+      ws.send_jsonrpc("printer.info", [this, &ws, subs](json& info) {
+        State::get_instance()->set_data("printer_info", info, "/result");
+        const std::string klippy_state = info.value("/result/state"_json_pointer, std::string());
+        if (klippy_state != "ready") {
+          LOG_DEBUG("Klipper is not ready (state: {})", klippy_state.empty() ? "unknown" : klippy_state);
+          return;
+        }
+
         if (get_log_level() <= LogLevel::DEBUG) {
           LOG_DEBUG("subscribing to {}", subs.dump());
         }
@@ -113,6 +121,7 @@ void InitPanel::connected(KWebSocketClient &ws) {
           lv_obj_add_flag(this->cont, LV_OBJ_FLAG_HIDDEN);
           lv_obj_move_background(this->cont);
         });
+      });
     }
   });
 }
