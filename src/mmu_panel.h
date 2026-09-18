@@ -130,7 +130,7 @@ class MmuPanel : public NotifyConsumer {
   std::vector<lv_obj_t*> colour_swatch_btns;
   std::vector<std::string> colour_swatch_hex; // value behind each swatch, "" = clear
   std::vector<std::string> materials;        // inline row, first few from config
-  std::vector<std::string> material_catalog; // popout: config values then built-ins
+  std::vector<std::string> material_catalog; // popout: configured material list
   std::vector<lv_obj_t*> material_btns;
   std::unique_ptr<ButtonContainer> edit_save_btn;
   std::unique_ptr<ButtonContainer> edit_back_btn;

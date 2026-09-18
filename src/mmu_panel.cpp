@@ -26,13 +26,6 @@ static const char *COLOUR_PRESETS[] = {
 // and the palette gives up its last colour if that would leave an odd one out.
 static const size_t SWATCH_ROWS = 2;
 
-// The material popout list. The inline row shows the first few of whatever
-// /mmu/materials configures, defaulting to the first four of these.
-static const char *MATERIAL_CATALOG[] = {
-  "PLA", "PETG", "ABS", "TPU", "PLA+", "PLA-CF", "PETG-CF", "ABS-CF", "ASA",
-  "PC", "PA", "PA-CF", "PVA", "HIPS"
-};
-
 // The edit screen material row fits this many buttons plus the "more" button
 static const size_t MAX_MATERIALS = 5;
 
@@ -501,7 +494,7 @@ void MmuPanel::create_edit_screen() {
   }
 
 
-  // 2. Materials: inline commons plus the catalog popout
+  // 2. Materials: inline commons plus the configured catalog popout
   lv_obj_t *mat_sec = create_row(right_col);
   lv_obj_set_size(mat_sec, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(mat_sec, LV_FLEX_FLOW_COLUMN);
@@ -518,8 +511,8 @@ void MmuPanel::create_edit_screen() {
   lv_obj_set_size(mat_row, LV_PCT(100), scale_r(40) + 2 * (scale_r(4) + border_w()));
   lv_obj_set_flex_flow(mat_row, LV_FLEX_FLOW_ROW);
 
-  // Configured materials head the catalog, so anything past the four the
-  // inline row fits is still reachable from the popout instead of vanishing
+  // /mmu/materials owns the full material catalog. Anything past what the
+  // inline row fits is still reachable from the popout instead of vanishing.
   material_catalog = split_csv(Config::get_instance()->get<std::string>("/mmu/materials", ""));
   material_catalog.erase(
       std::remove_if(material_catalog.begin(), material_catalog.end(),
@@ -531,11 +524,6 @@ void MmuPanel::create_edit_screen() {
                        return true;
                      }),
       material_catalog.end());
-  for (const char *m : MATERIAL_CATALOG) {
-    if (std::find(material_catalog.begin(), material_catalog.end(), m) == material_catalog.end()) {
-      material_catalog.push_back(m);
-    }
-  }
 
   // The inline chips share the row equally, so the row holds as many of the
   // first MAX_MATERIALS names as fit without clipping the longest of them
