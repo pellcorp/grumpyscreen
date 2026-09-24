@@ -10,6 +10,7 @@ Numpad::Numpad(lv_obj_t *parent)
   , kb(lv_keyboard_create(edit_cont))
   , ready_cb([](double v){})
   , prev_was_empty(false)
+  , highlight_target(NULL)
 {
   LOG_TRACE("creating numpad on main_cont");
   // hidden until a readout asks for it; the caller places it with cover_from()
@@ -59,6 +60,7 @@ void Numpad::handle_input(lv_event_t *e) {
   if (code == LV_EVENT_CANCEL) {
     lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_background(edit_cont);
+    set_highlight_target(NULL);
   }
   
   if (code == LV_EVENT_READY) {
@@ -70,6 +72,7 @@ void Numpad::handle_input(lv_event_t *e) {
 
     lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_background(edit_cont);
+    set_highlight_target(NULL);
     lv_textarea_set_text(input, "");
   }
 }
@@ -82,6 +85,7 @@ void Numpad::handle_kb_input(lv_event_t *e) {
     if (is_empty && prev_was_empty) {
       lv_obj_add_flag(edit_cont, LV_OBJ_FLAG_HIDDEN);
       lv_obj_move_background(edit_cont);
+      set_highlight_target(NULL);
     }
     prev_was_empty = is_empty;
   } else {
@@ -98,6 +102,22 @@ void Numpad::cover_from(lv_coord_t x) {
   lv_obj_set_pos(edit_cont, x, -top);
   lv_obj_set_size(edit_cont, lv_obj_get_width(parent) - lv_obj_get_style_pad_left(parent, 0) - x,
                   lv_obj_get_height(parent));
+}
+
+void Numpad::set_highlight_target(lv_obj_t *obj) {
+  if (highlight_target != NULL) {
+    lv_obj_clear_state(highlight_target, LV_STATE_CHECKED);
+  }
+  highlight_target = obj;
+  if (highlight_target != NULL) {
+    lv_obj_add_state(highlight_target, LV_STATE_CHECKED);
+  }
+}
+
+void Numpad::release_if_target(lv_obj_t *obj) {
+  if (highlight_target == obj) {
+    highlight_target = NULL;
+  }
 }
 
 void Numpad::foreground_reset() {
