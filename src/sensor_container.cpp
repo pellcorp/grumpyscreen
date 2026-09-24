@@ -108,18 +108,22 @@ SensorContainer::SensorContainer(KWebSocketClient &c,
       lv_obj_set_style_radius(target_label, radius_md(), 0);
       lv_obj_set_style_border_width(target_label, scale_r(2), 0);
       lv_obj_set_style_border_color(target_label, col(DISABLED), 0);
+      // accent while the numpad is open for this row
+      lv_obj_set_style_border_color(target_label, theme_primary(), LV_STATE_CHECKED);
       lv_obj_set_style_pad_hor(target_label, gap(), 0);
       lv_obj_set_style_pad_ver(target_label, gap() / 3, 0);
       lv_obj_set_style_min_width(target_label, scale_w(36), 0);
 
       LOG_DEBUG("sensor cb registered name {}", id);
       lv_obj_add_event_cb(sensor_cont, &SensorContainer::_handle_edit, LV_EVENT_CLICKED, this);
+      lv_obj_add_style(sensor_cont, &styles().card_pressed, LV_STATE_PRESSED);
     } 
 }
 
 SensorContainer::~SensorContainer() {
   if (sensor_cont != NULL) {
     LOG_DEBUG("deleting sensor {}", id);
+    numpad.release_if_target(target_label);
     lv_obj_del(sensor_cont);
     sensor_cont = NULL;
   }
@@ -176,6 +180,7 @@ void SensorContainer::handle_edit(lv_event_t *e) {
         ws.gcode_script(fmt::format("SET_HEATER_TEMPERATURE HEATER={} TARGET={}", heater_name, v));
       }
     });
+    numpad.set_highlight_target(target_label);
     numpad.foreground_reset();
   }
 }
