@@ -1,7 +1,9 @@
 #include "sensor_container.h"
 #include "logger.h"
+#include "state.h"
 #include "theme.h"
 #include "utils.h"
+#include <cctype>
 #include <string>
 
 using namespace Theme;
@@ -172,6 +174,17 @@ void SensorContainer::update_series(int v) {
 void SensorContainer::handle_edit(lv_event_t *e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
     LOG_TRACE("sensor callback this {}, {}, {}", id, fmt::ptr(this), fmt::ptr(&numpad));
+    // klipper refuses a target outside the configured range
+    auto &settings = State::get_instance()->get_data("/printer_state/configfile/settings"_json_pointer);
+    double min_temp = std::numeric_limits<double>::lowest();
+    double max_temp = std::numeric_limits<double>::max();
+    // configfile settings key sections in lower case, the object name keeps its case
+    std::string section;
+    for (char c : id) section.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    if (settings.contains(section)) {
+      min_temp = settings[section].value("min_temp", min_temp);
+      max_temp = settings[section].value("max_temp", max_temp);
+    }
     numpad.set_callback([this](double v) {
       std::string heater_name = KUtils::get_obj_name(id);
       if (id.find("temperature_fan") != std::string::npos) {
@@ -179,7 +192,7 @@ void SensorContainer::handle_edit(lv_event_t *e) {
       } else {
         ws.gcode_script(fmt::format("SET_HEATER_TEMPERATURE HEATER={} TARGET={}", heater_name, v));
       }
-    });
+    }, min_temp, max_temp);
     numpad.set_highlight_target(target_label);
     numpad.foreground_reset();
   }
