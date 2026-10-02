@@ -223,7 +223,30 @@ static void lv_tc_screen_process_input(lv_obj_t* screenObj, lv_point_t tchPoint)
                 (int)(tCScreenObj->tapCount + 1), LV_TC_TAPS_PER_POINT);
         }
     } else if(tCScreenObj->currentStep >= STEP_FINISH) {
-        lv_tc_screen_set_indicator_pos(screenObj, lv_tc_transform_point(tchPoint), true);
+        /* The calibration affine maps raw touch coordinates into physical
+         * panel coordinates.  Normal input is subsequently rotated into
+         * LVGL's logical coordinate space by indev_pointer_proc(); mirror
+         * that step here because the review indicator bypasses it. */
+        lv_point_t point = lv_tc_transform_point(tchPoint);
+        lv_disp_t *disp = lv_disp_get_default();
+        if(disp) {
+            lv_coord_t hor = disp->driver->hor_res;
+            lv_coord_t ver = disp->driver->ver_res;
+
+            if(disp->driver->rotated == LV_DISP_ROT_180 ||
+               disp->driver->rotated == LV_DISP_ROT_270) {
+                point.x = hor - point.x - 1;
+                point.y = ver - point.y - 1;
+            }
+            if(disp->driver->rotated == LV_DISP_ROT_90 ||
+               disp->driver->rotated == LV_DISP_ROT_270) {
+                lv_coord_t tmp = point.y;
+                point.y = point.x;
+                point.x = ver - tmp - 1;
+            }
+        }
+
+        lv_tc_screen_set_indicator_pos(screenObj, point, true);
     }
 }
 

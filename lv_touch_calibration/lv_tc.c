@@ -164,9 +164,8 @@ lv_point_t lv_tc_transform_point(lv_point_t point) {
         transformedPoint.x = roundf((lv_tc_val_t)point.x * calibResult.a + (lv_tc_val_t)point.y * calibResult.b + calibResult.c);
         transformedPoint.y = roundf((lv_tc_val_t)point.x * calibResult.d + (lv_tc_val_t)point.y * calibResult.e + calibResult.f);
 
-        /* No rotation correction needed: calibration crosshairs are placed in
-         * logical (post-sw_rotate) coordinates, so the affine already maps
-         * raw touch → logical. An additional rotation here would double-apply. */
+        /* The affine maps raw touch to physical panel coordinates.  LVGL's
+         * indev_pointer_proc applies the display rotation afterwards. */
     }
 
     return transformedPoint;
