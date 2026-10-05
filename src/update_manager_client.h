@@ -33,6 +33,8 @@ class UpdateManagerClient {
   std::mutex &lv_lock;
   lv_obj_t *mbox = nullptr;
   lv_timer_t *dismiss_timer = nullptr;
+  // Set once Moonraker reports the update complete.
+  bool completed = false;
 };
 
 #endif // COSMOS

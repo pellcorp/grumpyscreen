@@ -61,13 +61,20 @@ void UpdateManagerClient::finish(const std::string &message, bool failed) {
 }
 
 void UpdateManagerClient::start() {
+  completed = false;
   show("Starting update...");
 
   json params = {{"name", UPDATE_APP}};
   ws.send_jsonrpc("machine.update.client", params, [this](json &j) {
-    // Moonraker answers straight away only when it refuses the update, for
-    // example while printing. Progress comes through notify_update_response.
+    // Moonraker answers once the update request is over. Progress and the
+    // final message come through notify_update_response before that; an
+    // answer without either means there was nothing to install.
     if (!j.contains("error")) {
+      std::lock_guard<std::mutex> lock(lv_lock);
+      if (!completed && mbox != nullptr) {
+        completed = true;
+        finish("COSMOS is already up to date.", false);
+      }
       return;
     }
     std::string msg = j.value("/error/message"_json_pointer, std::string("Moonraker refused the update"));
@@ -91,6 +98,7 @@ void UpdateManagerClient::handle_notification(json &j) {
 
   std::lock_guard<std::mutex> lock(lv_lock);
   if (complete) {
+    completed = true;
     // update_manager reports failures as "Error updating <app>: ..."
     finish(message, message.rfind("Error", 0) == 0);
     return;
