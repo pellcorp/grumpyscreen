@@ -57,6 +57,11 @@ MAINSRC 		:= $(filter-out $(filter %_backend.cpp,$(MAINSRC)),$(MAINSRC)) $(MMU_B
 MMU_BACKEND_DEFS = $(foreach b,$(MMU_BACKENDS),-D MMU_BACKEND_$(shell echo $(b) | tr 'a-z' 'A-Z'))
 DEFINES 		+= $(MMU_BACKEND_DEFS)
 
+# The Moonraker update_manager client only exists in a COSMOS build.
+ifndef COSMOS
+MAINSRC 		:= $(filter-out $(LVGL_DIR)/src/update_manager_client.cpp,$(MAINSRC))
+endif
+
 include $(LVGL_DIR)/lvgl/lvgl.mk
 include $(LVGL_DIR)/lv_drivers/lv_drivers.mk
 CSRCS			:= $(filter-out $(LVGL_DIR)/lv_drivers/wayland/%.c,$(CSRCS))

@@ -1,5 +1,3 @@
-// Only part of a COSMOS build (COSMOS=true in the Makefile).
-#ifdef COSMOS
 #include "update_manager_client.h"
 #include "logger.h"
 #include "simple_dialog.h"
@@ -80,6 +78,12 @@ void UpdateManagerClient::start() {
     std::string msg = j.value("/error/message"_json_pointer, std::string("Moonraker refused the update"));
     LOG_ERROR("update_manager refused the update of {}: {}", UPDATE_APP, msg);
     std::lock_guard<std::mutex> lock(lv_lock);
+    // A failed update has already been reported by its final
+    // notify_update_response; only a refusal arrives here on its own.
+    if (completed) {
+      return;
+    }
+    completed = true;
     finish(msg, true);
   });
 }
@@ -107,4 +111,3 @@ void UpdateManagerClient::handle_notification(json &j) {
     show(message);
   }
 }
-#endif // COSMOS

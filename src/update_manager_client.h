@@ -1,9 +1,6 @@
 #ifndef __UPDATE_MANAGER_CLIENT_H__
 #define __UPDATE_MANAGER_CLIENT_H__
 
-// Only part of a COSMOS build (COSMOS=true in the Makefile).
-#ifdef COSMOS
-
 #include "websocket_client.h"
 #include "lvgl/lvgl.h"
 
@@ -37,5 +34,4 @@ class UpdateManagerClient {
   bool completed = false;
 };
 
-#endif // COSMOS
 #endif // __UPDATE_MANAGER_CLIENT_H__
