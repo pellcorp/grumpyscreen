@@ -18,7 +18,7 @@ LV_FONT_DECLARE(materialdesign_font_40);
 // leave the icons looking lost. This is the width it has always been.
 #define TAB_BAR_W 60
 
-#define COG_SYMBOL     u8"\U000F0493"
+#define WIFI_SYMBOL    u8"\U000F05A9"
 #define TOOLS_SYMBOL   u8"\U000F1064"
 #define HOME_SYMBOL    u8"\U000F02DC"
 #define CONSOLE_SYMBOL u8"\U000F018D"
@@ -38,10 +38,10 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
   , console_panel(ws, lock, console_tab)
+  , system_tab(lv_tabview_add_tab(tabview, WIFI_SYMBOL))
+  , system_panel(lock, system_tab)
   , setting_tab(lv_tabview_add_tab(tabview, TOOLS_SYMBOL))
   , setting_panel(websocket, lock, setting_tab)
-  , system_tab(lv_tabview_add_tab(tabview, COG_SYMBOL))
-  , system_panel(lock, system_tab)
   , main_cont(create_screen(main_tab))  // fills the tab: it is the page
   , print_status_panel(websocket, lock, main_cont)
   , print_panel(ws, lock, print_status_panel)

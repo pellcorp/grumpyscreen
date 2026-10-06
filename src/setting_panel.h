@@ -3,6 +3,7 @@
 
 #include "platform.h"
 #include "button_container.h"
+#include "sysinfo_panel.h"
 #include "websocket_client.h"
 #include "lvgl/lvgl.h"
 
@@ -24,14 +25,20 @@ class SettingPanel {
   };
 
  private:
+  static void _tabview_event_cb(lv_event_t *event);
+  void refresh_active_tab();
+
   KWebSocketClient &ws;
   bool owns_cont;
   lv_obj_t *cont;
   lv_obj_t *tabview;
   lv_obj_t *service_tab;
   lv_obj_t *danger_tab;
+  lv_obj_t *info_tab;
   lv_obj_t *service_cont;
   lv_obj_t *danger_cont;
+
+  SysInfoPanel sysinfo_panel;
 
   ButtonContainer restart_klipper_btn;
   ButtonContainer restart_firmware_btn;

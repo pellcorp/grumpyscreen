@@ -91,8 +91,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &, lv_obj_t *parent)
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
   , service_tab(lv_tabview_add_tab(tabview, "Machine"))
   , danger_tab(lv_tabview_add_tab(tabview, "Danger"))
+  , info_tab(lv_tabview_add_tab(tabview, "Info"))
   , service_cont(Theme::create_screen(service_tab))
   , danger_cont(Theme::create_screen(danger_tab))
+  , sysinfo_panel(info_tab)
   , restart_klipper_btn(service_cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
         "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
   , restart_firmware_btn(service_cont, Icons::REFRESH_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
@@ -112,8 +114,11 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &, lv_obj_t *parent)
 {
   lv_obj_set_style_pad_all(cont, 0, 0);
   lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
+  lv_obj_add_event_cb(tabview, &SettingPanel::_tabview_event_cb,
+                      LV_EVENT_VALUE_CHANGED, this);
   lv_obj_set_style_pad_all(service_tab, 0, 0);
   lv_obj_set_style_pad_all(danger_tab, 0, 0);
+  lv_obj_set_style_pad_all(info_tab, 0, 0);
   Theme::style_embedded_tabview(tabview);
 
   // Optional tiles only appear with a command behind them; each tab grid is
@@ -155,6 +160,19 @@ lv_obj_t *SettingPanel::get_container() {
 }
 
 void SettingPanel::foreground() {
+  refresh_active_tab();
+}
+
+void SettingPanel::_tabview_event_cb(lv_event_t *event) {
+  if (lv_event_get_code(event) == LV_EVENT_VALUE_CHANGED) {
+    static_cast<SettingPanel *>(lv_event_get_user_data(event))->refresh_active_tab();
+  }
+}
+
+void SettingPanel::refresh_active_tab() {
+  if (lv_tabview_get_tab_act(tabview) == lv_obj_get_index(info_tab)) {
+    sysinfo_panel.foreground();
+  }
 }
 
 void SettingPanel::handle_callback(lv_event_t *event) {
