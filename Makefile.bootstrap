@@ -78,7 +78,7 @@ TARGET 			= $(addprefix $(BUILD_OBJ_DIR)/, $(patsubst ./%, %, $(OBJS)))
 
 INC 			:= -I./ -I./src -I./lvgl/ -I./lv_touch_calibration -I./fmt/include -I$(DEPS_DIR)/include -I./wpa_supplicant/src/common
 LDLIBS	 		:= -lm
-DEFINES			+= -D _GNU_SOURCE -DSPDLOG_COMPILED_LIB
+DEFINES			+= -D _GNU_SOURCE -DSPDLOG_COMPILED_LIB -D GUPPY_BOOTSTRAP
 
 ifdef GUPPY_SDL
 SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)

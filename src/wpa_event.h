@@ -7,6 +7,7 @@
 
 #include <map>
 #include <functional>
+#include <mutex>
 
 class WpaEvent : private hv::EventLoopThread {
  public:
@@ -15,6 +16,7 @@ class WpaEvent : private hv::EventLoopThread {
 
   void start();
   void stop();
+  void reconnect();
 
   void register_callback(const std::string &name, std::function<void(const std::string&)>);
   void init_wpa();
@@ -27,7 +29,15 @@ class WpaEvent : private hv::EventLoopThread {
   }
 
  private:
+  std::string find_wpa_socket() const;
+  void close_connections();
+  void schedule_reconnect();
+
   struct wpa_ctrl *conn;
+  struct wpa_ctrl *mon_conn;
+  hio_t *mon_io;
+  std::mutex conn_mutex;
+  bool reconnect_scheduled = false;
   std::map<std::string, std::function<void(const std::string&)>> callbacks;
 };
 

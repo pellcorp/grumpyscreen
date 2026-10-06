@@ -221,12 +221,11 @@ int main(void) {
 
     std::mutex lv_lock;
     const std::string footer_text = fmt::format("Build {}", GUPPYSCREEN_VERSION);
-    WifiPanel wifi_panel(lv_lock, WifiPanelOptions{
-        lv_scr_act(),
-        true,
-        footer_text.c_str(),
-        {}
-    });
+    WifiPanelOptions wifi_options;
+    wifi_options.parent = lv_scr_act();
+    wifi_options.show_refresh_button = true;
+    wifi_options.footer_text = footer_text.c_str();
+    WifiPanel wifi_panel(lv_lock, wifi_options);
     wifi_panel.foreground();
 
 #ifdef GUPPY_CALIBRATE

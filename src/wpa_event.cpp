@@ -11,6 +11,8 @@ namespace fs = std::experimental::filesystem;
 WpaEvent::WpaEvent()
   : hv::EventLoopThread(NULL)
   , conn(NULL)
+  , mon_conn(NULL)
+  , mon_io(NULL)
 {
 }
 
@@ -35,6 +37,18 @@ void WpaEvent::stop() {
   hv::EventLoopThread::stop(true);
 }
 
+void WpaEvent::reconnect() {
+  if (!isRunning()) return;
+
+  // Always defer this: restart_wifi() is normally called from inside the
+  // monitor's read callback, where tearing down that same hio is unsafe.
+  loop()->queueInLoop([this]() {
+    LOG_DEBUG("reconnecting to wpa supplicant after Wi-Fi restart");
+    close_connections();
+    init_wpa();
+  });
+}
+
 void WpaEvent::register_callback(const std::string &name,
 				 std::function<void(const std::string&)> cb) {
   const auto &entry = callbacks.find(name);
@@ -45,9 +59,7 @@ void WpaEvent::register_callback(const std::string &name,
   }
 }
 
-void WpaEvent::init_wpa() {
-  // TODO: retries
-  
+std::string WpaEvent::find_wpa_socket() const {
   const char* p = std::getenv("WPA_SUPPLICANT_SOCKET");
   std::string wpa_socket = p ? p : "/var/run/wpa_supplicant";
   if (fs::is_directory(fs::status(wpa_socket))) {
@@ -59,37 +71,85 @@ void WpaEvent::init_wpa() {
       }
     }
   }
-  
-  if (conn == NULL) {
-    conn = wpa_ctrl_open(wpa_socket.c_str());
+  return wpa_socket;
+}
+
+void WpaEvent::close_connections() {
+  if (mon_io != NULL) {
+    hio_read_stop(mon_io);
+    mon_io = NULL;
+  }
+  if (mon_conn != NULL) {
+    wpa_ctrl_detach(mon_conn);
+    wpa_ctrl_close(mon_conn);
+    mon_conn = NULL;
+  }
+
+  std::lock_guard<std::mutex> lock(conn_mutex);
+  if (conn != NULL) {
+    wpa_ctrl_close(conn);
+    conn = NULL;
+  }
+}
+
+void WpaEvent::schedule_reconnect() {
+  if (reconnect_scheduled || !isRunning()) return;
+
+  reconnect_scheduled = true;
+  loop()->setTimeout(500, [this](hv::TimerID) {
+    reconnect_scheduled = false;
+    if (mon_conn == NULL) init_wpa();
+  });
+}
+
+void WpaEvent::init_wpa() {
+  const std::string wpa_socket = find_wpa_socket();
+
+  {
+    std::lock_guard<std::mutex> lock(conn_mutex);
     if (conn == NULL) {
-      LOG_TRACE("failed to open wpa control");
-      return;
+      conn = wpa_ctrl_open(wpa_socket.c_str());
+      if (conn == NULL) {
+        LOG_TRACE("failed to open wpa control");
+      }
     }
   }
-  
-  struct wpa_ctrl *mon_conn = wpa_ctrl_open(wpa_socket.c_str());
 
-  if (mon_conn != NULL) {
-    if (wpa_ctrl_attach(mon_conn) == 0) {
-      LOG_TRACE("attached to wpa supplicant");
-    }
-  } else {
+  mon_conn = wpa_ctrl_open(wpa_socket.c_str());
+  if (mon_conn == NULL) {
     LOG_TRACE("failed to attached to wpa supplicant");
+    schedule_reconnect();
     return;
   }
+  if (wpa_ctrl_attach(mon_conn) != 0) {
+    LOG_TRACE("failed to attach to wpa supplicant");
+    wpa_ctrl_close(mon_conn);
+    mon_conn = NULL;
+    schedule_reconnect();
+    return;
+  }
+  LOG_TRACE("attached to wpa supplicant");
 
   int monfd = wpa_ctrl_get_fd(mon_conn);
-  hio_t* io = hio_get(loop()->loop(), monfd);
+  mon_io = hio_get(loop()->loop(), monfd);
   LOG_TRACE("set io fd {}", monfd);
-  
-  if (io == NULL) {
+
+  if (mon_io == NULL) {
     LOG_TRACE("failed to poll wpa supplicant monitor socket");
+    wpa_ctrl_detach(mon_conn);
+    wpa_ctrl_close(mon_conn);
+    mon_conn = NULL;
+    schedule_reconnect();
+    return;
   }
-  hio_set_context(io, this);
-  hio_setcb_read(io, WpaEvent::_handle_wpa_events);
-  hio_read_start(io);
+  hio_set_context(mon_io, this);
+  hio_setcb_read(mon_io, WpaEvent::_handle_wpa_events);
+  hio_read_start(mon_io);
   LOG_TRACE("registered io read callback");
+
+  // Re-populate consumers after reconnecting; otherwise a SCAN sent while the
+  // socket was down has no completion event and the Wi-Fi panel keeps spinning.
+  send_command("SCAN");
 }
 
 void WpaEvent::handle_wpa_events(void *data, int len) {
@@ -101,14 +161,32 @@ void WpaEvent::handle_wpa_events(void *data, int len) {
 }
 
 std::string WpaEvent::send_command(const std::string &cmd) {
+  std::lock_guard<std::mutex> lock(conn_mutex);
   char resp[4096];
-  size_t len = sizeof(resp) -1;
+  size_t len = sizeof(resp) - 1;
   if (conn != NULL) {
     LOG_TRACE("sending cmd {}", cmd);
     if (wpa_ctrl_request(conn, cmd.c_str(), cmd.length(), resp, &len, NULL) == 0) {
       return std::string(resp, len);
     }
     LOG_TRACE("failed to send cmd {} to wpa supplicant", cmd);
+    wpa_ctrl_close(conn);
+    conn = NULL;
+  }
+
+  // The configured Wi-Fi restart can replace supplicant's Unix socket. Open
+  // the current socket path and retry once instead of requiring a UI restart.
+  const std::string wpa_socket = find_wpa_socket();
+  conn = wpa_ctrl_open(wpa_socket.c_str());
+  if (conn != NULL) {
+    len = sizeof(resp) - 1;
+    LOG_TRACE("retrying cmd {} on a new wpa control connection", cmd);
+    if (wpa_ctrl_request(conn, cmd.c_str(), cmd.length(), resp, &len, NULL) == 0) {
+      return std::string(resp, len);
+    }
+    LOG_TRACE("failed to retry cmd {} to wpa supplicant", cmd);
+    wpa_ctrl_close(conn);
+    conn = NULL;
   }
 
   return "";
