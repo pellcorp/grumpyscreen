@@ -24,6 +24,13 @@ static constexpr uint32_t DEFERRED_COMMAND_DELAY_MS = 500;
 // The factory reset dialog is deliberately left up longer before we block.
 static constexpr uint32_t FACTORY_RESET_DELAY_MS = 5000;
 
+static WifiPanelOptions embedded_wifi_options(lv_obj_t *parent) {
+  WifiPanelOptions opts;
+  opts.parent = parent;
+  opts.flush = true;
+  return opts;
+}
+
 static int call_command(const std::string &cmd) {
     try {
         return sp::call(cmd);
@@ -91,12 +98,14 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
   , service_tab(lv_tabview_add_tab(tabview, "Machine"))
   , danger_tab(lv_tabview_add_tab(tabview, "Danger"))
+  , wifi_tab(lv_tabview_add_tab(tabview, "Wi-Fi"))
   , info_tab(lv_tabview_add_tab(tabview, "Info"))
   , service_cont(Theme::create_screen(service_tab))
   , danger_cont(Theme::create_screen(danger_tab))
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
+  , wifi_panel(l, embedded_wifi_options(wifi_tab))
   , sysinfo_panel(info_tab)
   , restart_klipper_btn(service_cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
         "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
@@ -122,6 +131,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
                       LV_EVENT_VALUE_CHANGED, this);
   lv_obj_set_style_pad_all(service_tab, 0, 0);
   lv_obj_set_style_pad_all(danger_tab, 0, 0);
+  lv_obj_set_style_pad_all(wifi_tab, 0, 0);
   lv_obj_set_style_pad_all(info_tab, 0, 0);
   Theme::style_embedded_tabview(tabview);
 
@@ -174,7 +184,10 @@ void SettingPanel::_tabview_event_cb(lv_event_t *event) {
 }
 
 void SettingPanel::refresh_active_tab() {
-  if (lv_tabview_get_tab_act(tabview) == lv_obj_get_index(info_tab)) {
+  const uint16_t idx = lv_tabview_get_tab_act(tabview);
+  if (idx == lv_obj_get_index(wifi_tab)) {
+    wifi_panel.foreground();
+  } else if (idx == lv_obj_get_index(info_tab)) {
     sysinfo_panel.foreground();
   }
 }
