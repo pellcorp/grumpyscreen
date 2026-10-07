@@ -4,6 +4,7 @@
 #include "platform.h"
 #include "button_container.h"
 #include "sysinfo_panel.h"
+#include "wifi_panel.h"
 #include "websocket_client.h"
 #ifdef COSMOS
 #include "update_manager_client.h"
@@ -37,6 +38,7 @@ class SettingPanel {
   lv_obj_t *tabview;
   lv_obj_t *service_tab;
   lv_obj_t *danger_tab;
+  lv_obj_t *wifi_tab;
   lv_obj_t *info_tab;
   lv_obj_t *service_cont;
   lv_obj_t *danger_cont;
@@ -44,6 +46,7 @@ class SettingPanel {
   UpdateManagerClient update_manager;
 #endif
 
+  WifiPanel wifi_panel;
   SysInfoPanel sysinfo_panel;
 
   ButtonContainer restart_klipper_btn;
