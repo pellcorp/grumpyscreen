@@ -191,6 +191,7 @@ void UpdateManagerClient::open_console() {
   lv_obj_set_width(title, LV_PCT(100));
   lv_obj_set_style_bg_color(title, Theme::theme_primary(), 0);
   lv_obj_set_style_bg_opa(title, LV_OPA_COVER, 0);
+  lv_obj_set_style_radius(title, Theme::radius_lg(), 0);
   lv_obj_set_style_pad_ver(title, Theme::gap(), 0);
   lv_obj_set_style_pad_hor(title, Theme::popout_pad(), 0);
   lv_obj_set_style_text_font(title, Theme::scale_font(18), 0);
