@@ -3,8 +3,9 @@
 
 It answers the calls the init panel makes with an idle printer (extruder, bed,
 toolhead, print_stats and friends), so the panels come up, and implements
-machine.update.client the way Moonraker's update_manager does for the COSMOS
-updater, which is the part that otherwise needs a COSMOS printer to try.
+machine.update.refresh, machine.update.status and machine.update.client the
+way Moonraker's update_manager does for the COSMOS updater, which is the part
+that otherwise needs a COSMOS printer to try.
 
 Usage:
 
@@ -16,18 +17,21 @@ Then point the screen at it in grumpyscreen.cfg:
     host: 127.0.0.1
     port: 7125
 
-    --update none     nothing newer to install: the request is answered "ok"
-                      and no progress is sent (Moonraker's behaviour when the
-                      updater reports no update available)
-    --update ok       progress messages, a final message marked complete, then
-                      "ok", like a real COSMOS update up to the reboot
-    --update fail     progress, then "Error updating cosmos: ..." marked
-                      complete, then a JSON-RPC error, as Moonraker does when
-                      an update raises
-    --update refuse   a JSON-RPC error straight away and no progress, as when
-                      Klipper is printing
+    --update none     the status says COSMOS is up to date; an update request
+                      anyway is answered "ok" with no progress, as Moonraker
+                      does when there is nothing to install
+    --update ok       an update is available; installing it sends progress
+                      messages, a final message marked complete, then "ok",
+                      like a real COSMOS update up to the reboot
+    --update fail     an update is available; installing it sends progress,
+                      then "Error updating cosmos: ..." marked complete, then
+                      a JSON-RPC error, as Moonraker does when an update raises
+    --update refuse   as when Klipper is printing: the refresh is refused (the
+                      cached status still offers an update) and the update
+                      request gets a JSON-RPC error straight away
     --update none,ok  a comma separated list is used in turn, one mode per
-                      update request, so every case can be tried in one run
+                      press (each refresh starts the next), so every case can
+                      be tried in one run
     --port N          listen on another port (default 7125)
 
 Everything is standard library: a small RFC 6455 server, one thread per
@@ -95,15 +99,36 @@ PROGRESS = ["SWUpdate cosmos: Updating...",
 
 
 class Modes:
-    """The update modes to answer with, in turn, shared by every client."""
+    """The update modes to answer with, in turn, shared by every client.
+
+    A press of the Update button starts with a refresh, which moves on to the
+    next mode; the status and update requests of that press use the same one.
+    """
     def __init__(self, modes):
         self.modes, self.i, self.lock = modes, 0, threading.Lock()
+        self.current = modes[0]
 
     def next(self):
         with self.lock:
-            mode = self.modes[self.i % len(self.modes)]
+            self.current = self.modes[self.i % len(self.modes)]
             self.i += 1
-            return mode
+            return self.current
+
+
+def version_info(mode):
+    """update_manager's status for the COSMOS updater (a release channel)."""
+    remote = "26.09.0" if mode == "none" else "26.10.0"
+    return {APP: {"name": APP, "configured_type": "web", "version": "26.09.0",
+                  "remote_version": remote, "rollback_version": "?",
+                  "last_error": "", "warnings": [], "anomalies": [],
+                  "is_valid": True, "channel": "stable",
+                  "info_tags": [], "debug_enabled": False}}
+
+
+# Moonraker sends notify_update_response to every connected client, so an
+# update started elsewhere (Fluidd, Mainsail) shows up on the screen as well.
+CLIENTS = set()
+CLIENTS_LOCK = threading.Lock()
 
 
 class Client:
@@ -204,18 +229,23 @@ class Client:
                                                "message": message}, "id": rid})
 
     def notify_update(self, message, complete=False):
+        """Send to every client; False once the requesting client has gone."""
         print(f"  -> notify_update_response {message!r} complete={complete}")
-        return self.send({"jsonrpc": "2.0", "method": "notify_update_response",
-                   "params": [{"message": message, "application": APP,
-                               "proc_id": self.proc_id,
-                               "complete": complete}]})
+        note = {"jsonrpc": "2.0", "method": "notify_update_response",
+                "params": [{"message": message, "application": APP,
+                            "proc_id": self.proc_id, "complete": complete}]}
+        with CLIENTS_LOCK:
+            others = [c for c in CLIENTS if c is not self]
+        for c in others:
+            c.send(note)
+        return self.send(note)
 
     def update(self, rid, params):
         name = params.get("name")
         if name != APP:
             self.error(rid, 404, f"Updater {name} not available")
             return
-        mode = self.modes.next()
+        mode = self.modes.current
         print(f"  update mode: {mode}")
         self.proc_id += 1
         if mode == "refuse":
@@ -262,6 +292,16 @@ class Client:
         elif method in ("printer.gcode.script", "printer.emergency_stop",
                         "printer.firmware_restart"):
             self.reply(rid, "ok")
+        elif method == "machine.update.refresh":
+            mode = self.modes.next()
+            print(f"  update mode: {mode}")
+            if mode == "refuse":
+                self.error(rid, 503, "Server is busy, cannot perform refresh")
+            else:
+                self.reply(rid, {"busy": False, "version_info": version_info(mode)})
+        elif method == "machine.update.status":
+            self.reply(rid, {"busy": False,
+                             "version_info": version_info(self.modes.current)})
         elif method == "machine.update.client":
             # off the reader thread, the way Moonraker answers only once the
             # update request is over
@@ -275,6 +315,8 @@ class Client:
             if not self.handshake():
                 return
             print(f"{self.addr[0]} connected")
+            with CLIENTS_LOCK:
+                CLIENTS.add(self)
             while True:
                 opcode, message = self.recv_message()
                 if opcode != 0x1:
@@ -288,6 +330,8 @@ class Client:
             pass
         finally:
             print(f"{self.addr[0]} disconnected")
+            with CLIENTS_LOCK:
+                CLIENTS.discard(self)
             with self.send_lock:
                 self.closed = True
                 self.conn.close()
