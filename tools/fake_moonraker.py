@@ -110,6 +110,7 @@ class Client:
     def __init__(self, conn, addr, modes):
         self.conn, self.addr, self.modes = conn, addr, modes
         self.send_lock = threading.Lock()
+        self.closed = False
         self.proc_id = 0
 
     # --- websocket framing ---------------------------------------------
@@ -184,7 +185,15 @@ class Client:
             self.conn.sendall(header + payload)
 
     def send(self, obj):
-        self.send_frame(0x1, json.dumps(obj).encode())
+        """Send a message; False once the client has gone."""
+        if self.closed:
+            return False
+        try:
+            self.send_frame(0x1, json.dumps(obj).encode())
+            return True
+        except OSError:
+            self.closed = True
+            return False
 
     # --- json-rpc ------------------------------------------------------
     def reply(self, rid, result):
@@ -196,7 +205,7 @@ class Client:
 
     def notify_update(self, message, complete=False):
         print(f"  -> notify_update_response {message!r} complete={complete}")
-        self.send({"jsonrpc": "2.0", "method": "notify_update_response",
+        return self.send({"jsonrpc": "2.0", "method": "notify_update_response",
                    "params": [{"message": message, "application": APP,
                                "proc_id": self.proc_id,
                                "complete": complete}]})
@@ -215,13 +224,15 @@ class Client:
             self.reply(rid, "ok")
         elif mode == "ok":
             for msg in PROGRESS:
-                self.notify_update(msg)
+                if not self.notify_update(msg):
+                    return
                 time.sleep(1.5)
             self.notify_update("SWUpdate cosmos: Update Finished...", True)
             self.reply(rid, "ok")
         elif mode == "fail":
             for msg in PROGRESS[:2]:
-                self.notify_update(msg)
+                if not self.notify_update(msg):
+                    return
                 time.sleep(1.5)
             err = "SWUpdate cosmos: Release asset 'cosmos-centauri-carbon-1.swu' not found"
             self.notify_update(f"Error updating {APP}: {err}", True)
@@ -277,7 +288,9 @@ class Client:
             pass
         finally:
             print(f"{self.addr[0]} disconnected")
-            self.conn.close()
+            with self.send_lock:
+                self.closed = True
+                self.conn.close()
 
 
 def main():
