@@ -110,13 +110,6 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   ws.register_notify_update(State::get_instance());
 
   GuppyScreen *gs = GuppyScreen::get();
-  // start initializing all guppy components
-  std::string ws_url = fmt::format("ws://{}:{}/websocket",
-                                   conf->get<std::string>("/moonraker/host"),
-                                   conf->get<uint32_t>("/moonraker/port"));
-
-  LOG_INFO("connecting to printer at {}", ws_url);
-  gs->connect_ws(ws_url);
 
   screen_saver = lv_obj_create(lv_scr_act());
 
@@ -144,6 +137,18 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
     LOG_INFO("loaded calibration coefficients");
   }
 #endif
+
+  // Connect last. The websocket callbacks build the panels from the network
+  // thread under lv_lock, but nothing above takes that lock, so connecting
+  // any earlier lets a quick Moonraker reply race this function's own LVGL
+  // calls and corrupt LVGL's event list.
+  std::string ws_url = fmt::format("ws://{}:{}/websocket",
+                                   conf->get<std::string>("/moonraker/host"),
+                                   conf->get<uint32_t>("/moonraker/port"));
+
+  LOG_INFO("connecting to printer at {}", ws_url);
+  gs->connect_ws(ws_url);
+
   return gs;
 }
 
