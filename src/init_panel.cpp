@@ -28,9 +28,13 @@ InitPanel::InitPanel(MainPanel &mp, std::mutex& l)
   lv_obj_set_width(label, LV_PCT(100));
   lv_label_set_text(label, LV_SYMBOL_WARNING " Waiting for Klipper to start...");
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+
+  main_panel.add_tab_change_cb(&InitPanel::_tabview_event_cb, this);
+  update_visibility();
 }
 
 InitPanel::~InitPanel() {
+  main_panel.remove_tab_change_cb(&InitPanel::_tabview_event_cb, this);
   if (cont != NULL) {
     lv_obj_del(cont);
     cont = NULL;
@@ -118,8 +122,8 @@ void InitPanel::connected(KWebSocketClient &ws) {
           this->main_panel.init(data);
           LOG_DEBUG("done init");
           std::lock_guard<std::mutex> lock(this->lv_lock);
-          lv_obj_add_flag(this->cont, LV_OBJ_FLAG_HIDDEN);
-          lv_obj_move_background(this->cont);
+          this->waiting = false;
+          this->update_visibility();
         });
       });
     }
@@ -130,10 +134,25 @@ void InitPanel::disconnected(KWebSocketClient &ws) {
   LOG_DEBUG("init panel disconnected");
   std::lock_guard<std::mutex> lock(lv_lock);
   set_message(LV_SYMBOL_WARNING " Waiting for Klipper to start...");
-  lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_move_foreground(cont);
+  waiting = true;
+  update_visibility();
 }
 
 void InitPanel::set_message(const char *message) {
 	lv_label_set_text(label, message);
+}
+
+void InitPanel::update_visibility() {
+  if (waiting && main_panel.home_active()) {
+    lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(cont);
+  } else {
+    lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_background(cont);
+  }
+}
+
+void InitPanel::_tabview_event_cb(lv_event_t *event) {
+  if (lv_event_get_code(event) != LV_EVENT_VALUE_CHANGED) return;
+  static_cast<InitPanel *>(lv_event_get_user_data(event))->update_visibility();
 }

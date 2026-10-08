@@ -79,6 +79,18 @@ void MainPanel::subscribe() {
   print_panel.subscribe();
 }
 
+bool MainPanel::home_active() const {
+  return lv_tabview_get_tab_act(tabview) == lv_obj_get_index(main_tab);
+}
+
+void MainPanel::add_tab_change_cb(lv_event_cb_t cb, void *user_data) {
+  lv_obj_add_event_cb(tabview, cb, LV_EVENT_VALUE_CHANGED, user_data);
+}
+
+void MainPanel::remove_tab_change_cb(lv_event_cb_t cb, void *user_data) {
+  lv_obj_remove_event_cb_with_user_data(tabview, cb, user_data);
+}
+
 void MainPanel::init(json &j) {
   std::lock_guard<std::mutex> lock(lv_lock);
   for (const auto &el : sensors) {
