@@ -24,6 +24,7 @@ class PrintPanel : public NotifyConsumer {
   void handle_print_callback(lv_event_t *event);
   void handle_status_btn(lv_event_t *event);
   void handle_file_list_change(json &d);
+  void delete_file(uint32_t btn_idx);
 
   static void _handle_callback(lv_event_t *event) {
     PrintPanel *panel = (PrintPanel*)event->user_data;
@@ -43,6 +44,10 @@ class PrintPanel : public NotifyConsumer {
   static void _handle_status_btn(lv_event_t *event) {
     PrintPanel *panel = (PrintPanel*)event->user_data;
     panel->handle_status_btn(event);
+  };
+
+  static void _delete_file(lv_obj_t *, uint32_t btn_idx, void *user_data) {
+    static_cast<PrintPanel *>(user_data)->delete_file(btn_idx);
   };
 
  private:
@@ -67,6 +72,8 @@ class PrintPanel : public NotifyConsumer {
   bool refreshing_files;
   bool refresh_pending;
   bool visible;
+  bool suppress_next_table_selection = false;
+  std::string pending_delete_path;
 };
 
 #endif // __PRINT_PANEL_H__

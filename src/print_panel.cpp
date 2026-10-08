@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "logger.h"
 #include "icons.h"
+#include "simple_dialog.h"
 #include "theme.h"
 
 using namespace Theme;
@@ -200,7 +201,12 @@ void PrintPanel::foreground() {
 void PrintPanel::handle_callback(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
 
-  if(code == LV_EVENT_VALUE_CHANGED) {
+  if (code == LV_EVENT_PRESSED) {
+    suppress_next_table_selection = false;
+    return;
+  }
+
+  if (code == LV_EVENT_VALUE_CHANGED || code == LV_EVENT_LONG_PRESSED) {
     const char * str_fn = NULL;
     uint16_t row;
     uint16_t col;
@@ -212,8 +218,36 @@ void PrintPanel::handle_callback(lv_event_t *e) {
     }
 
     str_fn = lv_table_get_cell_value(file_table, row, col);
-    
+
     const char *filename = str_fn+5; // +5 skips the LV_SYMBOL and spaces
+    if (code == LV_EVENT_LONG_PRESSED) {
+      suppress_next_table_selection = true;
+      if (std::memcmp(LV_SYMBOL_FILE, str_fn, 3) != 0) {
+        return;
+      }
+
+      Tree *file = cur_dir->get_child(filename);
+      if (file == NULL || !file->is_leaf()) {
+        return;
+      }
+
+      pending_delete_path = file->full_path;
+      static const char *btns[] = {"OK", "Cancel", ""};
+      SimpleDialogOptions opts;
+      opts.buttons = btns;
+      opts.highlighted_button_idx = 0;
+      opts.result_cb = _delete_file;
+      opts.user_data = this;
+      create_configurable_dialog(lv_layer_top(), "Delete file",
+          fmt::format("Delete {}?", filename).c_str(), opts);
+      return;
+    }
+
+    if (suppress_next_table_selection) {
+      suppress_next_table_selection = false;
+      return;
+    }
+
     if (std::memcmp(LV_SYMBOL_DIRECTORY, str_fn, 3) == 0) {
       if ((strcmp(filename, "..") == 0)) {
         if (cur_dir->parent != cur_dir) {
@@ -234,6 +268,32 @@ void PrintPanel::handle_callback(lv_event_t *e) {
       }
     }
   }
+}
+
+void PrintPanel::delete_file(uint32_t btn_idx) {
+  if (btn_idx != 0 || pending_delete_path.empty()) {
+    pending_delete_path.clear();
+    return;
+  }
+
+  const std::string path = pending_delete_path;
+  pending_delete_path.clear();
+  LOG_INFO("Deleting gcode file {}", path);
+
+  ws.send_jsonrpc("server.files.delete_file", {{"path", "gcodes/" + path}},
+      [this, path](json &d) {
+        std::lock_guard<std::mutex> lock(lv_lock);
+        if (d.contains("error")) {
+          const std::string msg = d.value("/error/message"_json_pointer,
+              std::string("Moonraker could not delete the file"));
+          LOG_ERROR("Failed to delete gcode file {}: {}", path, msg);
+          create_simple_dialog(lv_layer_top(), "Delete file failed", msg.c_str(), true, true);
+          return;
+        }
+
+        // Use the same spinner-backed refresh path as entering the panel.
+        subscribe();
+      });
 }
 
 void PrintPanel::show_dir(Tree *dir, uint32_t sort_type) {
