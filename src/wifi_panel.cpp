@@ -11,7 +11,6 @@
 
 #include <sstream>
 #include <iostream>
-#include <vector>
 #include <utility>
 #include <algorithm>
 #include <cstring>
@@ -301,6 +300,7 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       if (selecting_new_network) {
         restart_wifi_after_connect = true;
         restart_wifi_from_network = cur_network;
+        set_network_status(restart_wifi_from_network, "", LV_SYMBOL_WIFI);
       }
       auto nid = list_networks.find(selected_network)->second;
       connection_in_progress = true;
@@ -308,6 +308,9 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       const auto response = wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid));
       if (response.rfind("OK", 0) != 0) {
         connection_in_progress = false;
+        if (!restart_wifi_from_network.empty()) {
+          update_connection_status_label(restart_wifi_from_network);
+        }
         restart_wifi_after_connect = false;
         restart_wifi_from_network.clear();
         set_network_status(selected_network, "Could not connect", LV_SYMBOL_WIFI);
@@ -338,7 +341,10 @@ void WifiPanel::handle_callback(lv_event_t *e) {
 
 void WifiPanel::handle_wpa_event(const std::string &event) {
   if (event.rfind("<3>CTRL-EVENT-SCAN-RESULTS", 0) == 0) {
-    if (entering_password) {
+    // Keep the table stable for the full visible connection lifecycle. WPA
+    // can report CONNECTED (and trigger another scan after a Wi-Fi restart)
+    // before DHCP assigns an address, while the row still shows its spinner.
+    if (entering_password || connection_in_progress || waiting_for_ip) {
       return;
     }
     LOG_TRACE("got scan result event");
@@ -409,40 +415,11 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       if (restart_wifi_after_connect && cur_network == selected_network) {
         restart_wifi();
       }
-      std::vector<std::pair<std::string, int>> pairs;
-      for (auto it = wifi_name_db.begin(); it != wifi_name_db.end(); ++it) {
-	      pairs.push_back(*it);
-      }
-
-      std::sort(pairs.begin(), pairs.end(), [=](std::pair<std::string, int>& a,
-						std::pair<std::string, int>& b) {
-	      return a.second > b.second;
-      });
 
       std::lock_guard<std::mutex> lock(lv_lock);
-
       update_ethernet_status();
-      uint32_t index = first_wifi_row(has_ethernet);
-      for (const auto &wifi : pairs) {
-        lv_table_set_cell_value(wifi_table, index, 0, wifi.first.c_str());
-        lv_table_set_cell_value(wifi_table, index, STATUS_COL, "");
-        lv_table_set_cell_value(wifi_table, index, ICON_COL, LV_SYMBOL_WIFI);
-        index++;
-      }
-      if (index == 0) {
-        lv_table_set_cell_value(wifi_table, 0, 0, "No networks found");
-        lv_table_set_cell_value(wifi_table, 0, STATUS_COL, "");
-        lv_table_set_cell_value(wifi_table, 0, ICON_COL, "");
-        index = 1;
-      }
-      lv_table_set_row_cnt(wifi_table, index);
       update_connection_status_label(cur_network);
       start_ip_poll();
-
-      lv_obj_scroll_to_y(wifi_table, 0, LV_ANIM_OFF);
-      lv_obj_clear_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
-      Theme::refresh_scroll(wifi_table);
-      lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
     } else {
       stop_ip_poll();
       std::lock_guard<std::mutex> lock(lv_lock);
@@ -689,6 +666,7 @@ void WifiPanel::cancel_password_dialog() {
   restart_wifi_after_connect = false;
   restart_wifi_from_network.clear();
   connection_in_progress = false;
+  set_network_status(selected_network, "", LV_SYMBOL_WIFI);
   hide_password_dialog();
   if (find_current_network()) {
     update_connection_status_label(cur_network);
@@ -760,6 +738,9 @@ void WifiPanel::submit_password() {
   connection_in_progress = true;
   lv_label_set_text(credential_status, "Connecting...");
   lv_obj_set_style_text_color(credential_status, Theme::col(Theme::TEXT_DIM), 0);
+  if (!restart_wifi_from_network.empty()) {
+    set_network_status(restart_wifi_from_network, "", LV_SYMBOL_WIFI);
+  }
   show_connecting_status(selected_network);
   lv_obj_add_state(password_input, LV_STATE_DISABLED);
   lv_obj_add_state(kb, LV_STATE_DISABLED);
