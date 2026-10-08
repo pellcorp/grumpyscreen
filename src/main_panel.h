@@ -38,6 +38,9 @@ class MainPanel : public NotifyConsumer {
   void enable_mmu();
   void disable_mmu();
   MmuPanel *mmu() { return mmu_panel; }
+  bool home_active() const;
+  void add_tab_change_cb(lv_event_cb_t cb, void *user_data);
+  void remove_tab_change_cb(lv_event_cb_t cb, void *user_data);
   
   void create_panel();
   void create_sensors(json &temp_sensors);
