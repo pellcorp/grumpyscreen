@@ -79,8 +79,7 @@ static void layout_tiles(lv_obj_t *cont, const std::vector<ButtonContainer *> &t
   static lv_coord_t grid_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
       LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_row_dsc[] = {LV_GRID_CONTENT, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
-  if (tiles.size() <= cols) grid_row_dsc[1] = LV_GRID_TEMPLATE_LAST;
-  else grid_row_dsc[1] = LV_GRID_CONTENT;
+  grid_row_dsc[1] = tiles.size() > cols ? LV_GRID_CONTENT : LV_GRID_TEMPLATE_LAST;
   lv_obj_set_grid_dsc_array(cont, grid_col_dsc, grid_row_dsc);
 
   for (size_t i = 0; i < tiles.size(); i++) {
@@ -91,75 +90,105 @@ static void layout_tiles(lv_obj_t *cont, const std::vector<ButtonContainer *> &t
   }
 }
 
+static lv_obj_t *add_about_line(lv_obj_t *parent, const std::string &text, bool title = false) {
+  lv_obj_t *label = lv_label_create(parent);
+  lv_label_set_text(label, text.c_str());
+  lv_obj_set_width(label, LV_PCT(100));
+  lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+  lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
+  if (title) lv_obj_add_style(label, &Theme::styles().dim_label, 0);
+  return label;
+}
+
 SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   : ws(c)
   , owns_cont(parent == nullptr)
   , cont(Theme::create_screen(parent))  // fills the tab: it is the page
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
-  , service_tab(lv_tabview_add_tab(tabview, "Machine"))
-  , danger_tab(lv_tabview_add_tab(tabview, "Danger"))
+  , actions_tab(lv_tabview_add_tab(tabview, "Tools"))
   , wifi_tab(lv_tabview_add_tab(tabview, "Network"))
-  , info_tab(lv_tabview_add_tab(tabview, "Info"))
-  , service_cont(Theme::create_screen(service_tab))
-  , danger_cont(Theme::create_screen(danger_tab))
+  , about_tab(lv_tabview_add_tab(tabview, "About"))
+  , actions_cont(Theme::create_screen(actions_tab))
+  , about_cont(Theme::create_screen(about_tab))
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
   , wifi_panel(l, embedded_wifi_options(wifi_tab))
-  , sysinfo_panel(info_tab)
-  , restart_klipper_btn(service_cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
+  , restart_klipper_btn(actions_cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
         "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
-  , restart_firmware_btn(service_cont, Icons::REFRESH_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
+  , restart_firmware_btn(actions_cont, Icons::REFRESH_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
         "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
-  , guppy_restart_btn(service_cont, Icons::REFRESH_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
-  , support_zip_btn(service_cont, Icons::SD_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
-  , switch_to_stock_btn(danger_cont, Icons::EMERGENCY, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+  , guppy_restart_btn(actions_cont, Icons::REFRESH_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
+  , support_zip_btn(actions_cont, Icons::SD_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
+  , switch_to_stock_btn(actions_cont, Icons::EMERGENCY, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
           SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"})
-  , factory_reset_btn(danger_cont, Icons::EMERGENCY, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+  , factory_reset_btn(actions_cont, Icons::EMERGENCY, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
 		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"})
 #ifdef COSMOS
   // no prompt of its own: the update manager client checks for an update
   // first and asks only when there is one to install
-  , update_btn(danger_cont, Icons::EMERGENCY, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this)
+  , update_btn(actions_cont, Icons::EMERGENCY, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this)
 #endif
-  , shutdown_host_btn(danger_cont, Icons::EMERGENCY, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
+  , shutdown_host_btn(actions_cont, Icons::EMERGENCY, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
 {
   lv_obj_set_style_pad_all(cont, 0, 0);
   lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
   lv_obj_add_event_cb(tabview, &SettingPanel::_tabview_event_cb,
                       LV_EVENT_VALUE_CHANGED, this);
-  lv_obj_set_style_pad_all(service_tab, 0, 0);
-  lv_obj_set_style_pad_all(danger_tab, 0, 0);
+  lv_obj_set_style_pad_all(actions_tab, 0, 0);
   lv_obj_set_style_pad_all(wifi_tab, 0, 0);
-  lv_obj_set_style_pad_all(info_tab, 0, 0);
+  lv_obj_set_style_pad_all(about_tab, 0, 0);
   Theme::style_embedded_tabview(tabview);
 
-  // Optional tiles only appear with a command behind them; each tab grid is
-  // built from what is left, four across, so a hidden tile never leaves a hole.
   Config *conf = Config::get_instance();
+  lv_obj_t *about_panel = lv_obj_create(about_cont);
+  lv_obj_clear_flag(about_panel, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_add_style(about_panel, &Theme::styles().panel, 0);
+  lv_obj_set_size(about_panel, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_flex_flow(about_panel, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(about_panel, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_START);
+  lv_obj_set_style_pad_row(about_panel, Theme::gap() * 2, 0);
+#ifdef COSMOS
+  add_about_line(about_panel, "Cosmos", true);
+#else
+  add_about_line(about_panel, "Grumpyscreen", true);
+#endif
+  add_about_line(about_panel, std::string("Branch: ") + GUPPYSCREEN_BRANCH);
+  add_about_line(about_panel, std::string("Version: ") + GUPPYSCREEN_VERSION);
+
+  lv_obj_t *settings_title = add_about_line(about_panel, "Settings", true);
+  lv_obj_set_style_pad_top(settings_title, Theme::gap(), 0);
+  const int32_t sleep_sec = conf->get<int32_t>("/ui/display_sleep_sec");
+  add_about_line(about_panel, "Display Sleep: " +
+      (sleep_sec == -1 ? std::string("Never") : std::to_string(sleep_sec) + " seconds"));
+  add_about_line(about_panel, std::string("Emergency Stop: ") +
+      (conf->get<bool>("/ui/prompt_emergency_stop") ? "Prompt" : "No Prompt"));
+
+  // Optional tiles only appear with a command behind them; the grid is built
+  // from what is left, four across, so a hidden tile never leaves a hole.
   auto has_cmd = [conf](const char *key) { return conf->get<std::string>(key) != ""; };
-  std::vector<ButtonContainer *> service_tiles = {&restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn};
-  std::vector<ButtonContainer *> danger_tiles;
+  std::vector<ButtonContainer *> action_tiles = {
+      &restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn};
   struct Optional { ButtonContainer *tile; const char *cmd; };
   for (const Optional &o : {Optional{&support_zip_btn, "/commands/support_zip_cmd"}}) {
-    if (has_cmd(o.cmd)) service_tiles.push_back(o.tile); else o.tile->hide();
+    if (has_cmd(o.cmd)) action_tiles.push_back(o.tile); else o.tile->hide();
   }
   for (const Optional &o : {Optional{&switch_to_stock_btn, "/commands/switch_to_stock_cmd"},
                             Optional{&factory_reset_btn, "/commands/factory_reset_cmd"}
                             }) {
-    if (has_cmd(o.cmd)) danger_tiles.push_back(o.tile); else o.tile->hide();
+    if (has_cmd(o.cmd)) action_tiles.push_back(o.tile); else o.tile->hide();
   }
 #ifdef COSMOS
-  danger_tiles.push_back(&update_btn);
+  action_tiles.push_back(&update_btn);
 #endif
 
   for (const Optional &o : {Optional{&shutdown_host_btn, "/commands/shutdown_host_cmd"}}) {
-    if (has_cmd(o.cmd)) danger_tiles.push_back(o.tile); else o.tile->hide();
+    if (has_cmd(o.cmd)) action_tiles.push_back(o.tile); else o.tile->hide();
   }
 
-  layout_tiles(service_cont, service_tiles);
-  layout_tiles(danger_cont, danger_tiles);
+  layout_tiles(actions_cont, action_tiles);
 }
 
 SettingPanel::~SettingPanel() {
