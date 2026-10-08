@@ -190,6 +190,10 @@ void ButtonContainer::set_label(const char *text) {
   lv_label_set_text(label, text);
 }
 
+void ButtonContainer::set_prompt_condition(std::function<bool()> condition) {
+  prompt_condition = std::move(condition);
+}
+
 void ButtonContainer::set_image(const void *img) {
   lv_img_set_src(btn, img);
 }
@@ -200,7 +204,8 @@ void ButtonContainer::handle_callback(lv_event_t *e) {
     lv_obj_add_state(btn, LV_STATE_PRESSED);
   } else if (code == LV_EVENT_RELEASED) {
     lv_obj_clear_state(btn, LV_STATE_PRESSED);
-  } else if (code == LV_EVENT_CLICKED && !dispatch_confirmed_click) {
+  } else if (code == LV_EVENT_CLICKED && !dispatch_confirmed_click &&
+             (!prompt_condition || prompt_condition())) {
     lv_event_stop_processing(e);
     handle_prompt();
   }

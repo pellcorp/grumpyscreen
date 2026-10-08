@@ -32,7 +32,7 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , cancel_btn(buttons_cont, Icons::CANCEL, "Cancel", &PrintStatusPanel::_handle_callback, this,
 	       "Cancel Print", "Do you want to cancel the print?", {"Back", "Cancel Print"})
   , emergency_btn(buttons_cont, Icons::EMERGENCY, "Stop", &PrintStatusPanel::_handle_callback, this,
-		  "Emergency Stop", Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
+		  "Emergency Stop", "Do you want to emergency stop?",
                   {"Back", "Emergency Stop"})
   , back_btn(buttons_cont, Icons::BACK, "Back", &PrintStatusPanel::_handle_callback, this)
   , thumbnail_cont(lv_obj_create(status_cont))
@@ -58,6 +58,9 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , heater_bed_target(-1)
   , chamber_sensor_key_(Config::get_instance()->get<std::string>("/ui/chamber_temp_sensor"))
 {
+  emergency_btn.set_prompt_condition([] {
+    return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
+  });
   // a full-screen overlay paints its own background; a plain
   // container is transparent scaffolding
   lv_obj_add_style(status_cont, &styles().screen, 0);

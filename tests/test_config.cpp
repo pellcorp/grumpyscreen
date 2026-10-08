@@ -31,6 +31,8 @@ sleep_sec: 600
 [ui]
 numeric_true: 1
 numeric_false: 0
+prompt_emergency_stop: true
+display_sleep_sec: 600
 extruder_temp_presets: 190, 220, 245
 extruder_temp_default: 245
 extruder_length_presets: 5, 25
@@ -101,7 +103,9 @@ value: ignored
 
     Config* conf = Config::get_instance();
     assert(conf->load(path) && "load should succeed");
+    assert(!conf->has_override_path());
     assert(conf->load_override(override_path) && "override load should succeed");
+    assert(conf->has_override_path());
 
     // scalars
     assert(conf->get<std::string>("/logging/level") == "info");
@@ -123,6 +127,37 @@ value: ignored
     assert(conf->get<std::string>("/moonraker/missing_key", "default") == "default");
     assert(conf->get<std::string>("/ui/new_setting", "default") == "default");
     assert(conf->get<std::string>("/mmu/materials") == "PLA, PETG, ABS, ASA, TPU, PC, PA-CF, PETG-CF");
+
+    // The two writable UI values update both the live config and only their
+    // targeted lines in the override file. Existing comments and formatting
+    // must survive.
+    const std::string writable_override =
+        "# user heading\n"
+        "[ui]\n"
+        "prompt_emergency_stop = true   # keep this comment\n"
+        "; another comment\n"
+        "\n"
+        "[moonraker]\n"
+        "host: moonraker.local\n";
+    auto writable_override_path = write_tmp_ini("build/test_config_writable_override.ini", writable_override);
+    conf->set_override_path(writable_override_path);
+    assert(conf->set_prompt_emergency_stop(false));
+    assert(conf->set_display_sleep_sec(1800));
+    assert(!conf->get<bool>("/ui/prompt_emergency_stop"));
+    assert(conf->get<int32_t>("/ui/display_sleep_sec") == 1800);
+
+    std::ifstream patched_input(writable_override_path);
+    const std::string patched((std::istreambuf_iterator<char>(patched_input)),
+                              std::istreambuf_iterator<char>());
+    assert(patched ==
+        "# user heading\n"
+        "[ui]\n"
+        "prompt_emergency_stop = false   # keep this comment\n"
+        "; another comment\n"
+        "\n"
+        "display_sleep_sec: 1800\n"
+        "[moonraker]\n"
+        "host: moonraker.local\n");
 
     // objects
     auto leds = conf->get_objects("/led");
@@ -182,6 +217,7 @@ value: ignored
 
     std::remove("build/test_config.ini");
     std::remove("build/test_config_override.ini");
+    std::remove("build/test_config_writable_override.ini");
     std::cout << "All config and MMU tests passed successfully!\n";
 
     return 0;

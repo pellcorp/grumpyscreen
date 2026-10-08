@@ -4,6 +4,7 @@
 #include "lvgl/lvgl.h"
 
 #include <array>
+#include <functional>
 #include <string>
 class ButtonContainer {
  public:
@@ -47,6 +48,7 @@ class ButtonContainer {
 
   void set_image(const void *img);
   void set_label(const char *text);
+  void set_prompt_condition(std::function<bool()> condition);
 
   void handle_callback(lv_event_t *event);
   void handle_prompt();
@@ -66,6 +68,7 @@ class ButtonContainer {
   std::array<std::string, 2> prompt_buttons;
   std::array<const char *, 3> prompt_button_map;
   bool dispatch_confirmed_click = false;
+  std::function<bool()> prompt_condition;
   lv_timer_t *pressed_transition_timer = nullptr;
 
   void stack();

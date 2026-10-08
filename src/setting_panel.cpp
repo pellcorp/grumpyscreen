@@ -24,6 +24,16 @@ static constexpr uint32_t DEFERRED_COMMAND_DELAY_MS = 500;
 // The factory reset dialog is deliberately left up longer before we block.
 static constexpr uint32_t FACTORY_RESET_DELAY_MS = 5000;
 
+static constexpr int32_t DISPLAY_SLEEP_VALUES[] = {-1, 60, 300, 600, 1800};
+static const char *DISPLAY_SLEEP_MAP[] = {"Never", "1 min", "5 min", "10 min", "30 min", ""};
+
+static int display_sleep_index(int32_t seconds) {
+  for (size_t i = 0; i < sizeof(DISPLAY_SLEEP_VALUES) / sizeof(DISPLAY_SLEEP_VALUES[0]); ++i) {
+    if (DISPLAY_SLEEP_VALUES[i] == seconds) return static_cast<int>(i);
+  }
+  return -1;
+}
+
 static WifiPanelOptions embedded_wifi_options(lv_obj_t *parent) {
   WifiPanelOptions opts;
   opts.parent = parent;
@@ -107,9 +117,13 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
   , actions_tab(lv_tabview_add_tab(tabview, "Tools"))
   , wifi_tab(lv_tabview_add_tab(tabview, "Network"))
+  , settings_tab(lv_tabview_add_tab(tabview, "Settings"))
   , about_tab(lv_tabview_add_tab(tabview, "About"))
   , actions_cont(Theme::create_screen(actions_tab))
+  , settings_cont(Theme::create_screen(settings_tab))
   , about_cont(Theme::create_screen(about_tab))
+  , emergency_prompt_switch(nullptr)
+  , sleep_timeout_selector(nullptr)
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
@@ -138,6 +152,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
                       LV_EVENT_VALUE_CHANGED, this);
   lv_obj_set_style_pad_all(actions_tab, 0, 0);
   lv_obj_set_style_pad_all(wifi_tab, 0, 0);
+  lv_obj_set_style_pad_all(settings_tab, 0, 0);
   lv_obj_set_style_pad_all(about_tab, 0, 0);
   Theme::style_embedded_tabview(tabview);
 
@@ -158,13 +173,51 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   add_about_line(about_panel, std::string("Branch: ") + GUPPYSCREEN_BRANCH);
   add_about_line(about_panel, std::string("Version: ") + GUPPYSCREEN_VERSION);
 
-  lv_obj_t *settings_title = add_about_line(about_panel, "Settings", true);
-  lv_obj_set_style_pad_top(settings_title, Theme::gap(), 0);
-  const int32_t sleep_sec = conf->get<int32_t>("/ui/display_sleep_sec");
-  add_about_line(about_panel, "Display Sleep: " +
-      (sleep_sec == -1 ? std::string("Never") : std::to_string(sleep_sec) + " seconds"));
-  add_about_line(about_panel, std::string("Emergency Stop: ") +
-      (conf->get<bool>("/ui/prompt_emergency_stop") ? "Prompt" : "No Prompt"));
+  lv_obj_t *settings_panel = lv_obj_create(settings_cont);
+  lv_obj_clear_flag(settings_panel, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_add_style(settings_panel, &Theme::styles().panel, 0);
+  lv_obj_set_size(settings_panel, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_flex_flow(settings_panel, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(settings_panel, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_START);
+  lv_obj_set_style_pad_row(settings_panel, Theme::gap() * 2, 0);
+
+  lv_obj_t *emergency_row = Theme::create_row(settings_panel);
+  lv_obj_set_size(emergency_row, LV_PCT(100), Theme::touch_h());
+  lv_obj_set_flex_flow(emergency_row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(emergency_row, LV_FLEX_ALIGN_SPACE_BETWEEN,
+                        LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_t *emergency_label = lv_label_create(emergency_row);
+  lv_label_set_text(emergency_label, "Confirm emergency stop");
+  lv_obj_add_style(emergency_label, &Theme::styles().dim_label, 0);
+  emergency_prompt_switch = lv_switch_create(emergency_row);
+  if (conf->get<bool>("/ui/prompt_emergency_stop")) {
+    lv_obj_add_state(emergency_prompt_switch, LV_STATE_CHECKED);
+  }
+  lv_obj_add_event_cb(emergency_prompt_switch, &SettingPanel::_setting_changed_cb,
+                      LV_EVENT_VALUE_CHANGED, this);
+
+  add_about_line(settings_panel, "Screen timeout", true);
+  sleep_timeout_selector = lv_btnmatrix_create(settings_panel);
+  lv_obj_set_size(sleep_timeout_selector, LV_PCT(100), Theme::touch_h());
+  lv_obj_add_style(sleep_timeout_selector, &Theme::styles().key_tray, 0);
+  lv_btnmatrix_set_map(sleep_timeout_selector, DISPLAY_SLEEP_MAP);
+  lv_btnmatrix_set_btn_ctrl_all(sleep_timeout_selector, LV_BTNMATRIX_CTRL_CHECKABLE);
+  lv_btnmatrix_set_one_checked(sleep_timeout_selector, true);
+  const int sleep_idx = display_sleep_index(conf->get<int32_t>("/ui/display_sleep_sec"));
+  if (sleep_idx >= 0) {
+    lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, sleep_idx, LV_BTNMATRIX_CTRL_CHECKED);
+  }
+  lv_obj_add_event_cb(sleep_timeout_selector, &SettingPanel::_setting_changed_cb,
+                      LV_EVENT_VALUE_CHANGED, this);
+
+  // Without CONFIG_OVERRIDE_FILE there is nowhere persistent to save these
+  // settings. Keep the controls visible so the capability is discoverable,
+  // but make their read-only state explicit instead of allowing a doomed edit.
+  if (!conf->has_override_path()) {
+    lv_obj_add_state(emergency_prompt_switch, LV_STATE_DISABLED);
+    lv_obj_add_state(sleep_timeout_selector, LV_STATE_DISABLED);
+  }
 
   // Optional tiles only appear with a command behind them; the grid is built
   // from what is left, four across, so a hidden tile never leaves a hole.
@@ -209,6 +262,44 @@ void SettingPanel::foreground() {
 void SettingPanel::_tabview_event_cb(lv_event_t *event) {
   if (lv_event_get_code(event) == LV_EVENT_VALUE_CHANGED) {
     static_cast<SettingPanel *>(lv_event_get_user_data(event))->refresh_active_tab();
+  }
+}
+
+void SettingPanel::_setting_changed_cb(lv_event_t *event) {
+  static_cast<SettingPanel *>(lv_event_get_user_data(event))->setting_changed(event);
+}
+
+void SettingPanel::setting_changed(lv_event_t *event) {
+  Config *conf = Config::get_instance();
+  lv_obj_t *target = lv_event_get_target(event);
+  bool saved = false;
+
+  if (target == emergency_prompt_switch) {
+    const bool enabled = lv_obj_has_state(emergency_prompt_switch, LV_STATE_CHECKED);
+    saved = conf->set_prompt_emergency_stop(enabled);
+    if (!saved) {
+      if (conf->get<bool>("/ui/prompt_emergency_stop"))
+        lv_obj_add_state(emergency_prompt_switch, LV_STATE_CHECKED);
+      else
+        lv_obj_clear_state(emergency_prompt_switch, LV_STATE_CHECKED);
+    }
+  } else if (target == sleep_timeout_selector) {
+    const uint32_t selected = lv_btnmatrix_get_selected_btn(sleep_timeout_selector);
+    if (selected < sizeof(DISPLAY_SLEEP_VALUES) / sizeof(DISPLAY_SLEEP_VALUES[0])) {
+      saved = conf->set_display_sleep_sec(DISPLAY_SLEEP_VALUES[selected]);
+    }
+    if (!saved) {
+      lv_btnmatrix_clear_btn_ctrl_all(sleep_timeout_selector, LV_BTNMATRIX_CTRL_CHECKED);
+      const int old_idx = display_sleep_index(conf->get<int32_t>("/ui/display_sleep_sec"));
+      if (old_idx >= 0) {
+        lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, old_idx, LV_BTNMATRIX_CTRL_CHECKED);
+      }
+    }
+  }
+
+  if (!saved) {
+    create_simple_dialog(lv_scr_act(), "Unable to Save Setting",
+                         "The override config file could not be updated.", true, true);
   }
 }
 
