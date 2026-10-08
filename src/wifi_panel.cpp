@@ -610,26 +610,6 @@ void WifiPanel::draw_table_cell(lv_event_t *event) {
     return;
   }
 
-  // The built-in Montserrat fonts do not include a bold face. Draw the active
-  // row's text a second time one pixel inward to produce a bold weight without
-  // adding another font asset to the embedded build.
-  const char *row_name = lv_table_get_cell_value(table, row, 0);
-  const char *cell_text = lv_table_get_cell_value(table, row, col);
-  if (!cur_network.empty() && cur_network == row_name && cell_text[0] != '\0') {
-    lv_draw_label_dsc_t bold = *dsc->label_dsc;
-    bold.ofs_x += bold.align == LV_TEXT_ALIGN_RIGHT ? -Theme::scale_r(1) : Theme::scale_r(1);
-
-    lv_area_t text_area = *dsc->draw_area;
-    text_area.x1 += lv_obj_get_style_pad_left(table, LV_PART_ITEMS);
-    text_area.x2 -= lv_obj_get_style_pad_right(table, LV_PART_ITEMS);
-    lv_point_t text_size;
-    lv_txt_get_size(&text_size, cell_text, bold.font, bold.letter_space, bold.line_space,
-                    lv_area_get_width(&text_area), LV_TEXT_FLAG_NONE);
-    text_area.y1 = dsc->draw_area->y1 + lv_area_get_height(dsc->draw_area) / 2 - text_size.y / 2;
-    text_area.y2 = text_area.y1 + text_size.y;
-    lv_draw_label(dsc->draw_ctx, &bold, &text_area, cell_text, nullptr);
-  }
-
   if (row != connection_spinner_row || col != ICON_COL) return;
 
   connection_spinner_area = *dsc->draw_area;
