@@ -98,7 +98,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
   , service_tab(lv_tabview_add_tab(tabview, "Machine"))
   , danger_tab(lv_tabview_add_tab(tabview, "Danger"))
-  , wifi_tab(lv_tabview_add_tab(tabview, "Wi-Fi"))
+  , wifi_tab(lv_tabview_add_tab(tabview, "Network"))
   , info_tab(lv_tabview_add_tab(tabview, "Info"))
   , service_cont(Theme::create_screen(service_tab))
   , danger_cont(Theme::create_screen(danger_tab))
@@ -187,8 +187,6 @@ void SettingPanel::refresh_active_tab() {
   const uint16_t idx = lv_tabview_get_tab_act(tabview);
   if (idx == lv_obj_get_index(wifi_tab)) {
     wifi_panel.foreground();
-  } else if (idx == lv_obj_get_index(info_tab)) {
-    sysinfo_panel.foreground();
   }
 }
 

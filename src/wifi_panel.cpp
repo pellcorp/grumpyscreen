@@ -18,17 +18,12 @@
 
 namespace sp = subprocess;
 
-static void draw_part_event_cb(lv_event_t * e) {
-  lv_obj_t * obj = lv_event_get_target(e);
-  lv_obj_draw_part_dsc_t * dsc = lv_event_get_draw_part_dsc(e);
-  if(dsc->part == LV_PART_ITEMS) {
-    uint32_t row = dsc->id /  lv_table_get_col_cnt(obj);
-    uint32_t col = dsc->id - row * lv_table_get_col_cnt(obj);
+static constexpr uint16_t ETHERNET_ROW = 0;
+static constexpr uint16_t STATUS_COL = 1;
+static constexpr uint16_t ICON_COL = 2;
 
-    if(col == 1) {
-      dsc->label_dsc->align = LV_TEXT_ALIGN_RIGHT;
-    }
-  }
+static uint16_t first_wifi_row(bool has_ethernet) {
+  return has_ethernet ? ETHERNET_ROW + 1 : ETHERNET_ROW;
 }
 
 WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
@@ -36,7 +31,6 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   , owns_cont(options.parent == nullptr)
   , cont(Theme::create_screen(options.parent))
   , spinner(lv_spinner_create(cont, 1000, 60))
-  , wifi_label(lv_label_create(cont))
   , wifi_table(lv_table_create(cont))
   , credential_overlay(lv_obj_create(lv_layer_top()))
   , credential_box(lv_obj_create(credential_overlay))
@@ -69,17 +63,11 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   }
 #endif
 
-  // Connection state is always visible above a full-width list.  The list's
-  // SSID column takes whatever the fixed icon column leaves (set once the
-  // table has its width, see handle_callback).
-  lv_obj_set_width(wifi_label, LV_PCT(100));
-  lv_obj_set_style_text_align(wifi_label, LV_TEXT_ALIGN_CENTER, 0);
-  lv_label_set_text(wifi_label, "Checking Wi-Fi status...");
-
   lv_obj_set_size(wifi_table, LV_PCT(100), 0);
   lv_obj_set_flex_grow(wifi_table, 1);
   lv_obj_add_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
-  lv_table_set_col_width(wifi_table, 1, Theme::scale_w(100));
+  lv_table_set_col_width(wifi_table, STATUS_COL, Theme::scale_w(180));
+  lv_table_set_col_width(wifi_table, ICON_COL, Theme::scale_w(55));
   const lv_coord_t row_text_h = lv_font_get_line_height(lv_obj_get_style_text_font(wifi_table, LV_PART_ITEMS));
   lv_obj_set_style_pad_ver(wifi_table, std::max(Theme::gap(), (Theme::touch_h() - row_text_h) / 2), LV_PART_ITEMS);
 
@@ -87,7 +75,8 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   lv_obj_add_event_cb(wifi_table, &WifiPanel::_handle_callback, LV_EVENT_VALUE_CHANGED, this);
   lv_obj_add_event_cb(wifi_table, &WifiPanel::_handle_callback, LV_EVENT_SIZE_CHANGED, this);
   lv_obj_add_event_cb(wifi_table, &WifiPanel::_handle_callback, LV_EVENT_LONG_PRESSED, this);
-  lv_obj_add_event_cb(wifi_table, draw_part_event_cb, LV_EVENT_DRAW_PART_BEGIN, NULL);
+  lv_obj_add_event_cb(wifi_table, &WifiPanel::_draw_table_cell, LV_EVENT_DRAW_PART_BEGIN, this);
+  lv_obj_add_event_cb(wifi_table, &WifiPanel::_draw_table_cell, LV_EVENT_DRAW_PART_END, this);
 
   Theme::manage_scroll(wifi_table);
 
@@ -163,12 +152,18 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
 
   wpa_event.register_callback("WifiPanel",
       [this](const std::string &event) { this->handle_wpa_event(event); });
-
-  wpa_event.start();
 }
 
 WifiPanel::~WifiPanel() {
+  if (network_start_timer != nullptr) {
+    lv_timer_del(network_start_timer);
+    network_start_timer = nullptr;
+  }
   stop_ip_poll();
+  if (connection_spinner_timer != nullptr) {
+    lv_timer_del(connection_spinner_timer);
+    connection_spinner_timer = nullptr;
+  }
   if (connection_timeout_timer != nullptr) {
     lv_timer_del(connection_timeout_timer);
     connection_timeout_timer = nullptr;
@@ -188,13 +183,35 @@ void WifiPanel::foreground() {
   stop_ip_poll();
   lv_obj_move_foreground(cont);
   lv_obj_clear_flag(spinner, LV_OBJ_FLAG_HIDDEN);
+  if (!network_started) {
+    // Draw the loading state first, then start WPA after this tab-click callback returns.
+    if (network_start_timer == nullptr) {
+      network_start_timer = lv_timer_create(&WifiPanel::_handle_network_start_timer, 1, this);
+      lv_timer_set_repeat_count(network_start_timer, 1);
+    }
+    return;
+  }
+  // WPA has started but its first scan has not completed yet. Keep the
+  // loading overlay up instead of issuing synchronous requests from a tab
+  // event if the user switches away and back quickly.
+  if (lv_obj_has_flag(wifi_table, LV_OBJ_FLAG_HIDDEN)) return;
+  update_ethernet_status();
   if (find_current_network()) {
     update_connection_status_label(cur_network);
     start_ip_poll();
-  } else {
-    lv_label_set_text(wifi_label, "Not connected");
   }
   wpa_event.send_command("SCAN");
+}
+
+void WifiPanel::start_network() {
+  if (network_started) return;
+
+  if (network_start_timer != nullptr) {
+    lv_timer_del(network_start_timer);
+    network_start_timer = nullptr;
+  }
+  network_started = true;
+  wpa_event.start();
 }
 
 #ifdef GUPPY_BOOTSTRAP
@@ -216,7 +233,7 @@ void WifiPanel::remove_network(uint32_t btn_idx) {
     const bool removing_current_network = selected_network == cur_network;
     const auto response = wpa_event.send_command(fmt::format("REMOVE_NETWORK {}", network->second));
     if (response.rfind("OK", 0) != 0) {
-      lv_label_set_text(wifi_label, fmt::format("Could not forget {}", selected_network).c_str());
+      set_network_status(selected_network, "Could not forget", LV_SYMBOL_WIFI);
       return;
     }
 
@@ -229,7 +246,7 @@ void WifiPanel::remove_network(uint32_t btn_idx) {
     if (removing_current_network) {
       stop_ip_poll();
       cur_network.clear();
-      lv_label_set_text(wifi_label, "Not connected");
+      stop_connection_spinner();
     }
   }
 }
@@ -243,7 +260,9 @@ void WifiPanel::handle_callback(lv_event_t *e) {
   }
 
   if (code == LV_EVENT_SIZE_CHANGED) {
-    const lv_coord_t ssid_w = lv_obj_get_content_width(wifi_table) - Theme::scale_w(100);
+    const lv_coord_t ssid_w = lv_obj_get_content_width(wifi_table) -
+        lv_table_get_col_width(wifi_table, STATUS_COL) -
+        lv_table_get_col_width(wifi_table, ICON_COL);
     if (ssid_w > 0) lv_table_set_col_width(wifi_table, 0, ssid_w);
     return;
   }
@@ -256,6 +275,7 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       return;
     }
     selected_network = lv_table_get_cell_value(wifi_table, row, 0);
+    if ((has_ethernet && row == ETHERNET_ROW) || selected_network == "No networks found") return;
   }
 
   if (code == LV_EVENT_VALUE_CHANGED) {
@@ -284,15 +304,13 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       }
       auto nid = list_networks.find(selected_network)->second;
       connection_in_progress = true;
-      lv_label_set_text(wifi_label, fmt::format("Connecting to {}...", selected_network).c_str());
+      show_connecting_status(selected_network);
       const auto response = wpa_event.send_command(fmt::format("SELECT_NETWORK {}", nid));
       if (response.rfind("OK", 0) != 0) {
         connection_in_progress = false;
         restart_wifi_after_connect = false;
         restart_wifi_from_network.clear();
-        lv_label_set_text(wifi_label,
-                          fmt::format("Could not connect to {}. Please try again.",
-                                      selected_network).c_str());
+        set_network_status(selected_network, "Could not connect", LV_SYMBOL_WIFI);
         return;
       }
       wpa_event.send_command("SAVE_CONFIG");
@@ -327,7 +345,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     std::istringstream f(wpa_event.send_command("SCAN_RESULTS"));
     std::string line;
     wifi_name_db.clear();
-    uint32_t index = 0;
+    uint32_t index;
 
     bool has_current = find_current_network();
     if (has_current) {
@@ -335,9 +353,8 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     }
 
     std::lock_guard<std::mutex> lock(lv_lock);
-    if (!has_current && !connection_in_progress) {
-      lv_label_set_text(wifi_label, "Not connected");
-    }
+    update_ethernet_status();
+    index = first_wifi_row(has_ethernet);
     while (std::getline(f, line)) {
       if (line.rfind("bss", 0) == 0) {
 	      continue;
@@ -349,18 +366,21 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
         auto inserted = wifi_name_db.insert({wifi_parts[4], std::stoi(wifi_parts[2])});
         if (inserted.second) {
           lv_table_set_cell_value(wifi_table, index, 0, wifi_parts[4].c_str());
-          if (cur_network != wifi_parts[4]) {
-            lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_WIFI);
-          } else if (cur_network.length() > 0) {
-            lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_OK " " LV_SYMBOL_WIFI);
-            if (!connection_in_progress) {
-              update_connection_status_label(cur_network);
-            }
-          }
+          lv_table_set_cell_value(wifi_table, index, STATUS_COL, "");
+          lv_table_set_cell_value(wifi_table, index, ICON_COL, LV_SYMBOL_WIFI);
           index++;
         }
       }
     } // while
+    if (index == 0) {
+      lv_table_set_cell_value(wifi_table, 0, 0, "No networks found");
+      lv_table_set_cell_value(wifi_table, 0, STATUS_COL, "");
+      lv_table_set_cell_value(wifi_table, 0, ICON_COL, "");
+      index = 1;
+    }
+    lv_table_set_row_cnt(wifi_table, index);
+    if (connection_in_progress) show_connecting_status(selected_network);
+    else if (has_current) update_connection_status_label(cur_network);
     lv_obj_scroll_to_y(wifi_table, 0, LV_ANIM_OFF);
     lv_obj_clear_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
     Theme::refresh_scroll(wifi_table);
@@ -401,18 +421,23 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
 
       std::lock_guard<std::mutex> lock(lv_lock);
 
-      uint32_t index = 0;
+      update_ethernet_status();
+      uint32_t index = first_wifi_row(has_ethernet);
       for (const auto &wifi : pairs) {
         lv_table_set_cell_value(wifi_table, index, 0, wifi.first.c_str());
-        if (cur_network != wifi.first) {
-          lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_WIFI);
-        } else if (cur_network.length() > 0) {
-          lv_table_set_cell_value(wifi_table, index, 1, LV_SYMBOL_OK " " LV_SYMBOL_WIFI);
-          update_connection_status_label(cur_network);
-          start_ip_poll();
-        }
+        lv_table_set_cell_value(wifi_table, index, STATUS_COL, "");
+        lv_table_set_cell_value(wifi_table, index, ICON_COL, LV_SYMBOL_WIFI);
         index++;
       }
+      if (index == 0) {
+        lv_table_set_cell_value(wifi_table, 0, 0, "No networks found");
+        lv_table_set_cell_value(wifi_table, 0, STATUS_COL, "");
+        lv_table_set_cell_value(wifi_table, 0, ICON_COL, "");
+        index = 1;
+      }
+      lv_table_set_row_cnt(wifi_table, index);
+      update_connection_status_label(cur_network);
+      start_ip_poll();
 
       lv_obj_scroll_to_y(wifi_table, 0, LV_ANIM_OFF);
       lv_obj_clear_flag(wifi_table, LV_OBJ_FLAG_HIDDEN);
@@ -422,7 +447,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       stop_ip_poll();
       std::lock_guard<std::mutex> lock(lv_lock);
       connection_in_progress = false;
-      lv_label_set_text(wifi_label, "Not connected");
+      stop_connection_spinner();
     }
   } else if (event.find("CTRL-EVENT-SSID-TEMP-DISABLED") != std::string::npos &&
              event.find("WRONG_KEY") != std::string::npos) {
@@ -431,7 +456,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       show_connection_error("Incorrect password. Please try again.");
     } else {
       connection_in_progress = false;
-      lv_label_set_text(wifi_label, fmt::format("Connection failed for {}", selected_network).c_str());
+      set_network_status(selected_network, "Connection failed", LV_SYMBOL_WIFI);
     }
   } else if (event.find("CTRL-EVENT-ASSOC-REJECT") != std::string::npos) {
     std::lock_guard<std::mutex> lock(lv_lock);
@@ -439,7 +464,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       show_connection_error("The access point rejected the connection. Try again.");
     } else {
       connection_in_progress = false;
-      lv_label_set_text(wifi_label, fmt::format("Connection rejected by {}", selected_network).c_str());
+      set_network_status(selected_network, "Connection rejected", LV_SYMBOL_WIFI);
     }
   } else if (event.find("CTRL-EVENT-NETWORK-NOT-FOUND") != std::string::npos) {
     std::lock_guard<std::mutex> lock(lv_lock);
@@ -447,13 +472,14 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       show_connection_error("Network not found. Check that it is still available.");
     } else {
       connection_in_progress = false;
-      lv_label_set_text(wifi_label, fmt::format("Network {} was not found", selected_network).c_str());
+      set_network_status(selected_network, "Not found", LV_SYMBOL_WIFI);
     }
   } else if (event.rfind("<3>CTRL-EVENT-DISCONNECTED", 0) == 0) {
     stop_ip_poll();
     std::lock_guard<std::mutex> lock(lv_lock);
     if (!connection_in_progress) {
-      lv_label_set_text(wifi_label, "Not connected");
+      stop_connection_spinner();
+      set_network_status(cur_network, "", LV_SYMBOL_WIFI);
     }
   }
 }
@@ -491,10 +517,135 @@ void WifiPanel::update_connection_status_label(const std::string &network_name) 
   auto iface = KUtils::get_wifi_interface();
   auto ip = iface.empty() ? "0.0.0.0" : KUtils::interface_ip(iface);
   if (ip != "0.0.0.0") {
-    lv_label_set_text(wifi_label, fmt::format("Connected to {}  -  IP {}", network_name, ip).c_str());
+    set_network_status(network_name, ip, LV_SYMBOL_OK " " LV_SYMBOL_WIFI);
+    stop_connection_spinner();
   } else {
-    lv_label_set_text(wifi_label, fmt::format("Connected to {} - waiting for IP address...", network_name).c_str());
+    show_connecting_status(network_name);
   }
+}
+
+void WifiPanel::update_ethernet_status() {
+  std::string ip;
+  has_ethernet = false;
+  for (const auto &iface : KUtils::get_interfaces()) {
+    if (!iface.empty() && iface[0] == 'e') {
+      has_ethernet = true;
+      const auto candidate = KUtils::interface_ip(iface);
+      if (candidate != "0.0.0.0") {
+        ip = candidate;
+        break;
+      }
+    }
+  }
+  if (!has_ethernet) {
+    return;
+  }
+  lv_table_set_cell_value(wifi_table, ETHERNET_ROW, 0, "Ethernet");
+  lv_table_set_cell_value(wifi_table, ETHERNET_ROW, STATUS_COL,
+                          ip.empty() ? "Not connected" : ip.c_str());
+  lv_table_set_cell_value(wifi_table, ETHERNET_ROW, ICON_COL, "");
+}
+
+void WifiPanel::set_network_status(const std::string &network_name,
+                                   const std::string &status, const char *icon) {
+  for (uint16_t row = first_wifi_row(has_ethernet);
+       row < lv_table_get_row_cnt(wifi_table); ++row) {
+    if (network_name == lv_table_get_cell_value(wifi_table, row, 0)) {
+      if (row == connection_spinner_row && !status.empty()) {
+        stop_connection_spinner();
+      }
+      lv_table_set_cell_value(wifi_table, row, STATUS_COL, status.c_str());
+      lv_table_set_cell_value(wifi_table, row, ICON_COL, icon);
+      return;
+    }
+  }
+}
+
+void WifiPanel::show_connecting_status(const std::string &network_name) {
+  for (uint16_t row = first_wifi_row(has_ethernet);
+       row < lv_table_get_row_cnt(wifi_table); ++row) {
+    if (network_name == lv_table_get_cell_value(wifi_table, row, 0)) {
+      lv_table_set_cell_value(wifi_table, row, STATUS_COL, "");
+      lv_table_set_cell_value(wifi_table, row, ICON_COL, "");
+      if (connection_spinner_row == row && connection_spinner_timer != nullptr) return;
+
+      stop_connection_spinner();
+      connection_spinner_row = row;
+      connection_spinner_area_valid = false;
+      connection_spinner_timer = lv_timer_create(&WifiPanel::_handle_spinner_timer, 100, this);
+      return;
+    }
+  }
+}
+
+void WifiPanel::stop_connection_spinner() {
+  connection_spinner_row = LV_TABLE_CELL_NONE;
+  if (connection_spinner_timer != nullptr) {
+    lv_timer_del(connection_spinner_timer);
+    connection_spinner_timer = nullptr;
+  }
+  if (wifi_table != nullptr && connection_spinner_area_valid) {
+    lv_obj_invalidate_area(wifi_table, &connection_spinner_area);
+  }
+  connection_spinner_area_valid = false;
+}
+
+void WifiPanel::handle_spinner_timer() {
+  connection_spinner_angle = (connection_spinner_angle + 18) % 360;
+  if (connection_spinner_area_valid) {
+    lv_obj_invalidate_area(wifi_table, &connection_spinner_area);
+  }
+}
+
+void WifiPanel::draw_table_cell(lv_event_t *event) {
+  lv_obj_t *table = lv_event_get_target(event);
+  lv_obj_draw_part_dsc_t *dsc = lv_event_get_draw_part_dsc(event);
+  if (dsc->part != LV_PART_ITEMS) return;
+
+  const uint16_t col_count = lv_table_get_col_cnt(table);
+  const uint16_t row = dsc->id / col_count;
+  const uint16_t col = dsc->id % col_count;
+  if (lv_event_get_code(event) == LV_EVENT_DRAW_PART_BEGIN) {
+    if (col == STATUS_COL || col == ICON_COL) dsc->label_dsc->align = LV_TEXT_ALIGN_RIGHT;
+    return;
+  }
+
+  // The built-in Montserrat fonts do not include a bold face. Draw the active
+  // row's text a second time one pixel inward to produce a bold weight without
+  // adding another font asset to the embedded build.
+  const char *row_name = lv_table_get_cell_value(table, row, 0);
+  const char *cell_text = lv_table_get_cell_value(table, row, col);
+  if (!cur_network.empty() && cur_network == row_name && cell_text[0] != '\0') {
+    lv_draw_label_dsc_t bold = *dsc->label_dsc;
+    bold.ofs_x += bold.align == LV_TEXT_ALIGN_RIGHT ? -Theme::scale_r(1) : Theme::scale_r(1);
+
+    lv_area_t text_area = *dsc->draw_area;
+    text_area.x1 += lv_obj_get_style_pad_left(table, LV_PART_ITEMS);
+    text_area.x2 -= lv_obj_get_style_pad_right(table, LV_PART_ITEMS);
+    lv_point_t text_size;
+    lv_txt_get_size(&text_size, cell_text, bold.font, bold.letter_space, bold.line_space,
+                    lv_area_get_width(&text_area), LV_TEXT_FLAG_NONE);
+    text_area.y1 = dsc->draw_area->y1 + lv_area_get_height(dsc->draw_area) / 2 - text_size.y / 2;
+    text_area.y2 = text_area.y1 + text_size.y;
+    lv_draw_label(dsc->draw_ctx, &bold, &text_area, cell_text, nullptr);
+  }
+
+  if (row != connection_spinner_row || col != ICON_COL) return;
+
+  connection_spinner_area = *dsc->draw_area;
+  connection_spinner_area_valid = true;
+
+  lv_draw_arc_dsc_t arc;
+  lv_draw_arc_dsc_init(&arc);
+  arc.color = dsc->label_dsc->color;
+  arc.width = Theme::scale_r(3);
+  arc.rounded = true;
+  lv_point_t center = {
+    static_cast<lv_coord_t>(dsc->draw_area->x1 + lv_area_get_width(dsc->draw_area) / 2),
+    static_cast<lv_coord_t>(dsc->draw_area->y1 + lv_area_get_height(dsc->draw_area) / 2)
+  };
+  lv_draw_arc(dsc->draw_ctx, &arc, &center, Theme::scale_r(8),
+              connection_spinner_angle, connection_spinner_angle + 260);
 }
 
 void WifiPanel::handle_ip_poll_timer() {
@@ -561,8 +712,6 @@ void WifiPanel::cancel_password_dialog() {
   hide_password_dialog();
   if (find_current_network()) {
     update_connection_status_label(cur_network);
-  } else {
-    lv_label_set_text(wifi_label, "Not connected");
   }
 }
 
@@ -631,7 +780,7 @@ void WifiPanel::submit_password() {
   connection_in_progress = true;
   lv_label_set_text(credential_status, "Connecting...");
   lv_obj_set_style_text_color(credential_status, Theme::col(Theme::TEXT_DIM), 0);
-  lv_label_set_text(wifi_label, fmt::format("Connecting to {}...", selected_network).c_str());
+  show_connecting_status(selected_network);
   lv_obj_add_state(password_input, LV_STATE_DISABLED);
   lv_obj_add_state(kb, LV_STATE_DISABLED);
 
@@ -654,7 +803,8 @@ void WifiPanel::show_connection_error(const char *message) {
     lv_timer_del(connection_timeout_timer);
     connection_timeout_timer = nullptr;
   }
-  lv_label_set_text(wifi_label, fmt::format("Connection failed for {}", selected_network).c_str());
+  stop_connection_spinner();
+  set_network_status(selected_network, "Connection failed", LV_SYMBOL_WIFI);
   lv_label_set_text(credential_status, message);
   lv_obj_set_style_text_color(credential_status, Theme::col(Theme::DANGER), 0);
   lv_textarea_set_text(password_input, "");

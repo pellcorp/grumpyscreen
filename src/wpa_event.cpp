@@ -25,7 +25,10 @@ void WpaEvent::start() {
   if (isRunning()) {
     loop()->runInLoop(std::bind(&WpaEvent::init_wpa, this));
   } else {
-    hv::EventLoopThread::start(true, [this]() {
+    // Network startup can be triggered by an LVGL timer after the Network tab
+    // has rendered its loading overlay. Never hold the UI thread waiting for
+    // this worker's event loop to start.
+    hv::EventLoopThread::start(false, [this]() {
       WpaEvent::init_wpa();
       return 0;
     });
