@@ -66,6 +66,7 @@ int main(void) {
     const char* config_override_env = std::getenv("CONFIG_OVERRIDE_FILE");
     if (config_override_env && config_override_env[0] != '\0') {
         fs::path config_override_path = fs::path(config_override_env);
+        conf->set_override_path(config_override_path.string());
         if (fs::exists(config_override_path)) {
             if (!conf->load_override(config_override_path.string())) {
                 LOG_ERROR("Failed to load override config {}", config_override_path.string());

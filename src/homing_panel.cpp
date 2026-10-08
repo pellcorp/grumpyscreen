@@ -18,7 +18,7 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , z_up_btn(homing_cont, Icons::Z_CLOSER, "Z+", &HomingPanel::_handle_callback, this)
   , z_down_btn(homing_cont, Icons::Z_FARTHER, "Z-", &HomingPanel::_handle_callback, this)
   , emergency_btn(homing_cont, Icons::EMERGENCY, "Stop", &HomingPanel::_handle_callback, this,
-		  "Emergency Stop", Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
+		  "Emergency Stop", "Do you want to emergency stop?",
                   {"Back", "Emergency Stop"})
   , motoroff_btn(homing_cont, Icons::MOTOR_OFF_IMG, "Motors Off", &HomingPanel::_handle_callback, this)
   , back_btn(homing_cont, Icons::BACK, "Back", &HomingPanel::_handle_callback, this)
@@ -27,6 +27,9 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , distance_selector(homing_cont, "Move Distance (mm)",
 		     {".1", ".5", "1", "5", "10", "25", "50", ""}, 2, &HomingPanel::_handle_selector_cb, this)
 {
+  emergency_btn.set_prompt_condition([] {
+    return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
+  });
   static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
     LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};

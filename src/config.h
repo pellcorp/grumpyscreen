@@ -1,4 +1,5 @@
 #pragma once
+#include "config_override.h"
 #include "hv/json.hpp"
 #include <string>
 #include <vector>
@@ -15,14 +16,31 @@ public:
 
     bool load(const std::string& ini_path) {
         path_ = ini_path;
+        override_path_.clear();
         j_ = json::object();
         return load_ini(ini_path, j_);
     }
 
     bool load_override(const std::string& ini_path) {
+        override_path_ = ini_path;
         json override_json = json::object();
         if (!load_ini(ini_path, override_json)) return false;
         merge_override(j_, override_json);
+        return true;
+    }
+
+    void set_override_path(const std::string& ini_path) { override_path_ = ini_path; }
+    bool has_override_path() const { return !override_path_.empty(); }
+
+    bool set_prompt_emergency_stop(bool enabled) {
+        if (!ConfigOverride(override_path_).set_prompt_emergency_stop(enabled)) return false;
+        j_["ui"]["prompt_emergency_stop"] = enabled;
+        return true;
+    }
+
+    bool set_display_sleep_sec(int32_t seconds) {
+        if (seconds < -1 || !ConfigOverride(override_path_).set_display_sleep_sec(seconds)) return false;
+        j_["ui"]["display_sleep_sec"] = seconds;
         return true;
     }
 
@@ -204,5 +222,6 @@ private:
     }
 
     std::string path_;
+    std::string override_path_;
     json j_;
 };

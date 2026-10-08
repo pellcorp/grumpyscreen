@@ -174,6 +174,10 @@ void GuppyScreen::loop() {
     lv_lock.lock();
     lv_timer_handler();
 
+    // The Settings panel updates Config in place, so do not keep using the
+    // startup snapshot after the user changes the timeout.
+    display_sleep = conf->get<int32_t>("/ui/display_sleep_sec") * 1000;
+
 #ifdef GUPPY_SDL
     if (sdl_quit_qry) {
       lv_lock.unlock();

@@ -29,7 +29,9 @@ class SettingPanel {
 
  private:
   static void _tabview_event_cb(lv_event_t *event);
+  static void _setting_changed_cb(lv_event_t *event);
   void refresh_active_tab();
+  void setting_changed(lv_event_t *event);
 
   KWebSocketClient &ws;
   bool owns_cont;
@@ -37,9 +39,13 @@ class SettingPanel {
   lv_obj_t *tabview;
   lv_obj_t *actions_tab;
   lv_obj_t *wifi_tab;
+  lv_obj_t *settings_tab;
   lv_obj_t *about_tab;
   lv_obj_t *actions_cont;
+  lv_obj_t *settings_cont;
   lv_obj_t *about_cont;
+  lv_obj_t *emergency_prompt_switch;
+  lv_obj_t *sleep_timeout_selector;
 #ifdef COSMOS
   UpdateManagerClient update_manager;
 #endif

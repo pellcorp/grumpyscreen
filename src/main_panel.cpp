@@ -56,9 +56,12 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , led_btn(main_cont, Icons::LIGHT_IMG, "LED", &MainPanel::_handle_ledpanel_cb, this)
   , print_btn(main_cont, Icons::PRINT, "Print", &MainPanel::_handle_print_cb, this)
   , emergency_btn(main_cont, Icons::EMERGENCY, "Stop", &MainPanel::_handle_emergency_cb, this,
-                  "Emergency Stop", Config::get_instance()->get<bool>("/ui/prompt_emergency_stop") ? "Do you want to emergency stop?" : "",
+                  "Emergency Stop", "Do you want to emergency stop?",
                   {"Back", "Emergency Stop"})
 {
+  emergency_btn.set_prompt_condition([] {
+    return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
+  });
     ws.register_notify_update(this);
 
     lv_obj_add_event_cb(tabview, &MainPanel::_tabview_event_cb,
