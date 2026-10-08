@@ -1,5 +1,4 @@
 #include "sysinfo_panel.h"
-#include "utils.h"
 #include "config.h"
 #include "theme.h"
 
@@ -55,6 +54,10 @@ SysInfoPanel::SysInfoPanel(lv_obj_t *parent)
 
   add_line(left_cont, std::string("Emergency Stop: ") +
            (conf->get<bool>("/ui/prompt_emergency_stop") ? "Prompt" : "No Prompt"));
+
+  add_line(right_cont, "Version Info", true);
+  add_line(right_cont, std::string("Branch: ") + GUPPYSCREEN_BRANCH);
+  add_line(right_cont, std::string("Revision: ") + GUPPYSCREEN_VERSION);
 }
 
 SysInfoPanel::~SysInfoPanel() {
@@ -62,21 +65,4 @@ SysInfoPanel::~SysInfoPanel() {
     lv_obj_del(cont);
     cont = NULL;
   }
-}
-
-void SysInfoPanel::foreground() {
-  lv_obj_move_foreground(cont);
-
-  // rebuilt on every visit so the addresses are current
-  lv_obj_clean(right_cont);
-  add_line(right_cont, "Network", true);
-  for (auto &iface : KUtils::get_interfaces()) {
-    if (iface != "lo") {
-      add_line(right_cont, iface + ": " + KUtils::interface_ip(iface));
-    }
-  }
-  // a second section: one extra gap above its title sets it apart
-  lv_obj_set_style_pad_top(add_line(right_cont, "Version Info", true), gap(), 0);
-  add_line(right_cont, std::string("Branch: ") + GUPPYSCREEN_BRANCH);
-  add_line(right_cont, std::string("Revision: ") + GUPPYSCREEN_VERSION);
 }

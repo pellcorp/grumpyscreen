@@ -42,10 +42,18 @@ class WifiPanel {
   void start_ip_poll();
   void stop_ip_poll();
   void update_connection_status_label(const std::string &network_name);
+  void update_ethernet_status();
+  void show_connecting_status(const std::string &network_name);
+  void set_network_status(const std::string &network_name, const std::string &status,
+                          const char *icon);
+  void stop_connection_spinner();
+  void handle_spinner_timer();
+  void draw_table_cell(lv_event_t *event);
   void handle_ip_poll_timer();
   void handle_connection_timeout();
   void restart_wifi();
   void update_password_submit_state();
+  void start_network();
   void show_password_dialog();
   void hide_password_dialog();
   void submit_password();
@@ -88,15 +96,30 @@ class WifiPanel {
     panel->handle_connection_timeout();
   }
 
+  static void _handle_spinner_timer(lv_timer_t *timer) {
+    static_cast<WifiPanel *>(timer->user_data)->handle_spinner_timer();
+  }
+
+  static void _handle_network_start_timer(lv_timer_t *timer) {
+    WifiPanel *panel = static_cast<WifiPanel *>(timer->user_data);
+    panel->network_start_timer = nullptr;
+    panel->start_network();
+  }
+
+  static void _draw_table_cell(lv_event_t *event) {
+    static_cast<WifiPanel *>(event->user_data)->draw_table_cell(event);
+  }
+
  private:
   std::mutex &lv_lock;
   WpaEvent wpa_event;
   lv_timer_t *ip_poll_timer = nullptr;
   lv_timer_t *connection_timeout_timer = nullptr;
+  lv_timer_t *connection_spinner_timer = nullptr;
+  lv_timer_t *network_start_timer = nullptr;
   bool owns_cont;
   lv_obj_t *cont;
   lv_obj_t *spinner;
-  lv_obj_t *wifi_label;
   lv_obj_t *wifi_table;
   lv_obj_t *credential_overlay;
   lv_obj_t *credential_box;
@@ -120,6 +143,12 @@ class WifiPanel {
   bool restart_wifi_after_connect = false;
   bool suppress_next_table_selection = false;
   bool waiting_for_ip = false;
+  bool has_ethernet = false;
+  bool network_started = false;
+  uint16_t connection_spinner_row = LV_TABLE_CELL_NONE;
+  uint16_t connection_spinner_angle = 0;
+  lv_area_t connection_spinner_area{};
+  bool connection_spinner_area_valid = false;
   std::string pending_network_id;
   std::string restart_wifi_from_network;
 

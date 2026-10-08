@@ -12,8 +12,6 @@ class SysInfoPanel {
   SysInfoPanel(lv_obj_t *parent);
   ~SysInfoPanel();
 
-  void foreground();
-
  private:
   bool owns_cont;
   lv_obj_t *cont;
