@@ -114,22 +114,22 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , update_manager(c, l)
 #endif
   , wifi_panel(l, embedded_wifi_options(wifi_tab))
-  , restart_klipper_btn(actions_cont, Icons::REFRESH_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
+  , restart_klipper_btn(actions_cont, Icons::RESTART_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
         "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
-  , restart_firmware_btn(actions_cont, Icons::REFRESH_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
+  , restart_firmware_btn(actions_cont, Icons::FIRMWARE_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
         "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
-  , guppy_restart_btn(actions_cont, Icons::REFRESH_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
-  , support_zip_btn(actions_cont, Icons::SD_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
-  , switch_to_stock_btn(actions_cont, Icons::EMERGENCY, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+  , guppy_restart_btn(actions_cont, Icons::GUI_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
+  , support_zip_btn(actions_cont, Icons::SUPPORT_ZIP_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
+  , switch_to_stock_btn(actions_cont, Icons::SWITCH_STOCK_IMG, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
           SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"})
-  , factory_reset_btn(actions_cont, Icons::EMERGENCY, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
+  , factory_reset_btn(actions_cont, Icons::FACTORY_RESET_IMG, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
 		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"})
 #ifdef COSMOS
   // no prompt of its own: the update manager client checks for an update
   // first and asks only when there is one to install
-  , update_btn(actions_cont, Icons::EMERGENCY, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this)
+  , update_btn(actions_cont, Icons::UPDATE_IMG, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this)
 #endif
-  , shutdown_host_btn(actions_cont, Icons::EMERGENCY, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
+  , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
 {
   lv_obj_set_style_pad_all(cont, 0, 0);
