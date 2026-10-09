@@ -13,10 +13,16 @@ using namespace Theme;
 
 LV_FONT_DECLARE(materialdesign_font_40);
 
-// The nav bar holds glyphs from one fixed-size font, so unlike everything else
-// in the UI it cannot scale: a wider bar would only surround them with air and
-// leave the icons looking lost. This is the width it has always been.
-#define TAB_BAR_W 60
+static constexpr int FULL_TAB_BAR_W = 60;
+static constexpr int COMPACT_TAB_BAR_W = 45;
+
+// Keep the compact screen's nav strip narrow enough to leave more room for the
+// page. On larger displays it grows only as far as the established 60px width.
+static int tab_bar_w() {
+  return std::clamp(scale_w(45), COMPACT_TAB_BAR_W, FULL_TAB_BAR_W);
+}
+
+static int reclaimed_tab_bar_w() { return FULL_TAB_BAR_W - tab_bar_w(); }
 
 #define TOOLS_SYMBOL   u8"\U000F1064"
 #define HOME_SYMBOL    u8"\U000F02DC"
@@ -32,7 +38,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , homing_panel(ws, lock)
   , fan_panel(ws, lock)
   , led_panel(ws, lock)    
-  , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, TAB_BAR_W))
+  , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, tab_bar_w()))
   , main_tab(lv_tabview_add_tab(tabview, HOME_SYMBOL))
   , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
@@ -275,8 +281,17 @@ void MainPanel::create_main(lv_obj_t * parent) {
   lv_obj_set_flex_flow(parent, LV_FLEX_FLOW_ROW_WRAP);
 
   static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
-    LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t grid_main_col_dsc[] = {0, 0, 0, 0, LV_GRID_TEMPLATE_LAST};
+
+  // Give the temperature side all of the width recovered from the compact
+  // nav strip, plus a little more room from the action side. At 480px this is
+  // 16:16:13:13 (about 55:45); at 800px it returns to four equal columns.
+  const int compact_range = FULL_TAB_BAR_W - COMPACT_TAB_BAR_W;
+  const int temp_col_weight = 13 + 3 * reclaimed_tab_bar_w() / compact_range;
+  grid_main_col_dsc[0] = LV_GRID_FR(temp_col_weight);
+  grid_main_col_dsc[1] = LV_GRID_FR(temp_col_weight);
+  grid_main_col_dsc[2] = LV_GRID_FR(13);
+  grid_main_col_dsc[3] = LV_GRID_FR(13);
 
   lv_obj_set_grid_dsc_array(main_cont, grid_main_col_dsc, grid_main_row_dsc);
 
@@ -370,6 +385,8 @@ void MainPanel::create_main(lv_obj_t * parent) {
 void MainPanel::create_sensors(json &temp_sensors) {
   std::lock_guard<std::mutex> lock(lv_lock);
   sensors.clear();
+  const int compact_range = FULL_TAB_BAR_W - COMPACT_TAB_BAR_W;
+  const int compact_amount = reclaimed_tab_bar_w();
   // Preserve the original balanced chart layout for a short list. Once it
   // grows, fixed-height rows and vertical scrolling keep every tool visible.
   const bool many_sensors = temp_sensors.size() > 4;
@@ -414,7 +431,8 @@ void MainPanel::create_sensors(json &temp_sensors) {
 			   display_name.c_str(), color_code, controllable, false, numpad, key,
         		   temp_chart, temp_series);
     if (many_sensors) {
-      lv_obj_set_height(sc->get_sensor(), scale_r(34));
+      const int compact_trim = 2 * compact_amount / compact_range;
+      lv_obj_set_height(sc->get_sensor(), scale_r(34) - compact_trim);
     } else {
       lv_obj_set_height(sc->get_sensor(), 0);
       lv_obj_set_flex_grow(sc->get_sensor(), 1);
@@ -428,8 +446,10 @@ void MainPanel::create_sensors(json &temp_sensors) {
   const uint32_t last = lv_obj_get_child_cnt(temp_cont);
   if (last > 0) lv_obj_move_to_index(temp_chart_box, last - 1);
   lv_obj_set_height(temp_chart_box, many_sensors ? scale_r(110) : 0);
+  const int sensor_weight = std::max<int>(1, sensors.size());
+  const int compact_chart_weight = compact_amount / compact_range;
   lv_obj_set_flex_grow(temp_chart_box,
-                       many_sensors ? 0 : std::max<int>(1, sensors.size()));
+                       many_sensors ? 0 : sensor_weight + compact_chart_weight);
 }
 
 void MainPanel::create_fans(json &fans) {
