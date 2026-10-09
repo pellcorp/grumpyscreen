@@ -189,10 +189,6 @@ if [ -n "$PRINTER_IP" ] && [ -f "$BUILD_DIR/bin/grumpyscreen" ] && { [ "$TARGET_
     sshpass -p $PASSWORD ssh root@$PRINTER_IP "mv /root/grumpyscreen /usr/data/grumpyscreen/grumpyscreen"
 
     cp grumpyscreen.cfg /tmp
-    # this assumes a Ender 3 V3 KE Nebula pad configuration
-    if [ "$GUPPY_SMALL_SCREEN" = "true" ]; then
-      sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
-    fi
 
     if [ "$COSMOS" = "true" ]; then
       if ! grep -q 'cosmos_update_cmd' /tmp/grumpyscreen.cfg; then
@@ -207,7 +203,6 @@ if [ -n "$PRINTER_IP" ] && [ -f "$BUILD_DIR/bin/grumpyscreen" ] && { [ "$TARGET_
     echo "Uploading to ${PI_USERNAME}@$PRINTER_IP ..."
     cp grumpyscreen.cfg /tmp
     scp "$BUILD_DIR/bin/grumpyscreen" $PI_USERNAME@$PRINTER_IP:/tmp/
-    sed -i 's/display_rotate: 3/display_rotate: 0/g' /tmp/grumpyscreen.cfg
     sed -i 's:/etc/init.d/S99grumpyscreen restart:sudo systemctl restart grumpyscreen:g' /tmp/grumpyscreen.cfg
     sed -i 's:/etc/init.d/S55klipper_service restart:sudo systemctl restart klipper:g' /tmp/grumpyscreen.cfg
     sed -i 's:/usr/data/pellcorp/tools/support.sh:/home/$PI_USERNAME/pellcorp/tools/support.sh:g' /tmp/grumpyscreen.cfg

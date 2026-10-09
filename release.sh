@@ -19,10 +19,7 @@ echo "TIMESTAMP=$TIMESTAMP" >> $RELEASES_DIR/release.info
 
 echo "Timestamp was $TIMESTAMP"
 
-if [ "$ASSET_NAME" = "grumpyscreen-smallscreen" ]; then
-  sed -i 's/display_rotate: 3/display_rotate: 2/g' $RELEASES_DIR/grumpyscreen.cfg
-elif [ "$ASSET_NAME" = "grumpyscreen-rpi" ]; then
-  sed -i 's/display_rotate: 3/display_rotate: 0/g' $RELEASES_DIR/grumpyscreen.cfg
+if [ "$ASSET_NAME" = "grumpyscreen-rpi" ]; then
   sed -i 's:/etc/init.d/S99grumpyscreen restart:sudo systemctl restart grumpyscreen:g' $RELEASES_DIR/grumpyscreen.cfg
   sed -i 's:/etc/init.d/S55klipper_service restart:sudo systemctl restart klipper:g' $RELEASES_DIR/grumpyscreen.cfg
   sed -i 's:/usr/data/pellcorp/tools/support.sh:$HOME/pellcorp/tools/support.sh:g' $RELEASES_DIR/grumpyscreen.cfg

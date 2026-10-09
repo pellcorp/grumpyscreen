@@ -5,6 +5,8 @@
 #include "icons.h"
 #include "theme.h"
 
+#include <cstdlib>
+
 HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   : NotifyConsumer(lock)
   , ws(websocket_client)
@@ -140,7 +142,11 @@ void HomingPanel::foreground() {
     update_homing_controls(homed_axes);
   }
 
-  const bool inverted = Config::get_instance()->get<bool>("/ui/invert_z_icon");
+  const char *invert_env = std::getenv("INVERT_Z_ICON");
+  const bool inverted = invert_env != nullptr
+      ? std::string(invert_env) == "true"
+      : Config::get_instance()->get<bool>("/ui/invert_z_icon");
+
   if (inverted) {
     // UP arrow
     z_up_btn.set_image(Icons::Z_FARTHER);
