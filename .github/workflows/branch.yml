@@ -163,13 +163,17 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
     - uses: actions/download-artifact@v7
       with:
         path: artifacts
 
     - name: package zips
       run: |
-        VERSION="v1.0.${{ github.run_number }}"
+        VERSION="v2.0.0-$(git rev-list --count 2.0.0..${{ github.sha }})"
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         for asset in grumpyscreen grumpyscreen-smallscreen grumpyscreen-rpi; do
           mkdir -p "unpack/$asset"
