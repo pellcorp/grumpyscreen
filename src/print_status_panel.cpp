@@ -223,6 +223,7 @@ void PrintStatusPanel::init(json &fan_cfgs) {
   update_active_extruder(json::object());
   populate();
   json &pstat_state = State::get_instance()->get_data("/printer_state/print_stats/state"_json_pointer);
+  print_state_ = pstat_state.is_null() ? "" : pstat_state.template get<std::string>();
   if (!pstat_state.is_null()) {
     auto pstatus = pstat_state.template get<std::string>();
     if (pstatus != "printing" && pstatus != "paused") {
@@ -321,17 +322,19 @@ void PrintStatusPanel::handle_metadata(const std::string &gcode_file, json &j) {
 void PrintStatusPanel::consume(json &j) {
   std::lock_guard<std::mutex> lock(lv_lock);
 
-  auto printfile = j["/params/0/print_stats/filename"_json_pointer];
-  if (!printfile.is_null()) {
-    // filename change indicates a start of a print
-    reset();
-    populate();
-    foreground(); // auto move to front when print is detected
-  }
-
   auto& pstate = j["/params/0/print_stats/state"_json_pointer];
   if (!pstate.is_null()) {
     auto print_status = pstate.template get<std::string>();
+
+    // a print starts on any move into printing except a resume. Not on a
+    // filename change: clearing a finished print sends an empty filename, and
+    // reprinting the same file sends none
+    if (print_status == "printing" && print_state_ != "printing" && print_state_ != "paused") {
+      reset();
+      populate(); // State already holds this update's filename
+      foreground(); // auto move to front when print is detected
+    }
+    print_state_ = print_status;
 
     if (print_status != "printing" && print_status != "paused") {
       mini_print_status.hide();
