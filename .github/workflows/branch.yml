@@ -153,3 +153,42 @@ jobs:
         files: |
           ${{ matrix.asset }}.tar.gz
         fail_on_unmatched_files: true
+
+  # versioned zip releases with release_info.json, so moonraker's update manager can update grumpyscreen
+  zip-release:
+    if: github.event_name == 'push'
+    needs: release
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/download-artifact@v7
+      with:
+        path: artifacts
+
+    - name: package zips
+      run: |
+        VERSION="v1.0.${{ github.run_number }}"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        for asset in grumpyscreen grumpyscreen-smallscreen grumpyscreen-rpi; do
+          mkdir -p "unpack/$asset"
+          tar xzf "artifacts/$asset/$asset.tar.gz" -C "unpack/$asset"
+          cd "unpack/$asset/grumpyscreen"
+          printf '{"project_name": "grumpyscreen", "project_owner": "pellcorp", "version": "%s", "asset_name": "%s.zip"}\n' "$VERSION" "$asset" > release_info.json
+          zip -r "$GITHUB_WORKSPACE/$asset.zip" .
+          cd "$GITHUB_WORKSPACE"
+        done
+
+    - name: versioned release
+      uses: softprops/action-gh-release@v3
+      with:
+        name: ${{ env.VERSION }}
+        tag_name: ${{ env.VERSION }}
+        target_commitish: ${{ github.sha }}
+        make_latest: true
+        files: |
+          grumpyscreen.zip
+          grumpyscreen-smallscreen.zip
+          grumpyscreen-rpi.zip
+        fail_on_unmatched_files: true
