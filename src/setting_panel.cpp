@@ -345,7 +345,10 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       Config *conf = Config::get_instance();
       auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
       if (support_zip_cmd != "") {
+        lv_obj_add_state(support_zip_btn.get_button(), LV_STATE_PRESSED);
+        lv_refr_now(NULL);
         auto ret = call_command(support_zip_cmd);
+        lv_obj_clear_state(support_zip_btn.get_button(), LV_STATE_PRESSED);
         if (ret == 0) {
           create_simple_dialog(lv_scr_act(), "Support ZIP Success", "The support.zip can be found in the config directory!", true, false);
         } else {
