@@ -116,8 +116,22 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
     disp_drv.ver_res    = height;
     disp_drv.dpi        = LV_DPI_DEF * width / 480;  // LVGL defaults scale with the screen
 
-    Config *conf = Config::get_instance();
-    auto rotate_value = conf->get<std::uint32_t>("/ui/display_rotate");
+    const char *rotate_env = std::getenv("DISPLAY_ROTATE");
+    std::uint32_t rotate_value;
+    if (rotate_env != nullptr && rotate_env[0] != '\0') {
+        char *end = nullptr;
+        const unsigned long rotate = std::strtoul(rotate_env, &end, 10);
+        if (end == rotate_env || *end != '\0' || rotate > 3) {
+            LOG_ERROR("Invalid DISPLAY_ROTATE='{}', expected 0-3", rotate_env);
+            rotate_value = 0;
+        } else {
+            rotate_value = static_cast<std::uint32_t>(rotate);
+        }
+    } else {
+        // Fall back to the config file for legacy installations.
+        rotate_value = Config::get_instance()->get<std::uint32_t>("/ui/display_rotate");
+    }
+
     if (rotate_value > 0 && rotate_value < 4) {
       disp_drv.sw_rotate = 1;
       disp_drv.rotated = rotate_value;
