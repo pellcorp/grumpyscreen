@@ -458,11 +458,17 @@ void MainPanel::create_fans(json &fans) {
 
 void MainPanel::create_leds(json &leds) {
   std::lock_guard<std::mutex> lock(lv_lock);
-  // runs again on every klipper reconnect, so a hidden button has to come back
-  if (leds.is_array() && !leds.empty()) {
+  // runs again on every klipper reconnect, so a hidden button has to come back.
+  // Without leds print takes the led spot and stop spans the bottom row.
+  const bool has_leds = leds.is_array() && !leds.empty();
+  if (has_leds) {
     led_btn.show();
+    lv_obj_set_grid_cell(print_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+    lv_obj_set_grid_cell(emergency_btn.get_container(), LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
   } else {
     led_btn.hide();
+    lv_obj_set_grid_cell(print_btn.get_container(), LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
+    lv_obj_set_grid_cell(emergency_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 2, LV_GRID_ALIGN_STRETCH, 2, 1);
   }
   led_panel.init(leds);
   led_btn.set_image(led_panel.get_main_button_image());
