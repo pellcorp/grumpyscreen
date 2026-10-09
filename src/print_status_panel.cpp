@@ -510,12 +510,11 @@ void PrintStatusPanel::handle_callback(lv_event_t *event) {
   } else if (btn == emergency_btn.get_container()) {
     ws.send_jsonrpc("printer.emergency_stop");
   } else if (btn == pause_btn.get_container()) {
+    if (!pause_btn.start_pressed_transition(2000)) return;
     ws.send_jsonrpc("printer.print.pause");
-    pause_btn.disable();
-
   } else if (btn == resume_btn.get_container()) {
+    if (!resume_btn.start_pressed_transition(2000)) return;
     ws.send_jsonrpc("printer.print.resume");
-    resume_btn.disable();
   } else if (btn == cancel_btn.get_container()) {
     ws.send_jsonrpc("printer.print.cancel");
   } else if (btn == finetune_btn.get_container()) {
