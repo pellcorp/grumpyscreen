@@ -46,6 +46,7 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
     lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_RELEASED, this);
     if (!prompt_text.empty()) {
       lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_CLICKED, this);
+      lv_obj_add_event_cb(btn_cont, &ButtonContainer::_handle_callback, LV_EVENT_LONG_PRESSED, this);
     }
     lv_obj_add_event_cb(btn_cont, cb, LV_EVENT_CLICKED, user_data);
   }
@@ -204,10 +205,16 @@ void ButtonContainer::handle_callback(lv_event_t *e) {
     lv_obj_add_state(btn, LV_STATE_PRESSED);
   } else if (code == LV_EVENT_RELEASED) {
     lv_obj_clear_state(btn, LV_STATE_PRESSED);
-  } else if (code == LV_EVENT_CLICKED && !dispatch_confirmed_click &&
-             (!prompt_condition || prompt_condition())) {
+  } else if (code == LV_EVENT_CLICKED && !dispatch_confirmed_click) {
     lv_event_stop_processing(e);
-    handle_prompt();
+    // with prompting turned off a tap does nothing, only a long press fires
+    if (!prompt_condition || prompt_condition()) {
+      handle_prompt();
+    }
+  } else if (code == LV_EVENT_LONG_PRESSED && prompt_condition && !prompt_condition()) {
+    dispatch_confirmed_click = true;
+    lv_event_send(btn_cont, LV_EVENT_CLICKED, NULL);
+    dispatch_confirmed_click = false;
   }
 }
 
