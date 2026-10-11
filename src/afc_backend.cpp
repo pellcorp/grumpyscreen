@@ -79,7 +79,6 @@ void AfcBackend::refresh() {
   auto &err = afc["/error_state"_json_pointer];
   if (err.is_boolean()) error = err.template get<bool>();
 
-  // AFC.get_status reports enable_multiple_mapping as this
   auto &mm = afc["/multiple_tool_mapping"_json_pointer];
   multiple_mapping = mm.is_boolean() && mm.template get<bool>();
 
@@ -257,14 +256,11 @@ void AfcBackend::set_backup(int slot, int backup) {
   }
 }
 
+// not mid-print: it would re-point a toolchange AFC may be running
 bool AfcBackend::can_map_tool(int tool) const {
-  // a mapping only edits a lane's `map`, but one mid-print would re-point a
-  // toolchange AFC may already be running
   return !printing && mmu_slot_for_tool(slots, tool) >= 0;
 }
 
-// SET_MAP swaps: the lane given the tool hands its own map to the lane that
-// had it (with enable_multiple_mapping it moves the one tool instead).
 void AfcBackend::map_tool(int tool, int slot) {
   if (!valid(slot) || !can_map_tool(tool)) return;
   ws.gcode_script(fmt::format("SET_MAP LANE={} MAP=T{}", lane_id(slot), tool));

@@ -79,31 +79,19 @@ nothing to pop and leaves the default alone.
 
 ### Tool mapping (optional)
 
-Before a print starts, `ToolMapPanel` lists the tools the file uses and the
-slot feeding each, read from `MmuSlot::map`, and lets the user pick another.
-A vendor with no tool map leaves these at their defaults and the screen is
-skipped: Print starts the job as before.
+Before a print, `ToolMapPanel` shows the slot feeding each tool the file uses
+(from `MmuSlot::map`) and lets the user pick another. Picks are sent only on
+Print, one `map_tool()` per changed tool. A vendor without a tool map keeps
+the defaults and Print starts the job directly.
 
 | Method | Default | Override to |
 |---|---|---|
-| `bool can_map_tool(int tool) const` | false | say whether the vendor's mapping command would accept tool `T(tool)` right now (AFC: a T(n) it registered; Happy Hare: one in `ttg_map`) |
-| `void map_tool(int tool, int slot)` | does nothing | send that command: `T(tool)` is fed from `slot`. Fire and forget; the new map arrives through the subscription |
-| `bool can_share_slot() const` | false | true if the vendor's tool map lets two tools draw from one slot (Happy Hare always; AFC with `enable_multiple_mapping`). A pick onto a slot another tool has then shares it instead of swapping |
-The screen holds every pick and sends nothing
-until Print: then one `map_tool()` per tool not already on its slot. Back
-leaves the printer as it was. It never models what a vendor's command does;
-where the vendor cannot share a slot, picking a slot another row has swaps
-the two rows. That keeps every tool's slot distinct, so the commands land
-where shown whatever the vendor does with the slot a tool leaves (AFC's
-`SET_MAP` hands it to the lane given up).
+| `bool can_map_tool(int tool) const` | false | say whether the vendor's map command takes `T(tool)` now (AFC: a T(n) it registered; Happy Hare: one in `ttg_map`) |
+| `void map_tool(int tool, int slot)` | does nothing | send that command; the new map arrives through the subscription |
+| `bool can_share_slot() const` | false | true if several tools may draw from one slot (Happy Hare; AFC with `enable_multiple_mapping`). Otherwise the screen keeps one tool per slot |
 
-Automatic matching is the screen's, not a backend's, and only runs when the
-user asks for it. `mmu_automap()` (`src/mmu_tools.h`) keeps a tool on a slot
-that already suits it, fills the rest
-by material and then nearest colour (CIE Lab), never moves a tool onto
-another material, and never takes a slot from a tool that could print from
-it unless that tool is placed too -- taking it would swap that tool onto
-whatever the other one left.
+The user-triggered auto match is the screen's (`mmu_automap()` in
+`src/mmu_tools.h`), not a backend's.
 
 ---
 

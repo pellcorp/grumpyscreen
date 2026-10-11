@@ -53,7 +53,7 @@ static constexpr int DARK_COLOUR = 60;
 // same kind of thing, so they ask the same question -- the header's resting
 // colour used to be written out separately and had drifted to SURFACE, which
 // in classic is the page and left it looking unfilled beside the lanes.
-lv_color_t mmu_tile_bg() { return modern() ? col(SURFACE) : col(RAISED); }
+static lv_color_t tile_bg() { return modern() ? col(SURFACE) : col(RAISED); }
 
 // What a card or tile calls a slot: its physical position, counted from 1 in
 // the order the backend reports the slots, and the tool(s) mapped to it --
@@ -259,7 +259,7 @@ void MmuPanel::create(lv_obj_t *parent) {
   lv_obj_set_flex_grow(status_bar, 1);
   lv_obj_add_style(status_bar, &styles().card, 0);
   lv_obj_add_style(status_bar, &styles().card_pressed, LV_STATE_PRESSED);
-  lv_obj_set_style_bg_color(status_bar, mmu_tile_bg(), 0);  // it is a button, so it wears one
+  lv_obj_set_style_bg_color(status_bar, tile_bg(), 0);  // it is a button, so it wears one
   lv_obj_set_style_pad_hor(status_bar, gap() * 2, 0);
   lv_obj_set_style_pad_ver(status_bar, gap() / 2, 0);
   lv_obj_clear_flag(status_bar, LV_OBJ_FLAG_SCROLLABLE);
@@ -723,7 +723,7 @@ void MmuPanel::rebuild_grid(size_t page_count) {
     // button grey inside the same hairline every button set wears, and the
     // accent under a finger.
     lv_obj_add_style(card.cont, &styles().card, 0);
-    lv_obj_set_style_bg_color(card.cont, mmu_tile_bg(), 0);
+    lv_obj_set_style_bg_color(card.cont, tile_bg(), 0);
     lv_obj_set_style_bg_color(card.cont, theme_primary(), LV_STATE_PRESSED);
     lv_obj_set_style_radius(card.cont, radius_sm(), 0);
     lv_obj_clear_flag(card.cont, LV_OBJ_FLAG_SCROLLABLE);
@@ -865,7 +865,7 @@ void MmuPanel::populate() {
     lv_obj_set_style_bg_color(status_bar, col(WARNING), 0);
     lv_label_set_text(status_label, "Bypass Active - Single Spool");
   } else {
-    lv_obj_set_style_bg_color(status_bar, mmu_tile_bg(), 0);  // resting: same fill as a lane
+    lv_obj_set_style_bg_color(status_bar, tile_bg(), 0);  // resting: same fill as a lane
     std::string text;
     if (activity != MmuActivity::Idle) {
       text = activity == MmuActivity::Error ? activity_text(activity)

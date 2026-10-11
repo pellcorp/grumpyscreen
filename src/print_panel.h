@@ -12,7 +12,6 @@
 
 class PrintPanel : public NotifyConsumer {
  public:
-  // mmu is NULL when no MMU backend is configured
   PrintPanel(KWebSocketClient &ws, std::mutex &lv_lock, PrintStatusPanel &ps, MmuPanel *mmu);
   ~PrintPanel();
 

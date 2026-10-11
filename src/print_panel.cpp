@@ -409,14 +409,9 @@ void PrintPanel::handle_print_callback(lv_event_t *event) {
   lv_event_code_t code = lv_event_get_code(event);
   if (code == LV_EVENT_CLICKED && cur_file != NULL) {
     const std::string path = cur_file->full_path;
-    if (mmu == NULL) {
-      start_print(path);
-      return;
-    }
-    // an MMU that maps tools gets the file's filaments assigned first; its
-    // screen starts the print from there. The file's metadata is fetched on
-    // selection, but Print can be tapped before it lands, and starting without
-    // it would skip the mapping altogether -- so fetch it here if need be.
+    if (mmu == NULL) return start_print(path);
+    // with an MMU, map the file's tools first; fetch the metadata if Print
+    // beat it, or the mapping would be skipped
     auto map_or_print = [this, path](const json &metadata) {
       const std::string name = path.substr(path.rfind('/') + 1);  // npos + 1 is 0
       if (!mmu->open_tool_map(metadata, name, [this, path]() { start_print(path); })) start_print(path);
@@ -427,7 +422,7 @@ void PrintPanel::handle_print_callback(lv_event_t *event) {
     }
     ws.send_jsonrpc("server.files.metadata", {{"filename", path}},
                     [this, path, map_or_print](json &d) {
-      handle_metadata(path, d);  // caches it on the file; takes lv_lock itself
+      handle_metadata(path, d);  // takes lv_lock itself
       std::lock_guard<std::mutex> lock(lv_lock);
       map_or_print(d);
     });

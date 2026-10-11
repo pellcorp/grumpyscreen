@@ -19,17 +19,12 @@
 // which paints the same vendor hex strings.
 bool parse_colour(const std::string &colour, lv_color_t *out);
 
-// Shared with the print-start tool map, which shows the same slots.
-// What a tappable box on these panels is filled with
-lv_color_t mmu_tile_bg();
-// dim full-screen sheet calling cb on a tap outside, with a box centred on
-// it; returns the box. show/hide put the sheet on top and take it away.
+// shared with the print-start tool map:
+// a dim sheet (cb on a tap outside) with a centred box, which it returns
 lv_obj_t *create_popout(lv_obj_t **overlay, lv_event_cb_t cb, void *user_data);
 void show_popout(lv_obj_t *overlay);
 void hide_popout(lv_obj_t *overlay);
-// a slot as a picker tile: its colour as a spool dot, its label, its material.
-// by_name labels it with the slot's name rather than the tool it feeds, for a
-// picker whose question is which slot.
+// a slot as a picker tile; by_name labels it by slot name, not tool
 lv_obj_t *create_slot_tile(lv_obj_t *parent, const MmuSlot &slot, size_t idx, int width,
                            lv_event_cb_t cb, void *user_data, bool by_name = false);
 
@@ -52,10 +47,9 @@ class MmuPanel : public NotifyConsumer {
   void create(lv_obj_t *parent);
   // pull current state after the initial subscribe. caller must hold lv_lock.
   void init_state();
-  // Print-start tool mapping for a file's moonraker metadata. true when the
-  // screen opened -- print() then runs from its Print button; false when
-  // there is nothing to map (no backend, no tool map, no tools in the file)
-  // and the caller should start the print itself. caller must hold lv_lock.
+  // Opens the print-start tool map for a file's metadata; print() runs from
+  // its Print button. false when there is nothing to map: print directly.
+  // Caller holds lv_lock.
   bool open_tool_map(const json &metadata, const std::string &filename,
                      std::function<void()> print);
   // empty the panel when the backend is no longer there. caller must hold lv_lock.

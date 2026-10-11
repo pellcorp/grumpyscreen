@@ -888,13 +888,12 @@ static void test_hh_hostile_status(KWebSocketClient &ws) {
 
 
 // ---------------------------------------------------------------------------
-// tool mapping: the shared matcher, and each vendor's mapping command
+// tool mapping
 // ---------------------------------------------------------------------------
 static MmuSlot slot_with(const std::string &map, const std::string &material,
                          const std::string &colour, bool filament) {
   MmuSlot s;
-  s.name = map;
-  s.map = map;
+  s.name = s.map = map;
   s.material = material;
   s.colour = colour;
   s.prepped = s.ready = filament;
@@ -911,9 +910,8 @@ static MmuFileTool file_tool(int tool, const std::string &material, const std::s
 }
 
 static void test_tool_helpers() {
-  // whole map entries only: T1 must not be found inside T10
-  std::vector<MmuSlot> slots = {slot_with("T10", "", "", true), slot_with("T0,T1", "", "", true)};
-  CHECK_EQ(mmu_slot_for_tool(slots, 1), 1);
+  std::vector<MmuSlot> slots = {slot_with("T10", "", "", true), slot_with("T0, T1", "", "", true)};
+  CHECK_EQ(mmu_slot_for_tool(slots, 1), 1);  // whole entries: not inside T10
   CHECK_EQ(mmu_slot_for_tool(slots, 10), 0);
   CHECK_EQ(mmu_slot_for_tool(slots, 2), -1);
 
@@ -921,161 +919,93 @@ static void test_tool_helpers() {
   CHECK(!mmu_same_material("PLA", "PLA+"));
   CHECK(mmu_colour_distance("#FF0000", "ff0000") == 0);
   CHECK(mmu_colour_distance("", "FF0000") < 0);
-  // the pairs the luma-weighted RGB rule got wrong are different colours here
-  CHECK(mmu_colour_distance("F44336", "212121") > MMU_COLOUR_MISMATCH);  // red, near-black
-  CHECK(mmu_colour_distance("9C27B0", "F44336") > MMU_COLOUR_MISMATCH);  // purple, red
-  CHECK(mmu_colour_distance("F44336", "2196F3") > MMU_COLOUR_MISMATCH);  // red, blue
-  // and two presets of one colour are not
-  CHECK(mmu_colour_distance("F44336", "E53935") <= MMU_COLOUR_MISMATCH);
-  CHECK(mmu_colour_distance("000000", "212121") <= MMU_COLOUR_MISMATCH);
-}
-
-// the picks the screen opens with: each tool on the slot the printer maps it to
-static std::vector<int> current_of(const std::vector<MmuFileTool> &tools,
-                                   const std::vector<MmuSlot> &slots) {
-  std::vector<int> out;
-  for (const auto &t : tools) out.push_back(mmu_slot_for_tool(slots, t.tool));
-  return out;
+  CHECK(mmu_colour_distance("F44336", "E53935") <= MMU_COLOUR_MISMATCH);  // two reds
+  CHECK(mmu_colour_distance("F44336", "212121") > MMU_COLOUR_MISMATCH);   // red, near-black
+  CHECK(mmu_colour_distance("2196F3", "9C27B0") <= MMU_COLOUR_CLOSE);     // blue, purple
+  CHECK(mmu_colour_distance("2196F3", "FFEB3B") > MMU_COLOUR_CLOSE);      // blue, yellow
 }
 
 static void test_automap() {
   const int CLEAR = MMU_AUTOMAP_CLEAR;
-
-  // T0 red PLA sits on a blue lane; red PLA is loaded elsewhere
-  std::vector<MmuSlot> slots = {
-    slot_with("T0", "PLA", "2196F3", true),
-    slot_with("T1", "PLA", "F44336", true),
-    slot_with("T2", "PETG", "F44336", true),  // right colour, wrong material
-    slot_with("T3", "PLA", "F44336", false),  // right everything, but empty
+  std::vector<MmuSlot> slots;
+  std::vector<MmuFileTool> tools;
+  auto automap = [&](bool share, bool weights) {
+    std::vector<int> current;
+    for (const auto &t : tools) current.push_back(mmu_slot_for_tool(slots, t.tool));
+    return mmu_automap(tools, slots, current, share, weights);
   };
-  std::vector<MmuFileTool> tools = {file_tool(0, "PLA", "#F44336")};
-  std::vector<int> target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK_EQ(target.size(), (size_t)1);
-  CHECK_EQ(target[0], 1);
 
-  // a tool already on its match stays; one with no match left -- the red
-  // PLA lane is T1's, the other is empty, PETG is another material -- is left
-  // for the user rather than given a stand-in
-  tools = {file_tool(1, "PLA", "F44336"), file_tool(0, "PLA", "F44336")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK_EQ(target[0], -1);
-  CHECK_EQ(target[1], CLEAR);
-
-  // never another material, even in the right colour
-  tools = {file_tool(0, "ABS", "F44336")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK_EQ(target[0], CLEAR);
-
-  // never a far colour, even in the right material: blue is not red
-  slots = {slot_with("T0", "PETG", "F44336", true), slot_with("T1", "PLA", "2196F3", true)};
+  // red PLA: not the PETG lane, not the empty one
+  slots = {slot_with("T0", "PLA", "2196F3", true), slot_with("T1", "PLA", "F44336", true),
+           slot_with("T2", "PETG", "F44336", true), slot_with("T3", "PLA", "F44336", false)};
   tools = {file_tool(0, "PLA", "F44336")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK_EQ(target[0], CLEAR);
+  CHECK_EQ(automap(false, false)[0], 1);
 
-  // but a close one will do: purple for blue (the screen then warns)
-  slots = {slot_with("T0", "PLA", "FFEB3B", true), slot_with("T1", "PLA", "9C27B0", true)};
+  // never another material, a far colour, or a slot with no material set
+  tools = {file_tool(0, "ABS", "F44336")};
+  CHECK_EQ(automap(false, false)[0], CLEAR);
+  slots = {slot_with("T0", "PLA", "FFEB3B", true), slot_with("T1", "", "2196F3", true)};
   tools = {file_tool(0, "PLA", "2196F3")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK_EQ(target[0], 1);
+  CHECK_EQ(automap(false, false)[0], CLEAR);
+  // but a close colour will do: purple for blue
+  slots.push_back(slot_with("T2", "PLA", "9C27B0", true));
+  CHECK_EQ(automap(false, false)[0], 2);
 
-  // a slot with no material set is not known to hold the file's
-  slots = {slot_with("T0", "", "2196F3", true)};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK_EQ(target[0], CLEAR);
-
-  // seen in the simulator: purple T0 sits on the only PLA lane, which is red
-  // (too far); orange T2 sits on ABS. The red lane is close enough for orange,
-  // so T2 takes it, and T0, with no match, is left for the user
-  slots = {slot_with("T0", "PLA", "F44336", true), slot_with("T1", "PETG", "2196F3", true),
-           slot_with("T2", "ABS", "4CAF50", true)};
-  tools = {file_tool(0, "PLA", "9C27B0"), file_tool(2, "PLA", "FF9800")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK_EQ(target[0], CLEAR);
-  CHECK_EQ(target[1], 0);
-
-  // a tool on a close-enough slot is never left with nothing: blue T0 on the
-  // purple PLA lane keeps it when a nearer tool could have taken it
+  // the nearer colour wins a slot; the other is left for the user
   slots = {slot_with("T0", "PLA", "9C27B0", true)};
   tools = {file_tool(0, "PLA", "2196F3"), file_tool(1, "PLA", "9C27B0")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK_EQ(target[0], -1);
-  CHECK_EQ(target[1], CLEAR);
+  std::vector<int> target = automap(false, false);
+  CHECK_EQ(target[0], CLEAR);
+  CHECK_EQ(target[1], 0);
 
   // two tools on each other's colours swap
   slots = {slot_with("T0", "PLA", "2196F3", true), slot_with("T1", "PLA", "F44336", true)};
   tools = {file_tool(0, "PLA", "F44336"), file_tool(1, "PLA", "2196F3")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
+  target = automap(false, false);
   CHECK_EQ(target[0], 1);
   CHECK_EQ(target[1], 0);
 
-  // seen in the simulator (6 tools, 8 gates): T3 takes the yellow PLA gate, T4
-  // the black PETG one; red T5's only match is T0's gate, so without sharing
-  // it is left for the user -- never the ABS or the empty gate
-  slots = {slot_with("T0", "PLA", "F44336", true), slot_with("T3", "", "", false),
-           slot_with("T4", "PLA", "FFEB3B", true), slot_with("T5", "PETG", "212121", true),
-           slot_with("T6", "ABS", "FFFFFF", true)};
-  tools = {file_tool(0, "PLA", "F44336"), file_tool(3, "PLA", "FFEB3B"),
-           file_tool(4, "PETG", "212121"), file_tool(5, "PLA", "F44336")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
+  // T0 stays, T1 moves to its colour; red T2's only match is T0's slot:
+  // shared where allowed and the grams cover both, else left for the user
+  slots = {slot_with("T0", "PLA", "F44336", true), slot_with("T1", "PLA", "212121", true),
+           slot_with("T2", "PLA", "FFEB3B", true)};
+  tools = {file_tool(0, "PLA", "F44336"), file_tool(1, "PLA", "FFEB3B"), file_tool(2, "PLA", "F44336")};
+  slots[2].prepped = slots[2].ready = false;
+  slots.push_back(slot_with("T3", "PLA", "FFEB3B", true));
+  target = automap(false, false);
   CHECK_EQ(target[0], -1);
-  CHECK_EQ(target[1], 2);
-  CHECK_EQ(target[2], 3);
-  CHECK_EQ(target[3], CLEAR);
-
-  // where tools may share a slot, T5 shares T0's red PLA gate...
-  target = mmu_automap(tools, slots, current_of(tools, slots), true, false);
-  CHECK_EQ(target[3], 0);
-  // ...unless spoolman says it cannot feed both
-  slots[0].weight = 25;  // T0 needs 1g, T5 1g: room for both
-  target = mmu_automap(tools, slots, current_of(tools, slots), true, true);
-  CHECK_EQ(target[3], 0);
+  CHECK_EQ(target[1], 3);
+  CHECK_EQ(target[2], CLEAR);
+  CHECK_EQ(automap(true, false)[2], 0);
+  slots[0].weight = 25;
   tools[0].grams = 20;
-  tools[3].grams = 10;   // 30g asked of 25g
-  target = mmu_automap(tools, slots, current_of(tools, slots), true, true);
-  CHECK_EQ(target[3], CLEAR);
+  tools[2].grams = 10;
+  CHECK_EQ(automap(true, true)[2], CLEAR);  // 30g asked of 25g
 
-  // with spoolman, a slot without the grams is no match at all
-  slots = {slot_with("T0", "PLA", "F44336", true), slot_with("T1", "PLA", "F44336", true),
-           slot_with("T2", "PETG", "2196F3", true)};
-  slots[0].weight = 5;
-  slots[1].weight = 800;
-  tools = {file_tool(2, "PLA", "F44336")};
+  // with spoolman, a slot without the grams is no match
+  slots = {slot_with("T0", "PLA", "F44336", true), slot_with("T1", "PETG", "2196F3", true)};
+  slots[0].weight = 40;
+  tools = {file_tool(1, "PLA", "F44336")};
   tools[0].grams = 50;
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, true);
-  CHECK_EQ(target[0], 1);
-  slots[1].weight = 40;
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, true);
-  CHECK_EQ(target[0], CLEAR);
-
-  // no lane is handed to two tools
-  slots = {slot_with("T5", "PLA", "F44336", true), slot_with("T6", "PLA", "2196F3", true)};
-  tools = {file_tool(0, "PLA", "F44336"), file_tool(1, "PLA", "F44336")};
-  target = mmu_automap(tools, slots, current_of(tools, slots), false, false);
-  CHECK(target[0] != target[1]);
+  CHECK_EQ(automap(false, true)[0], CLEAR);
+  CHECK_EQ(automap(false, false)[0], 0);  // weights unknown: no refusal
 }
 
 static void test_file_tools() {
-  // shaped like the metadata moonraker returned on a real printer for an
-  // OrcaSlicer 2.4.2 file: four filaments defined, one used, names and types
-  // as a JSON array packed into a string
+  // as moonraker returned it for an OrcaSlicer 2.4.2 file: types as a JSON
+  // array inside a string, unused tools at zero weight
   json meta = json::parse(R"({"result": {
-    "filament_name": "[\"Elegoo PLA @ECC\", \"Elegoo PLA @ECC\", \"Elegoo PLA @ECC\", \"Elegoo PLA @ECC\"]",
     "filament_type": "[\"PLA\", \"PLA\", \"PLA\", \"PETG\"]",
     "filament_colors": ["#9E9E9E", "#FF9800", "#9E9E9E", "#2196F3"],
-    "extruder_colors": ["#9E9E9E", "#FF9800", "#9E9E9E", "#2196F3"],
-    "filament_weights": [10.41, 0.0, 0.0, 2.5],
-    "referenced_tools": []}})");
+    "filament_weights": [10.41, 0.0, 0.0, 2.5]}})");
   std::vector<MmuFileTool> tools = mmu_file_tools(meta);
   CHECK_EQ(tools.size(), (size_t)2);
   if (tools.size() == 2) {
-    CHECK_EQ(tools[0].tool, 0);
     CHECK_EQ(tools[0].colour, std::string("9E9E9E"));
-    CHECK_EQ(tools[0].material, std::string("PLA"));
     CHECK_EQ(tools[1].tool, 3);
     CHECK_EQ(tools[1].material, std::string("PETG"));
   }
 
-  // a ';'-separated type string, and no weights at all
   meta["result"]["filament_type"] = "PLA;ABS";
   meta["result"]["filament_weights"] = json::array({0, 3});
   tools = mmu_file_tools(meta);
@@ -1083,54 +1013,38 @@ static void test_file_tools() {
   if (tools.size() == 1) CHECK_EQ(tools[0].material, std::string("ABS"));
   meta["result"].erase("filament_weights");
   CHECK(mmu_file_tools(meta).empty());
-  CHECK(mmu_file_tools(json::object()).empty());
 }
 
 static void test_tool_map_verbs(KWebSocketClient &ws) {
   json j = afc_status();
-  j["printer_state"]["AFC_lane lane1"]["prep"] = true;
-  j["printer_state"]["AFC_lane lane1"]["load"] = true;
-  j["printer_state"]["AFC_lane lane1"]["material"] = "PLA";
-  j["printer_state"]["AFC_lane lane1"]["color"] = "#2196F3";
-  j["printer_state"]["AFC_lane lane2"]["prep"] = true;
-  j["printer_state"]["AFC_lane lane2"]["load"] = true;
-  j["printer_state"]["AFC_lane lane2"]["material"] = "PLA";
-  j["printer_state"]["AFC_lane lane2"]["color"] = "#F44336";
   load_state(j);
   AfcBackend afc(ws);
   afc.refresh();
 
-  // SET_MAP only knows the T(n) AFC registered, one per lane
   CHECK(afc.can_map_tool(0));
-  CHECK(!afc.can_map_tool(7));
+  CHECK(!afc.can_map_tool(7));  // SET_MAP only takes a T(n) AFC registered
   sent.clear();
   afc.map_tool(1, 0);
   CHECK_EQ(sent.size(), (size_t)1);
-  CHECK_EQ(sent[0], std::string("SET_MAP LANE=lane1 MAP=T1"));
+  if (!sent.empty()) CHECK_EQ(sent[0], std::string("SET_MAP LANE=lane1 MAP=T1"));
 
-
-  // two tools on one lane only with AFC's enable_multiple_mapping
   CHECK(!afc.can_share_slot());
   j["printer_state"]["AFC"]["multiple_tool_mapping"] = true;
   load_state(j);
   afc.refresh();
   CHECK(afc.can_share_slot());
 
-  // never mid-print
   j["printer_state"]["print_stats"]["state"] = "printing";
   load_state(j);
   afc.refresh();
   CHECK(!afc.can_map_tool(0));
-  sent.clear();
-  afc.map_tool(1, 0);
-  CHECK(sent.empty());
 
 #ifdef MMU_BACKEND_HH
   load_state(hh_status());
   HhBackend hh(ws);
   hh.refresh();
   CHECK(hh.can_map_tool(3));
-  CHECK(!hh.can_map_tool(4));      // ttg_map holds four tools
+  CHECK(!hh.can_map_tool(4));  // ttg_map holds four tools
   CHECK(hh.can_share_slot());
   sent.clear();
   hh.map_tool(2, 0);

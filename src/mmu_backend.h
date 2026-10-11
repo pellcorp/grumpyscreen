@@ -27,12 +27,12 @@ struct MmuSlot {
   bool can_configure = true;
 };
 
-// One tool a print file uses, from the slicer's metadata.
+// a tool a print file uses, from the slicer's metadata
 struct MmuFileTool {
-  int tool = -1;          // the file's T(n)
-  std::string colour;     // "RRGGBB", "" when the file names none
-  std::string material;   // "" when the file names none
-  double grams = 0;       // filament the file uses from this tool
+  int tool = -1;          // T(n)
+  std::string colour;     // "RRGGBB", "" unknown
+  std::string material;   // "" unknown
+  double grams = 0;
 };
 
 // What the unit is doing, in terms every unit shares. The panel owns the
@@ -110,15 +110,11 @@ class MmuBackend {
   // than offering a tap that quietly stores something invalid.
   virtual bool can_clear_colour() const { return true; }
 
-  // Tool mapping: which slot feeds the file's T(n). The current map is read
-  // from MmuSlot::map; map_tool() changes it, and the new map arrives through
-  // the subscription like any other state. can_map_tool() false always means
-  // the vendor has no tool map and the print-start mapping screen is skipped.
+  // Tool mapping (MmuSlot::map holds the current map). A vendor without one
+  // leaves these alone and the print-start mapping screen is skipped.
   virtual bool can_map_tool(int tool) const { (void)tool; return false; }
   virtual void map_tool(int tool, int slot) { (void)tool; (void)slot; }
-  // May two tools draw from one slot? A fact about the vendor's tool map, not
-  // a verb: the screen asks it so a pick onto a slot another tool has can
-  // share it rather than swap with it.
+  // may several tools draw from one slot
   virtual bool can_share_slot() const { return false; }
 
   // Acknowledge the current `message`. Optional: only backends that hold
