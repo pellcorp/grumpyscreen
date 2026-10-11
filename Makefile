@@ -242,7 +242,7 @@ test: libhv.a
 # the backend fixture stubs State and the websocket client, so it links
 # only the backend under test (libhv for the client's base class)
 	g++ -std=gnu++17 -O2 -I./src -I./fmt/include -Ilibhv/include/ $(MMU_BACKEND_DEFS) $(MMU_BACKEND_SRC) \
-		tests/test_backends.cpp src/notify_consumer.cpp -o $(BUILD_DIR)/test_backends \
+		tests/test_backends.cpp src/mmu_tools.cpp src/notify_consumer.cpp -o $(BUILD_DIR)/test_backends \
 		-L$(DEPS_LIB_DIR) -l:libhv.a -lpthread
 	$(BUILD_DIR)/test_backends
 

@@ -112,6 +112,7 @@ void HhBackend::refresh() {
   paused = false;
   enabled = true;
   filament_loaded = false;
+  num_tools = 0;
 
   if (!mmu.is_object()) return;
 
@@ -125,6 +126,7 @@ void HhBackend::refresh() {
   const json &gate_colour_rgb = array_at(mmu, "gate_color_rgb");
   const json &gate_spool_id = array_at(mmu, "gate_spool_id");
   const json &es_groups = array_at(mmu, "endless_spool_groups");
+  num_tools = ttg.is_array() ? (int)ttg.size() : 0;
 
   const int cur_gate = int_at(mmu, "gate", -1);
   const int cur_tool = int_at(mmu, "tool", -1);
@@ -338,6 +340,15 @@ void HhBackend::load(int slot) {
   // loaded, and MMU_UNLOAD with nothing loaded logs "Filament not loaded" and
   // returns without raising, so this covers a fresh load and a swap alike.
   ws.gcode_script(fmt::format("MMU_UNLOAD\nMMU_SELECT GATE={}\nMMU_LOAD", slot));
+}
+
+bool HhBackend::can_map_tool(int tool) const {
+  return enabled && !in_print && tool >= 0 && tool < num_tools && !slots.empty();
+}
+
+void HhBackend::map_tool(int tool, int slot) {
+  if (!valid(slot) || !can_map_tool(tool)) return;
+  ws.gcode_script(fmt::format("MMU_TTG_MAP TOOL={} GATE={} QUIET=1", tool, slot));
 }
 
 void HhBackend::unload() {

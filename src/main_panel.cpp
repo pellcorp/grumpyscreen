@@ -47,7 +47,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , setting_panel(websocket, lock, setting_tab)
   , main_cont(create_screen(main_tab))  // fills the tab: it is the page
   , print_status_panel(websocket, lock, main_cont)
-  , print_panel(ws, lock, print_status_panel)
+  , print_panel(ws, lock, print_status_panel, mmu)
   , numpad(Numpad(main_cont))
   , extruder_panel(ws, lock, numpad, sm)
   , prompt_panel(websocket, lock, main_cont, print_status_panel)

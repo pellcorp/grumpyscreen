@@ -36,6 +36,12 @@ class HhBackend : public MmuBackend {
   // can_clear_colour() is left at true: MMU_GATE_MAP's validate_color accepts
   // an empty string and stores it, so "no colour" is a colour Happy Hare has.
 
+  // MMU_TTG_MAP takes any tool its ttg_map holds
+  bool can_map_tool(int tool) const override;
+  void map_tool(int tool, int slot) override;
+  // ttg_map routes any number of tools to a gate (MMU_TTG_MAP MAP=0,0,0,0)
+  bool can_share_slot() const override { return true; }
+
  private:
   void fetch_spoolman_weights();
   void gate_map(int slot, const std::string &args);
@@ -53,6 +59,7 @@ class HhBackend : public MmuBackend {
   bool fetch_failed = false;             // last fetch got nothing back
 
   bool enabled = true;          // MMU ENABLE=0 refuses every command
+  int num_tools = 0;            // length of ttg_map
   bool filament_loaded = false; // in the extruder, from a gate or the bypass
   // from print_state: HH's own job state machine, not klipper's
   bool in_print = false;  // started | printing

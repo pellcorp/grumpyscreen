@@ -2,6 +2,7 @@
 #define __MMU_PANEL_H__
 
 #include "mmu_backend.h"
+#include "tool_map_panel.h"
 #include "button_container.h"
 #include "websocket_client.h"
 #include "notify_consumer.h"
@@ -17,6 +18,20 @@
 // *out) when the string is not a colour. Shared with the spoolman table,
 // which paints the same vendor hex strings.
 bool parse_colour(const std::string &colour, lv_color_t *out);
+
+// Shared with the print-start tool map, which shows the same slots.
+// What a tappable box on these panels is filled with
+lv_color_t mmu_tile_bg();
+// dim full-screen sheet calling cb on a tap outside, with a box centred on
+// it; returns the box. show/hide put the sheet on top and take it away.
+lv_obj_t *create_popout(lv_obj_t **overlay, lv_event_cb_t cb, void *user_data);
+void show_popout(lv_obj_t *overlay);
+void hide_popout(lv_obj_t *overlay);
+// a slot as a picker tile: its colour as a spool dot, its label, its material.
+// by_name labels it with the slot's name rather than the tool it feeds, for a
+// picker whose question is which slot.
+lv_obj_t *create_slot_tile(lv_obj_t *parent, const MmuSlot &slot, size_t idx, int width,
+                           lv_event_cb_t cb, void *user_data, bool by_name = false);
 
 // Vendor-agnostic MMU panel: renders the slots of whichever MmuBackend is
 // active and drives it through the MmuBackend verbs only.
@@ -37,6 +52,12 @@ class MmuPanel : public NotifyConsumer {
   void create(lv_obj_t *parent);
   // pull current state after the initial subscribe. caller must hold lv_lock.
   void init_state();
+  // Print-start tool mapping for a file's moonraker metadata. true when the
+  // screen opened -- print() then runs from its Print button; false when
+  // there is nothing to map (no backend, no tool map, no tools in the file)
+  // and the caller should start the print itself. caller must hold lv_lock.
+  bool open_tool_map(const json &metadata, const std::string &filename,
+                     std::function<void()> print);
   // empty the panel when the backend is no longer there. caller must hold lv_lock.
   void clear();
   void consume(json &j);
@@ -94,6 +115,7 @@ class MmuPanel : public NotifyConsumer {
   bool is_backup_slot(int idx) const;
 
   KWebSocketClient &ws;
+  ToolMapPanel tool_map;
   std::vector<std::pair<std::string, MmuBackend*>> backends;
   MmuBackend *backend;
   lv_obj_t *cont;

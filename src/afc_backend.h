@@ -40,6 +40,12 @@ class AfcBackend : public MmuBackend {
   // instead, so the panel is told not to offer one.
   bool can_clear_colour() const override { return false; }
 
+  // SET_MAP only accepts a T(n) AFC registered (one per lane)
+  bool can_map_tool(int tool) const override;
+  void map_tool(int tool, int slot) override;
+  // only with AFC's enable_multiple_mapping; otherwise SET_MAP swaps
+  bool can_share_slot() const override { return multiple_mapping; }
+
  private:
   // MmuSlot::name is a display name; AFC's gcode needs the raw lane name, so
   // keep them side by side, indexed the same as slots
@@ -53,6 +59,7 @@ class AfcBackend : public MmuBackend {
   KWebSocketClient &ws;
   std::vector<std::string> lane_ids;
   bool printing = false;
+  bool multiple_mapping = false;  // AFC enable_multiple_mapping
 };
 
 #endif // __AFC_BACKEND_H__
