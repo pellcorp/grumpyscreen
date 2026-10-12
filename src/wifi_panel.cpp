@@ -633,7 +633,10 @@ void WifiPanel::handle_kb_input(lv_event_t *e) {
 
 void WifiPanel::update_password_submit_state() {
   const char *password = lv_textarea_get_text(password_input);
-  const bool enabled = password != nullptr && std::strlen(password) >= 8;
+  const size_t password_length = password == nullptr ? 0 : std::strlen(password);
+  // An empty field means the user is dismissing the dialog. Once they begin
+  // entering a password, require a valid WPA passphrase before allowing submit.
+  const bool enabled = password_length == 0 || password_length >= 8;
 
   const char **map = lv_btnmatrix_get_map(kb);
   uint16_t btn_id = 0;
@@ -728,7 +731,12 @@ void WifiPanel::hide_password_dialog() {
 void WifiPanel::submit_password() {
   if (credential_connecting) return;
   const char *password = lv_textarea_get_text(password_input);
-  if (password == nullptr || std::strlen(password) < 8) {
+  const size_t password_length = password == nullptr ? 0 : std::strlen(password);
+  if (password_length == 0) {
+    cancel_password_dialog();
+    return;
+  }
+  if (password_length < 8) {
     lv_label_set_text(credential_status, "Password must be at least 8 characters");
     lv_obj_set_style_text_color(credential_status, Theme::col(Theme::DANGER), 0);
     return;

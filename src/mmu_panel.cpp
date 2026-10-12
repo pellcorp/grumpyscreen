@@ -54,8 +54,13 @@ static constexpr int DARK_COLOUR = 60;
 // in classic is the page and left it looking unfilled beside the lanes.
 static lv_color_t tile_bg() { return modern() ? col(SURFACE) : col(RAISED); }
 
-// what a card or tile calls a slot: its tool label when mapped, else its name
-static std::string slot_label(const MmuSlot &s) { return s.map.empty() ? s.name : s.map; }
+// What a card or tile calls a slot: its physical position, counted from 1 in
+// the order the backend reports the slots, and the tool(s) mapped to it --
+// "S1 (T2)". A tool number alone reads as a position, and T2 need not be in
+// the second slot.
+static std::string slot_label(const MmuSlot &s, size_t idx) {
+  return s.map.empty() ? fmt::format("S{}", idx + 1) : fmt::format("S{} ({})", idx + 1, s.map);
+}
 
 // Every colour the panel handles is a vendor string: "RRGGBB", "#rrggbb", ""
 // or "NONE". These two are the only places that know that.
@@ -363,7 +368,7 @@ void MmuPanel::create_edit_screen() {
   edit_mat_lbl = lv_label_create(preview_box);
   lv_label_set_text(edit_mat_lbl, "-");
   edit_tool_lbl = lv_label_create(preview_box);
-  lv_label_set_text(edit_tool_lbl, "Tool: T0");
+  lv_label_set_text(edit_tool_lbl, "");  // the slot's label lands here on open
   lv_obj_set_style_text_color(edit_tool_lbl, primary, 0);
   for (lv_obj_t *lbl : {edit_mat_lbl, edit_tool_lbl}) {
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
@@ -845,8 +850,8 @@ void MmuPanel::populate() {
 
     paint_spool_icon(card.spool, card.hole, colour, colour_valid, has_filament);
 
-    // Line 1: Tool / Name (e.g. "T0", "T0 (B)")
-    std::string tool_str = slot_label(slot);
+    // Line 1: slot and tool (e.g. "S1 (T0)", "S1 (T0) (B)")
+    std::string tool_str = slot_label(slot, slot_idx);
     if (backup) tool_str += " (B)";
     lv_label_set_text(card.title, tool_str.c_str());
     lv_obj_set_style_text_color(card.title, slot.tool_loaded ? primary : col(TEXT), 0);
@@ -885,9 +890,9 @@ void MmuPanel::populate() {
                                             : fmt::format("{}...", activity_text(activity));
     } else if (loaded_idx >= 0 && (size_t)loaded_idx < slots.size()) {
       const MmuSlot &slot = slots[loaded_idx];
-      std::string desc = slot.material.empty() ? slot.name : slot.material;
-      if (!slot.map.empty()) desc = fmt::format("{} - {}", slot.map, desc);
-      text = fmt::format("Loaded: {}", desc);
+      const std::string label = slot_label(slot, loaded_idx);
+      text = slot.material.empty() ? fmt::format("Loaded: {}", label)
+                                   : fmt::format("Loaded: {} - {}", label, slot.material);
     } else if (slots.empty()) {
       text = "No slots reported";
     } else {
@@ -1036,17 +1041,23 @@ void MmuPanel::update_edit_preview() {
   // Tool assignment is read-only info; it comes from the MMU config. So is the
   // infinite-spool wiring, named both ways: the slot that takes over when this
   // one runs out, and the slots this one stands in for
-  std::string tool_str = fmt::format("Tool: {}", slot.map.empty() ? "None" : slot.map);
-  if (slot.backup >= 0 && (size_t)slot.backup < slots.size()) {
-    tool_str += fmt::format(" - Backed up by {}", slot_label(slots[slot.backup]));
+  // labelled as its card is, "S1 (T0)"; the title above keeps the vendor's
+  // own name for the slot
+  std::string tool_str = slot_label(slot, edit_slot_idx);
+  const bool backed_up = slot.backup >= 0 && (size_t)slot.backup < slots.size();
+  if (backed_up) {
+    tool_str += fmt::format(" backed up by {}", slot_label(slots[slot.backup], slot.backup));
   }
   std::string covers;
   for (size_t i = 0; i < slots.size(); i++) {
     if ((int)i != edit_slot_idx && slots[i].backup == edit_slot_idx) {
-      covers += (covers.empty() ? "" : ", ") + slot_label(slots[i]);
+      covers += (covers.empty() ? "" : ", ") + slot_label(slots[i], i);
     }
   }
-  if (!covers.empty()) tool_str += fmt::format(" - Backup for {}", covers);
+  // "S12 (T2) backs up S16 (T11)"; a comma when it is backed up as well
+  if (!covers.empty()) {
+    tool_str += fmt::format("{} backs up {}", backed_up ? "," : "", covers);
+  }
   lv_label_set_text(edit_tool_lbl, tool_str.c_str());
 
   // Whether a verb is allowed right now is the backend's call -- it knows its
@@ -1316,7 +1327,7 @@ void MmuPanel::open_backup_picker() {
   int tile_w = (popout_row_w() - (cols - 1) * gap()) / cols;
 
   lv_obj_t *title = lv_label_create(backup_picker_list);
-  lv_label_set_text(title, fmt::format("{} backs up:", editing.name).c_str());
+  lv_label_set_text(title, fmt::format("{} backs up:", slot_label(editing, edit_slot_idx)).c_str());
   lv_obj_set_width(title, LV_PCT(100));
   lv_obj_set_style_text_font(title, scale_font(14), 0);
 
@@ -1350,7 +1361,7 @@ void MmuPanel::open_backup_picker() {
     lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_clear_flag(dot, LV_OBJ_FLAG_CLICKABLE);
 
-    std::string name = slot_label(l);
+    std::string name = slot_label(l, i);
     if (l.tool_loaded) name += " *";
     lv_obj_t *lbl = lv_label_create(b);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);

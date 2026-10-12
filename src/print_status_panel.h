@@ -96,6 +96,7 @@ class PrintStatusPanel : public NotifyConsumer {
   std::map<std::string, int> fan_speeds;
   std::string chamber_sensor_key_;
   bool is_foreground_ = false;
+  std::string print_state_;
 };
 
 #endif // __PRINT_STATUS_PANEL_H__
