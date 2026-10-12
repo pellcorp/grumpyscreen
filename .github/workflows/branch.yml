@@ -49,9 +49,11 @@ jobs:
 
     - name: set grumpyscreen version
       run: |
+        BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
         VERSION="v2.0.0-$(git rev-list --count 2.0.0..${{ github.sha }})"
-        echo "GUPPYSCREEN_BRANCH=$VERSION" >> $GITHUB_ENV
-        echo "GUPPYSCREEN_VERSION=${{ github.sha }}" >> $GITHUB_ENV
+        echo "GUPPYSCREEN_BRANCH=$BRANCH" >> $GITHUB_ENV
+        echo "GUPPYSCREEN_VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Building branch $BRANCH, version $VERSION"
 
     - if: matrix.small
       name: export screen size
@@ -116,9 +118,11 @@ jobs:
 
     - name: set grumpyscreen version
       run: |
+        BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
         VERSION="v2.0.0-$(git rev-list --count 2.0.0..${{ github.sha }})"
-        echo "GUPPYSCREEN_BRANCH=$VERSION" >> $GITHUB_ENV
-        echo "GUPPYSCREEN_VERSION=${{ github.sha }}" >> $GITHUB_ENV
+        echo "GUPPYSCREEN_BRANCH=$BRANCH" >> $GITHUB_ENV
+        echo "GUPPYSCREEN_VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Building branch $BRANCH, version $VERSION"
 
     - if: matrix.small
       name: export screen size
