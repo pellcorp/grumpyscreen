@@ -5,17 +5,12 @@ rm -rf $RELEASES_DIR
 mkdir -p $RELEASES_DIR
 
 ASSET_NAME=$1
-GIT_SHA=$2
-GIT_BRANCH=$3
-BUILD_DIR=${4:-./build}
+BUILD_DIR=${2:-./build}
 
 TIMESTAMP=$(date +%s)
 
 cp "$BUILD_DIR/bin/grumpyscreen" $RELEASES_DIR/
 cp grumpyscreen.cfg $RELEASES_DIR/
-echo "GIT_SHA=${GIT_SHA:0:7}" > $RELEASES_DIR/release.info
-echo "GIT_BRANCH=$GIT_BRANCH" >> $RELEASES_DIR/release.info
-echo "TIMESTAMP=$TIMESTAMP" >> $RELEASES_DIR/release.info
 
 echo "Timestamp was $TIMESTAMP"
 
