@@ -43,11 +43,22 @@ The second form directly deploys it to your rpi based printer or dev box.
 
 ### Build Locally (SDL2)
 
-Mostly this is about getting good screenshots for the moment but you can build grumpyscreen locally with SDL2.
+Build grumpyscreen for your desktop with SDL2:
 
 ```
 ./build.sh sdl [--small]
-build/sdl/bin/grumpyscreen
 ```
 
 Add `--setup` before the target when you want to clean that target before building, for example `./build.sh --setup mips-small`.
+
+## Desktop Simulator
+
+`sim.sh` runs the SDL build against a simulated printer: a fake Moonraker and Klipper that print real gcode files, an AFC or Happy Hare filament changer, and a fake wpa_supplicant for the wifi panel. It needs Python 3 and nothing else.
+
+```
+./build.sh sdl --small
+./sim.sh
+SIM_BACKEND=hh SIM_LANES=8 ./sim.sh
+```
+
+Everything happens in `/tmp/grumpy-sim-7125`: deleting files, factory reset, shutdown and updates never touch your machine. See [docs/simulator.md](docs/simulator.md) for the options, test prints and commands.
