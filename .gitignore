@@ -6,5 +6,6 @@ build-bootstrap/
 *.a
 /.idea
 debug/
-.target.cfg
 releases/
+.target.cfg
+__pycache__/

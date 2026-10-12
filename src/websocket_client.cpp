@@ -28,16 +28,17 @@ KWebSocketClient::~KWebSocketClient() {
 }
 
 int KWebSocketClient::connect(const char* url,
-			      std::function<void()> connected,
+			      std::function<void()> opened,
+			      std::function<void()> klippy_ready,
 			      std::function<void()> disconnected) {
   LOG_DEBUG("websocket connecting");
   // set callbacks
-  onopen = [this, connected]() {
+  onopen = [this, opened]() {
     const HttpResponsePtr& resp = getHttpResponse();
     LOG_DEBUG("onopen {}", resp->body.c_str());
-    connected();
+    opened();
   };
-  onmessage = [this, connected, disconnected](const std::string &msg) {
+  onmessage = [this, klippy_ready, disconnected](const std::string &msg) {
     auto j = json::parse(msg);
     if (get_log_level() <= LogLevel::TRACE) {
       LOG_TRACE("recv_jsonrpc: {}", j.dump());
@@ -71,7 +72,7 @@ int KWebSocketClient::connect(const char* url,
         disconnected();
       } else if ("notify_klippy_ready" == method) {
         LOG_DEBUG("klippy connected");
-        connected();
+        klippy_ready();
       }
 
       for (const auto &entry : method_resp_cbs) {
