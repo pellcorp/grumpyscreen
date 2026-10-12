@@ -1,4 +1,5 @@
 #include "console_panel.h"
+#include "config.h"
 #include "state.h"
 #include "logger.h"
 #include "klipper_temp_filter.h"
@@ -12,10 +13,15 @@ using namespace Theme;
 
 LV_FONT_DECLARE(dejavusans_mono_14);
 
+static bool has_macros() {
+  return !Config::get_instance()->get_objects("/macro").empty();
+}
+
 ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock, lv_obj_t *parent)
   : ws(websocket_client)
   , lv_lock(lock)
-  , console_cont(create_screen(parent))
+  , tabview(has_macros() ? lv_tabview_create(parent, LV_DIR_TOP, scale_r(36)) : NULL)
+  , console_cont(create_screen(tabview != NULL ? lv_tabview_add_tab(tabview, "Console") : parent))
   , top_cont(create_row(console_cont))
   , output(lv_textarea_create(top_cont))
   , lower_cont(create_row(console_cont))
@@ -80,20 +86,31 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   delete_btn.hide_label();
   lv_obj_set_size(delete_btn.get_container(), scale_r(34), scale_r(34));
 
+  if (tabview != NULL) {
+    lv_obj_t *macro_tab = lv_tabview_add_tab(tabview, "Macros");
+    lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_pad_all(lv_obj_get_parent(console_cont), 0, 0);
+    lv_obj_set_style_pad_all(macro_tab, 0, 0);
+    style_embedded_tabview(tabview);
+    macro_panel = std::make_unique<MacroPanel>(ws, macro_tab);
+  }
+
   ws.register_method_callback("notify_gcode_response",
 			      "ConsolePanel",
 			      [this](json& d) { this->handle_macro_response(d); });
 }
 
 ConsolePanel::~ConsolePanel() {
-  if (console_cont != NULL) {
-    lv_obj_del(console_cont);
+  lv_obj_t *outer = get_container();
+  if (outer != NULL) {
+    lv_obj_del(outer);
+    tabview = NULL;
     console_cont = NULL;
   }
 }
 
 lv_obj_t *ConsolePanel::get_container() {
-  return console_cont;
+  return tabview != NULL ? tabview : console_cont;
 }
 
 // thanks Chad

@@ -2,9 +2,11 @@
 #define __CONSOLE_PANEL_H__
 
 #include "button_container.h"
+#include "macro_panel.h"
 #include "websocket_client.h"
 #include "lvgl/lvgl.h"
 
+#include <memory>
 #include <mutex>
 #include <list>
 
@@ -31,6 +33,8 @@ class ConsolePanel {
  private:
   KWebSocketClient &ws;
   std::mutex &lv_lock;
+  // Console and Macros tabs, NULL when no [macro] is configured
+  lv_obj_t *tabview;
   lv_obj_t *console_cont;
   lv_obj_t *top_cont;
   lv_obj_t *output;
@@ -39,6 +43,7 @@ class ConsolePanel {
   lv_obj_t *input;
   lv_obj_t *kb;
   ButtonContainer delete_btn;
+  std::unique_ptr<MacroPanel> macro_panel;
 };
 
 #endif // __CONSOLE_PANEL_H__
