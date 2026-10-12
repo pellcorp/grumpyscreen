@@ -1,23 +1,32 @@
-# Desktop Simulator
+# Testing Without a Printer
 
-Runs the SDL build against a simulated printer, so panels can be developed and checked without one.
+Two fakes stand in for the printer, so the screen can be developed and checked without one. Both need only Python 3.
+
+| Part | File |
+| --- | --- |
+| Fake Moonraker + Klipper | `tools/fake_moonraker.py` (code in `tools/moonsim/`) |
+| Fake wpa_supplicant | `tools/fake_wpa_supplicant.py` |
+
+## With a local build
 
 ```
 ./build.sh sdl --small
 ./sim.sh
 ```
 
-`sim.sh` starts three things and stops them when the window closes:
-
-| Part | File |
-| --- | --- |
-| Fake Moonraker + Klipper | `tools/fake_moonraker.py` (code in `tools/moonsim/`) |
-| Fake wpa_supplicant | `tools/fake_wpa_supplicant.py` |
-| The UI | the first of `build/sdl-small`, `build/sdl`, `build` that exists |
-
-Only Python 3 is needed; everything is standard library. The window works on X11, XWayland and Wayland (`SDL_VIDEODRIVER=wayland ./sim.sh`).
+`sim.sh` starts both fakes and the first of `build/sdl-small`, `build/sdl`, `build` that exists, and stops them when the screen exits.
 
 Each run gets a fresh session in `/tmp/grumpy-sim-<port>`: a copy of the test prints, the UI config written for the session, saved UI settings, and the logs (`moonraker.log`, `wpa.log`). Deleting files, factory reset, shutdown, updates and wifi changes only ever touch that folder. The `[commands]` in the session config run `tools/sim_hook.py` instead of the printer's scripts.
+
+## On their own
+
+Any screen can use the fake printer, including one on a printer or another machine:
+
+```
+python3 tools/fake_moonraker.py --host 0.0.0.0
+```
+
+Point the screen's `[moonraker]` `host` and `port` at it, and set `thumbnail_path` so thumbnails are downloaded. Only `sim.sh` swaps the screen's `[commands]` for stand-ins; elsewhere they run for real. `fake_wpa_supplicant.py` is a local socket, so it only works on the machine running the screen (`WPA_SUPPLICANT_SOCKET=<dir>`).
 
 ## Settings
 

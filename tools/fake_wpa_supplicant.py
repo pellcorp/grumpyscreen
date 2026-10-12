@@ -7,7 +7,7 @@ ways; clients that send ATTACH also get event lines. Nothing is written to
 disk: saved networks last until it exits.
 
     python3 tools/fake_wpa_supplicant.py --dir /tmp/fake-wpa
-    WPA_SUPPLICANT_SOCKET=/tmp/fake-wpa build/sdl/bin/grumpyscreen
+    WPA_SUPPLICANT_SOCKET=/tmp/fake-wpa grumpyscreen
 
 It starts joined to "HomeNet". Every secured network's password is
 "printer123" (--password); a wrong one fails with WRONG_KEY. As in

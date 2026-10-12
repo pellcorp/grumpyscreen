@@ -13,7 +13,7 @@ reboot, shutdown, service restarts and updates act on the simulation only.
     python3 tools/fake_moonraker.py [--port 7125] [--backend afc|hh|none]
     python3 tools/fake_moonraker.py --help
 
-./sim.sh runs it together with fake_wpa_supplicant.py and the SDL build.
+./sim.sh runs it together with fake_wpa_supplicant.py and a local build.
 The code is in tools/moonsim/.
 """
 import argparse

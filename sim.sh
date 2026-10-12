@@ -1,11 +1,11 @@
 #!/bin/bash
-# Desktop simulator: the SDL build against a simulated printer.
+# Runs a local build against the fake printer:
 #
-#   ./build.sh sdl --small        # once, or after changing the code
+#   ./build.sh sdl --small        # a local build, once
 #   ./sim.sh
 #
-# Runs tools/fake_moonraker.py and tools/fake_wpa_supplicant.py, then the UI
-# with a config made for this session. Everything happens in
+# Starts tools/fake_moonraker.py and tools/fake_wpa_supplicant.py, then the
+# screen with a config made for this session. Everything happens in
 # /tmp/grumpy-sim-$SIM_PORT (logs too); nothing outside it is touched.
 #
 #   SIM_BACKEND=hh SIM_LANES=8 ./sim.sh
@@ -22,7 +22,7 @@ if [ -z "${SIM_BUILD:-}" ]; then
     done
 fi
 BIN="${SIM_BUILD:-build/sdl-small}/bin/grumpyscreen"
-[ -x "$BIN" ] || { echo "ERROR: no SDL build at $BIN; run ./build.sh sdl --small first"; exit 1; }
+[ -x "$BIN" ] || { echo "ERROR: no build at $BIN; build one (./build.sh sdl --small) or set SIM_BUILD"; exit 1; }
 
 ARGS=(--port "$PORT" --lanes "${SIM_LANES:-4}" --backend "${SIM_BACKEND:-afc}"
       --fans "${SIM_FANS:-1}" --leds "${SIM_LEDS:-1}" --spoolman "${SIM_SPOOLMAN:-push}")
