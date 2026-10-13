@@ -35,7 +35,7 @@ class ConsolePanel {
  private:
   KWebSocketClient &ws;
   std::mutex &lv_lock;
-  // Console and Macros tabs, NULL when no [macro] is configured
+  // Console and Macros tabs
   lv_obj_t *tabview;
   lv_obj_t *console_cont;
   lv_obj_t *top_cont;

@@ -13,15 +13,11 @@ using namespace Theme;
 
 LV_FONT_DECLARE(dejavusans_mono_14);
 
-static bool has_macros() {
-  return !Config::get_instance()->get_objects("/macro").empty();
-}
-
 ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock, lv_obj_t *parent)
   : ws(websocket_client)
   , lv_lock(lock)
-  , tabview(has_macros() ? lv_tabview_create(parent, LV_DIR_TOP, scale_r(36)) : NULL)
-  , console_cont(create_screen(tabview != NULL ? lv_tabview_add_tab(tabview, "Console") : parent))
+  , tabview(lv_tabview_create(parent, LV_DIR_TOP, scale_r(36)))
+  , console_cont(create_screen(lv_tabview_add_tab(tabview, "Console")))
   , top_cont(create_row(console_cont))
   , output(lv_textarea_create(top_cont))
   , lower_cont(create_row(console_cont))

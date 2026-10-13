@@ -54,6 +54,13 @@ MacroPanel::MacroPanel(lv_obj_t *parent, std::function<void(const std::string &)
     gcodes.push_back(gcode);
   }
 
+  if (buttons.empty()) {
+    lv_obj_set_flex_flow(grid, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(grid, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_label_set_text(lv_label_create(grid), "No macros configured");
+    return;
+  }
+
   const size_t cols = 4;
   row_dsc.assign((buttons.size() + cols - 1) / cols, LV_GRID_CONTENT);
   row_dsc.push_back(LV_GRID_TEMPLATE_LAST);
