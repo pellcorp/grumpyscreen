@@ -15,7 +15,7 @@ using namespace Theme;
 
 #define SORTED_BY_MODIFIED  1 << 1
 
-PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatusPanel &ps)
+PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatusPanel &ps, MmuPanel *m)
   : NotifyConsumer(lock)
   , ws(websocket)
   , files_cont(create_screen(NULL))
@@ -31,6 +31,7 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
   , cur_file(NULL)
   , file_panel(file_view)
   , print_status(ps)
+  , mmu(m)
   , sorted_by(SORTED_BY_MODIFIED)
   , refreshing_files(false)
   , refresh_pending(false)
@@ -196,6 +197,10 @@ void PrintPanel::foreground() {
   visible = true;
   lv_obj_move_foreground(files_cont);
   subscribe();
+}
+
+void PrintPanel::background() {
+  lv_obj_move_background(files_cont);
 }
 
 void PrintPanel::handle_callback(lv_event_t *e) {
@@ -407,20 +412,41 @@ void PrintPanel::handle_back_btn(lv_event_t *event) {
 void PrintPanel::handle_print_callback(lv_event_t *event) {
   lv_event_code_t code = lv_event_get_code(event);
   if (code == LV_EVENT_CLICKED && cur_file != NULL) {
-    json &pstat_state = State::get_instance()->get_data("/printer_state/print_stats/state"_json_pointer);
-    LOG_DEBUG("print panel print stats {}", pstat_state.is_null() ? "nil" : pstat_state.template get<std::string>());
-    
-    if (!pstat_state.is_null()
-          && pstat_state.template get<std::string>() != "printing"
-          && pstat_state.template get<std::string>() != "paused") {
-      LOG_DEBUG("printer ready to print. print file {}", cur_file->full_path);
-
-      json fname_input = {{"filename", cur_file->full_path }};
-      visible = false;
-      lv_obj_move_background(files_cont);
-      ws.send_jsonrpc("printer.print.start", fname_input);
-      print_status.foreground();
+    const std::string path = cur_file->full_path;
+    if (mmu == NULL) return start_print(path);
+    // with an MMU, map the file's tools first; fetch the metadata if Print
+    // beat it, or the mapping would be skipped
+    auto map_or_print = [this, path](const json &metadata) {
+      const std::string name = path.substr(path.rfind('/') + 1);  // npos + 1 is 0
+      if (!mmu->open_tool_map(metadata, name, [this, path]() { start_print(path); })) start_print(path);
+    };
+    if (cur_file->contains_metadata()) {
+      map_or_print(cur_file->metadata);
+      return;
     }
+    ws.send_jsonrpc("server.files.metadata", {{"filename", path}},
+                    [this, path, map_or_print](json &d) {
+      handle_metadata(path, d);  // takes lv_lock itself
+      std::lock_guard<std::mutex> lock(lv_lock);
+      map_or_print(d);
+    });
+  }
+}
+
+void PrintPanel::start_print(const std::string &path) {
+  json &pstat_state = State::get_instance()->get_data("/printer_state/print_stats/state"_json_pointer);
+  LOG_DEBUG("print panel print stats {}", pstat_state.is_null() ? "nil" : pstat_state.template get<std::string>());
+
+  if (!pstat_state.is_null()
+        && pstat_state.template get<std::string>() != "printing"
+        && pstat_state.template get<std::string>() != "paused") {
+    LOG_DEBUG("printer ready to print. print file {}", path);
+
+    json fname_input = {{"filename", path }};
+    visible = false;
+    lv_obj_move_background(files_cont);
+    ws.send_jsonrpc("printer.print.start", fname_input);
+    print_status.foreground();
   }
 }
 

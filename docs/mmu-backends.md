@@ -77,6 +77,19 @@ so the panel hiding it locally is not enough. `AfcBackend` sends
 `AFC_CLEAR_MESSAGE`. A backend whose message is derived from live state has
 nothing to pop and leaves the default alone.
 
+### Tool mapping (optional)
+
+Before a print, `ToolMapPanel` shows the slot feeding each tool the file uses
+(from `MmuSlot::map`) and lets the user pick another. Picks are sent only on
+Print, one `map_tool()` per changed tool. A vendor without a tool map keeps
+the defaults and Print starts the job directly.
+
+| Method | Default | Override to |
+|---|---|---|
+| `bool can_map_tool(int tool) const` | false | say whether the vendor's map command takes `T(tool)` now (AFC: a T(n) it registered; Happy Hare: one in `ttg_map`) |
+| `void map_tool(int tool, int slot)` | does nothing | send that command; the new map arrives through the subscription |
+| `bool can_share_slot() const` | false | true if several tools may draw from one slot (Happy Hare; AFC with `enable_multiple_mapping`). Otherwise the screen keeps one tool per slot |
+
 ---
 
 ## Fill
@@ -206,6 +219,7 @@ Where the two current vendors differ is instructive:
 | busy | `current_state` enum | `action` string, plus a pending `next_tool` for a swap |
 | fault | `error_state` + a message queue to pop, `RESET_FAILURE` clears | `print_state` of `paused`/`pause_locked`, message in `reason_for_pause`, `RESUME` clears |
 | clear a colour | impossible, `can_clear_colour()` false | empty `COLOR=` is accepted |
+| map a tool | `SET_MAP LANE= MAP=T(n)`, which swaps maps between lanes | `MMU_TTG_MAP TOOL= GATE=` |
 | metadata owner | spoolman owns a lane with a `spool_id`, so `can_configure` false there | spoolman owns the whole gate map in `pull` mode only |
 
 None of that reaches the panel.

@@ -2,6 +2,7 @@
 #define __MMU_PANEL_H__
 
 #include "mmu_backend.h"
+#include "tool_map_panel.h"
 #include "button_container.h"
 #include "websocket_client.h"
 #include "notify_consumer.h"
@@ -17,6 +18,15 @@
 // *out) when the string is not a colour. Shared with the spoolman table,
 // which paints the same vendor hex strings.
 bool parse_colour(const std::string &colour, lv_color_t *out);
+
+// shared with the print-start tool map:
+// a dim sheet (cb on a tap outside) with a centred box, which it returns
+lv_obj_t *create_popout(lv_obj_t **overlay, lv_event_cb_t cb, void *user_data);
+void show_popout(lv_obj_t *overlay);
+void hide_popout(lv_obj_t *overlay);
+// a slot as a picker tile; by_name labels it by slot name, not tool
+lv_obj_t *create_slot_tile(lv_obj_t *parent, const MmuSlot &slot, size_t idx, int width,
+                           lv_event_cb_t cb, void *user_data, bool by_name = false);
 
 // Vendor-agnostic MMU panel: renders the slots of whichever MmuBackend is
 // active and drives it through the MmuBackend verbs only.
@@ -37,6 +47,11 @@ class MmuPanel : public NotifyConsumer {
   void create(lv_obj_t *parent);
   // pull current state after the initial subscribe. caller must hold lv_lock.
   void init_state();
+  // Opens the print-start tool map for a file's metadata; print() runs from
+  // its Print button. false when there is nothing to map: print directly.
+  // Caller holds lv_lock.
+  bool open_tool_map(const json &metadata, const std::string &filename,
+                     std::function<void()> print);
   // empty the panel when the backend is no longer there. caller must hold lv_lock.
   void clear();
   void consume(json &j);
@@ -94,6 +109,7 @@ class MmuPanel : public NotifyConsumer {
   bool is_backup_slot(int idx) const;
 
   KWebSocketClient &ws;
+  ToolMapPanel tool_map;
   std::vector<std::pair<std::string, MmuBackend*>> backends;
   MmuBackend *backend;
   lv_obj_t *cont;

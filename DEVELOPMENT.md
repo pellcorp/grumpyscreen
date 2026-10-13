@@ -51,3 +51,17 @@ build/sdl/bin/grumpyscreen
 ```
 
 Add `--setup` before the target when you want to clean that target before building, for example `./build.sh --setup mips-small`.
+
+## Testing Without a Printer
+
+`tools/fake_moonraker.py` is a fake printer behind Moonraker's API: it heats, homes, prints real gcode files, and has an AFC or Happy Hare filament changer. `tools/fake_wpa_supplicant.py` fakes the wifi side. Both need only Python 3.
+
+`sim.sh` runs both with a local build:
+
+```
+./build.sh sdl --small
+./sim.sh
+SIM_BACKEND=hh SIM_LANES=8 ./sim.sh
+```
+
+Everything happens in `/tmp/grumpy-sim-7125`, so deleting files, factory reset or shutdown never touch your machine. See [docs/simulator.md](docs/simulator.md) for the options, test prints and commands.

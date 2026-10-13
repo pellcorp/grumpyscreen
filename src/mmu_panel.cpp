@@ -1,4 +1,5 @@
 #include "mmu_panel.h"
+#include "mmu_tools.h"
 #include "config.h"
 #include "icons.h"
 #include "state.h"
@@ -63,29 +64,9 @@ static std::string slot_label(const MmuSlot &s, size_t idx) {
 }
 
 // Every colour the panel handles is a vendor string: "RRGGBB", "#rrggbb", ""
-// or "NONE". These two are the only places that know that.
-//
-// "" when there is no colour, uppercase hex otherwise, so a draft can be
-// compared with whatever spelling the backend reported
-static std::string normalise_hex(const std::string &colour) {
-  if (colour.empty() || colour == "NONE") return "";
-  std::string s = colour[0] == '#' ? colour.substr(1) : colour;
-  std::transform(s.begin(), s.end(), s.begin(), ::toupper);
-  return s;
-}
-
-// Vendors normalise material names differently -- one upper-cases what it is
-// given, another stores it verbatim -- so "PETG" and "petg" are the same
-// material as far as the panel is concerned.
-static bool same_material(const std::string &a, const std::string &b) {
-  return a.size() == b.size() &&
-         std::equal(a.begin(), a.end(), b.begin(), [](unsigned char x, unsigned char y) {
-           return std::toupper(x) == std::toupper(y);
-         });
-}
-
+// or "NONE". mmu_normalise_hex() and this are the only places that know that.
 bool parse_colour(const std::string &colour, lv_color_t *out) {
-  const std::string hex = normalise_hex(colour);
+  const std::string hex = mmu_normalise_hex(colour);
   if (hex.size() >= 6) {
     try {
       *out = lv_color_hex(std::stoul(hex.substr(0, 6), nullptr, 16));
@@ -315,7 +296,7 @@ void MmuPanel::create(lv_obj_t *parent) {
   lv_obj_set_size(nav_row, LV_PCT(100), scale_h(26));
   lv_obj_add_flag(nav_row, LV_OBJ_FLAG_HIDDEN);
 
-  nav_prev_btn = create_flat_btn(nav_row, "< Prev", &MmuPanel::_handle_page_prev, this);
+  nav_prev_btn = create_text_btn(nav_row, "< Prev", &MmuPanel::_handle_page_prev, this);
   lv_obj_set_size(nav_prev_btn, scale_w(70), LV_PCT(100));
   lv_obj_align(nav_prev_btn, LV_ALIGN_LEFT_MID, 0, 0);
 
@@ -323,7 +304,7 @@ void MmuPanel::create(lv_obj_t *parent) {
   lv_label_set_text(nav_label, "Page 1 / 1");
   lv_obj_center(nav_label);
 
-  nav_next_btn = create_flat_btn(nav_row, "Next >", &MmuPanel::_handle_page_next, this);
+  nav_next_btn = create_text_btn(nav_row, "Next >", &MmuPanel::_handle_page_next, this);
   lv_obj_set_size(nav_next_btn, scale_w(70), LV_PCT(100));
   lv_obj_align(nav_next_btn, LV_ALIGN_RIGHT_MID, 0, 0);
 }
@@ -381,10 +362,10 @@ void MmuPanel::create_edit_screen() {
   lv_obj_set_size(left_actions, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(left_actions, LV_FLEX_FLOW_COLUMN);
 
-  edit_load_btn = create_flat_btn(left_actions, "Load", &MmuPanel::_handle_edit_action, this);
+  edit_load_btn = create_text_btn(left_actions, "Load", &MmuPanel::_handle_edit_action, this);
   lv_obj_set_size(edit_load_btn, LV_PCT(100), scale_r(40));
 
-  edit_eject_btn = create_flat_btn(left_actions, "Eject Spool", &MmuPanel::_handle_edit_action, this);
+  edit_eject_btn = create_text_btn(left_actions, "Eject Spool", &MmuPanel::_handle_edit_action, this);
   lv_obj_set_size(edit_eject_btn, LV_PCT(100), scale_r(40));
 
   // These two take the accent under a finger, the way a lane tile does. The
@@ -549,7 +530,7 @@ void MmuPanel::create_edit_screen() {
 
   material_btns.clear();
   for (const auto &mat_name : materials) {
-    lv_obj_t *b = create_flat_btn(mat_row, mat_name.c_str(), &MmuPanel::_handle_edit_action, this);
+    lv_obj_t *b = create_text_btn(mat_row, mat_name.c_str(), &MmuPanel::_handle_edit_action, this);
     lv_obj_set_height(b, LV_PCT(100));
     lv_obj_set_flex_grow(b, 1);
     lv_obj_add_style(b, &styles().dim_disabled, LV_STATE_DISABLED);
@@ -647,6 +628,7 @@ void MmuPanel::init_state() {
 // cannot be left showing slots that no longer exist; refresh() empties the
 // neutral state whenever backend is NULL.
 void MmuPanel::clear() {
+  tool_map.close();
   if (cont == NULL) return;
   close_edit();
   current_page = 0;
@@ -843,7 +825,7 @@ void MmuPanel::populate() {
     // which slot this card stands for changes with the page
     lv_obj_set_user_data(card.cont, (void*)(intptr_t)slot_idx);
 
-    bool has_filament = slot.prepped || slot.ready || slot.tool_loaded;
+    bool has_filament = mmu_has_filament(slot);
     bool colour_valid = false;
     lv_color_t colour = slot_colour(slot, &colour_valid);
     bool backup = is_backup_slot((int)slot_idx);
@@ -921,6 +903,23 @@ void MmuPanel::populate() {
       close_edit(); // slot disappeared on a klipper reconfig
     }
   }
+
+  tool_map.update();
+}
+
+bool MmuPanel::open_tool_map(const json &metadata, const std::string &filename,
+                             std::function<void()> print) {
+  if (backend == NULL) return false;
+  const std::vector<MmuFileTool> tools = mmu_file_tools(metadata);
+  // a vendor with no tool map, or one refusing every tool the file uses,
+  // has nothing to show here
+  const bool mappable = std::any_of(tools.begin(), tools.end(), [this](const MmuFileTool &t) {
+    return backend->can_map_tool(t.tool);
+  });
+  if (!mappable) return false;
+  refresh();
+  tool_map.open(backend, tools, filename, print);
+  return true;
 }
 
 void MmuPanel::consume(json &j) {
@@ -1017,7 +1016,7 @@ void MmuPanel::update_edit_preview() {
   lv_color_t colour;
   bool draft_colour_valid = parse_colour(draft_colour, &colour);
 
-  bool has_filament = slot.prepped || slot.ready || slot.tool_loaded;
+  bool has_filament = mmu_has_filament(slot);
   paint_spool_icon(edit_preview_spool, edit_preview_hole, colour, draft_colour_valid, has_filament);
 
   // Material line: "PLA - 750g" when a spool weight is known, else just
@@ -1095,7 +1094,7 @@ void MmuPanel::update_edit_preview() {
   if (configurable) edit_save_btn->enable(); else edit_save_btn->disable();
 
   // Update square colour swatches active outline
-  const std::string cur_hex = normalise_hex(draft_colour);
+  const std::string cur_hex = mmu_normalise_hex(draft_colour);
 
   for (size_t i = 0; i < colour_swatch_btns.size(); i++) {
     lv_obj_t *s = colour_swatch_btns[i];
@@ -1112,7 +1111,7 @@ void MmuPanel::update_edit_preview() {
   // Update Material Buttons checked state
   for (size_t i = 0; i < material_btns.size(); i++) {
     lv_obj_t *b = material_btns[i];
-    bool active = configurable && same_material(draft_material, materials[i]);
+    bool active = configurable && mmu_same_material(draft_material, materials[i]);
     // Chosen = the accent fill, the way every other control in the UI says it:
     // a selector key, an action button, the nav tab. No outline -- the colour
     // swatches wear one only because a fill would cover the colour they show.
@@ -1132,11 +1131,11 @@ void MmuPanel::save_edit() {
   // Only push what the user actually changed. The backend owns this metadata
   // -- it may come from an RFID scan or be edited elsewhere -- so writing back
   // values we merely displayed would let the panel invent or resurrect data.
-  const std::string hex = normalise_hex(draft_colour);
-  if (hex != normalise_hex(slot.colour)) {
+  const std::string hex = mmu_normalise_hex(draft_colour);
+  if (hex != mmu_normalise_hex(slot.colour)) {
     backend->set_colour(edit_slot_idx, hex);
   }
-  if (!same_material(draft_material, slot.material)) {
+  if (!mmu_same_material(draft_material, slot.material)) {
     backend->set_material(edit_slot_idx, draft_material);
   }
 
@@ -1277,13 +1276,13 @@ void MmuPanel::handle_edit_action(lv_event_t *e) {
 // POPOUTS: a dim full-screen sheet that cancels on a tap outside, with a box
 // centred on it. All three are built and shown through these three helpers.
 // =========================================================================
-lv_obj_t *MmuPanel::create_popout(lv_obj_t **overlay) {
+lv_obj_t *create_popout(lv_obj_t **overlay, lv_event_cb_t cb, void *user_data) {
   *overlay = lv_obj_create(lv_scr_act());
   lv_obj_set_size(*overlay, LV_PCT(100), LV_PCT(100));
   lv_obj_add_style(*overlay, &styles().popout, 0);
   lv_obj_clear_flag(*overlay, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_add_flag(*overlay, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_add_event_cb(*overlay, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
+  lv_obj_add_event_cb(*overlay, cb, LV_EVENT_CLICKED, user_data);
 
   lv_obj_t *box = lv_obj_create(*overlay);
   lv_obj_add_style(box, &styles().popout_box, 0);
@@ -1293,15 +1292,67 @@ lv_obj_t *MmuPanel::create_popout(lv_obj_t **overlay) {
   return box;
 }
 
-static void show_popout(lv_obj_t *overlay) {
+lv_obj_t *MmuPanel::create_popout(lv_obj_t **overlay) {
+  return ::create_popout(overlay, &MmuPanel::_handle_edit_action, this);
+}
+
+void show_popout(lv_obj_t *overlay) {
   lv_obj_clear_flag(overlay, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(overlay);
 }
 
-static void hide_popout(lv_obj_t *overlay) {
+void hide_popout(lv_obj_t *overlay) {
   if (overlay == NULL) return;
   lv_obj_add_flag(overlay, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_background(overlay);
+}
+
+lv_obj_t *create_slot_tile(lv_obj_t *parent, const MmuSlot &l, size_t idx, int width,
+                           lv_event_cb_t cb, void *user_data, bool by_name) {
+  lv_obj_t *b = lv_btn_create(parent);
+  lv_obj_set_size(b, width, scale_h(74));
+  lv_obj_set_style_pad_all(b, scale_r(4), 0);
+  lv_obj_set_style_pad_row(b, scale_r(2), 0);
+  lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, user_data);
+  lv_obj_set_flex_flow(b, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(b, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+  // mini spool mirrors the slot's colour; translucent when the slot is empty
+  lv_color_t c;
+  bool colour_valid = parse_colour(l.colour, &c);
+  bool has_filament = mmu_has_filament(l);
+  lv_obj_t *dot = lv_obj_create(b);
+  lv_obj_set_size(dot, scale_r(30), scale_r(30));
+  lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
+  lv_obj_set_style_bg_color(dot, c, 0);
+  lv_obj_set_style_bg_opa(dot, has_filament && colour_valid ? LV_OPA_COVER
+                               : colour_valid ? LV_OPA_50 : LV_OPA_20, 0);
+  lv_obj_set_style_border_width(dot, scale_r(2), 0);
+  lv_obj_set_style_border_color(dot, l.tool_loaded ? theme_primary()
+                                     : (colour_valid && lv_color_brightness(c) < DARK_COLOUR)
+                                       ? col(TEXT_DIM)
+                                       : col(DISABLED), 0);
+  lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_clear_flag(dot, LV_OBJ_FLAG_CLICKABLE);
+
+  std::string name = by_name ? l.name : slot_label(l, idx);
+  if (l.tool_loaded) name += " *";
+  lv_obj_t *lbl = lv_label_create(b);
+  lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
+  lv_obj_set_width(lbl, LV_PCT(100));
+  lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
+  lv_label_set_text(lbl, name.c_str());
+  lv_obj_set_style_text_font(lbl, scale_font(12), 0);
+  lv_obj_clear_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
+
+  lv_obj_t *mat = lv_label_create(b);
+  lv_label_set_long_mode(mat, LV_LABEL_LONG_DOT);
+  lv_obj_set_width(mat, LV_PCT(100));
+  lv_obj_set_style_text_align(mat, LV_TEXT_ALIGN_CENTER, 0);
+  lv_label_set_text(mat, l.material.empty() ? "Empty" : l.material.c_str());
+  lv_obj_add_style(mat, &styles().dim_label, 0);
+  lv_obj_clear_flag(mat, LV_OBJ_FLAG_CLICKABLE);
+  return b;
 }
 
 // =========================================================================
@@ -1335,55 +1386,13 @@ void MmuPanel::open_backup_picker() {
     const MmuSlot &l = slots[i];
     if (l.name == editing.name) continue;
 
-    lv_obj_t *b = lv_btn_create(backup_picker_list);
-    lv_obj_set_size(b, tile_w, scale_h(74));
-    lv_obj_set_style_pad_all(b, scale_r(4), 0);
-    lv_obj_set_style_pad_row(b, scale_r(2), 0);
-    lv_obj_add_event_cb(b, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
-    lv_obj_set_flex_flow(b, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(b, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    // mini spool mirrors the slot's colour; translucent when the slot is empty
-    bool colour_valid = false;
-    lv_color_t c = slot_colour(l, &colour_valid);
-    bool has_filament = l.prepped || l.ready || l.tool_loaded;
-    lv_obj_t *dot = lv_obj_create(b);
-    lv_obj_set_size(dot, scale_r(30), scale_r(30));
-    lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(dot, c, 0);
-    lv_obj_set_style_bg_opa(dot, has_filament && colour_valid ? LV_OPA_COVER
-                                 : colour_valid ? LV_OPA_50 : LV_OPA_20, 0);
-    lv_obj_set_style_border_width(dot, scale_r(2), 0);
-    lv_obj_set_style_border_color(dot, l.tool_loaded ? theme_primary()
-                                       : (colour_valid && lv_color_brightness(c) < DARK_COLOUR)
-                                         ? col(TEXT_DIM)
-                                         : col(DISABLED), 0);
-    lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_clear_flag(dot, LV_OBJ_FLAG_CLICKABLE);
-
-    std::string name = slot_label(l, i);
-    if (l.tool_loaded) name += " *";
-    lv_obj_t *lbl = lv_label_create(b);
-    lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
-    lv_obj_set_width(lbl, LV_PCT(100));
-    lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(lbl, name.c_str());
-    lv_obj_set_style_text_font(lbl, scale_font(12), 0);
-    lv_obj_clear_flag(lbl, LV_OBJ_FLAG_CLICKABLE);
-
-    lv_obj_t *mat = lv_label_create(b);
-    lv_label_set_long_mode(mat, LV_LABEL_LONG_DOT);
-    lv_obj_set_width(mat, LV_PCT(100));
-    lv_obj_set_style_text_align(mat, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(mat, l.material.empty() ? "Empty" : l.material.c_str());
-    lv_obj_add_style(mat, &styles().dim_label, 0);
-    lv_obj_clear_flag(mat, LV_OBJ_FLAG_CLICKABLE);
-
+    lv_obj_t *b = create_slot_tile(backup_picker_list, l, i, tile_w,
+                                   &MmuPanel::_handle_edit_action, this);
     backup_pick_btns.push_back(b);
     backup_pick_names.push_back(l.name);
   }
 
-  lv_obj_t *cancel = create_flat_btn(backup_picker_list, "Cancel",
+  lv_obj_t *cancel = create_text_btn(backup_picker_list, "Cancel",
                                      &MmuPanel::_handle_edit_action, this);
   lv_obj_set_size(cancel, LV_PCT(100), scale_r(40));
   lv_obj_set_style_bg_color(cancel, theme_primary(), LV_STATE_PRESSED);
@@ -1464,12 +1473,12 @@ void MmuPanel::open_colour_picker() {
     lv_obj_set_size(btn_row, LV_PCT(100), scale_r(40));
     lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
 
-    colour_pick_ok = create_flat_btn(btn_row, "Save", &MmuPanel::_handle_edit_action, this);
+    colour_pick_ok = create_text_btn(btn_row, "Save", &MmuPanel::_handle_edit_action, this);
     lv_obj_set_height(colour_pick_ok, LV_PCT(100));
     lv_obj_set_flex_grow(colour_pick_ok, 1);
     lv_obj_set_style_bg_color(colour_pick_ok, theme_primary(), 0);
 
-    colour_pick_cancel = create_flat_btn(btn_row, "Cancel", &MmuPanel::_handle_edit_action, this);
+    colour_pick_cancel = create_text_btn(btn_row, "Cancel", &MmuPanel::_handle_edit_action, this);
     lv_obj_set_height(colour_pick_cancel, LV_PCT(100));
     lv_obj_set_flex_grow(colour_pick_cancel, 1);
   }
@@ -1519,13 +1528,13 @@ void MmuPanel::open_material_picker() {
     // chip height is what lets the title, the 14 built-in names in four
     // rows and Cancel share popout_max_h() at 480x272 without scrolling
     for (const auto &mat_name : material_catalog) {
-      lv_obj_t *b = create_flat_btn(material_picker_list, mat_name.c_str(),
+      lv_obj_t *b = create_text_btn(material_picker_list, mat_name.c_str(),
                                     &MmuPanel::_handle_edit_action, this);
       lv_obj_set_size(b, chip_w, scale_r(36));
       mat_pick_btns.push_back(b);
     }
 
-    lv_obj_t *cancel = create_flat_btn(material_picker_list, "Cancel",
+    lv_obj_t *cancel = create_text_btn(material_picker_list, "Cancel",
                                        &MmuPanel::_handle_edit_action, this);
     lv_obj_set_size(cancel, LV_PCT(100), scale_r(40));
     mat_pick_btns.push_back(cancel); // last tile, no material of its own
@@ -1533,7 +1542,7 @@ void MmuPanel::open_material_picker() {
 
   // highlight the currently selected material
   for (size_t i = 0; i < mat_pick_btns.size(); i++) {
-    const bool active = i < material_catalog.size() && same_material(draft_material, material_catalog[i]);
+    const bool active = i < material_catalog.size() && mmu_same_material(draft_material, material_catalog[i]);
     lv_obj_set_style_bg_color(mat_pick_btns[i], active ? theme_primary() : col(RAISED), 0);
   }
 

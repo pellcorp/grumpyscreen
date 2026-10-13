@@ -136,8 +136,8 @@ ExcludeObjectPanel::ExcludeObjectPanel(KWebSocketClient &websocket_client, std::
   , info_cont(create_row(panel_cont))
   , status_label(lv_label_create(info_cont))
   , zoom_row(create_row(info_cont))
-  , zoom_out_btn(create_flat_btn(zoom_row, LV_SYMBOL_MINUS, &ExcludeObjectPanel::_handle_zoom, this))
-  , zoom_in_btn(create_flat_btn(zoom_row, LV_SYMBOL_PLUS, &ExcludeObjectPanel::_handle_zoom, this))
+  , zoom_out_btn(create_text_btn(zoom_row, LV_SYMBOL_MINUS, &ExcludeObjectPanel::_handle_zoom, this))
+  , zoom_in_btn(create_text_btn(zoom_row, LV_SYMBOL_PLUS, &ExcludeObjectPanel::_handle_zoom, this))
   , back_btn(panel_cont, Icons::BACK, "Back", &ExcludeObjectPanel::_handle_callback, this)
 {
   lv_obj_move_background(panel_cont);
@@ -261,6 +261,7 @@ void ExcludeObjectPanel::reset_view() {
   zoom = 1.0;
   view_x = (bed_min_x + bed_max_x) / 2.0;
   view_y = (bed_min_y + bed_max_y) / 2.0;
+  update_zoom_buttons();
 }
 
 // keep the view centre on the bed so a drag can never lose it off screen
@@ -275,7 +276,22 @@ void ExcludeObjectPanel::set_zoom(double z) {
     reset_view();
   }
   clamp_view();
+  update_zoom_buttons();
   redraw();
+}
+
+void ExcludeObjectPanel::update_zoom_buttons() {
+  if (zoom <= 1.0) {
+    lv_obj_add_state(zoom_out_btn, LV_STATE_DISABLED);
+  } else {
+    lv_obj_clear_state(zoom_out_btn, LV_STATE_DISABLED);
+  }
+
+  if (zoom >= 8.0) {
+    lv_obj_add_state(zoom_in_btn, LV_STATE_DISABLED);
+  } else {
+    lv_obj_clear_state(zoom_in_btn, LV_STATE_DISABLED);
+  }
 }
 
 // at zoom 1 the whole bed fits the canvas inside the margin

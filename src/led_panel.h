@@ -23,6 +23,7 @@ class LedPanel : public NotifyConsumer {
   void activate();
   const void *get_main_button_image();
   void foreground();
+  void background();
   void handle_callback(lv_event_t *event);
   void handle_led_update(lv_event_t *event);
   void handle_led_update_generic(lv_event_t *event);

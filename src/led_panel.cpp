@@ -201,6 +201,10 @@ void LedPanel::foreground() {
   lv_obj_move_foreground(ledpanel_cont);
 }
 
+void LedPanel::background() {
+  lv_obj_move_background(ledpanel_cont);
+}
+
 const void *LedPanel::get_main_button_image() {
   if (single_led_id.empty()) {
     return Icons::LIGHT_IMG;

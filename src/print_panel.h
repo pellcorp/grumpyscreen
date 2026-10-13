@@ -7,17 +7,19 @@
 #include "button_container.h"
 #include "file_panel.h"
 #include "print_status_panel.h"
+#include "mmu_panel.h"
 #include "tree.h"
 
 class PrintPanel : public NotifyConsumer {
  public:
-  PrintPanel(KWebSocketClient &ws, std::mutex &lv_lock, PrintStatusPanel &ps);
+  PrintPanel(KWebSocketClient &ws, std::mutex &lv_lock, PrintStatusPanel &ps, MmuPanel *mmu);
   ~PrintPanel();
 
   void consume(json &data);
   void populate_files(json &data);
   void subscribe();
   void foreground();
+  void background();
   void handle_callback(lv_event_t *event);
   void handle_metadata(const std::string& full_path, json & data);
   void handle_back_btn(lv_event_t *event);
@@ -53,6 +55,7 @@ class PrintPanel : public NotifyConsumer {
  private:
   void show_dir(Tree *dir, uint32_t sort_type);
   void show_file_detail(Tree *f);
+  void start_print(const std::string &path);
   
   KWebSocketClient &ws;
   lv_obj_t *files_cont;
@@ -68,6 +71,7 @@ class PrintPanel : public NotifyConsumer {
   Tree *cur_file;
   FilePanel file_panel;
   PrintStatusPanel &print_status;
+  MmuPanel *mmu;
   uint32_t sorted_by;
   bool refreshing_files;
   bool refresh_pending;

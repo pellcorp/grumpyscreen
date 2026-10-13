@@ -18,6 +18,7 @@ class HomingPanel : public NotifyConsumer {
   void consume(json &data);
   lv_obj_t * get_container();
   void foreground();
+  void background();
   void handle_callback(lv_event_t *event);
   void handle_selector_cb(lv_event_t *event);
   

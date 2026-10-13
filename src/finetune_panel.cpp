@@ -99,10 +99,9 @@ void FineTunePanel::make_row(Row &r, int grid_row, const void *icon, const char 
   lv_label_set_text(r.value, initial);
   lv_obj_set_style_text_font(r.value, scale_font(14), 0);
 
-  // its three actions: plain text buttons, one grid cell each
-  r.down  = create_flat_btn(panel_cont, "-", &FineTunePanel::_handle_btn, this);
-  r.up    = create_flat_btn(panel_cont, "+", &FineTunePanel::_handle_btn, this);
-  r.reset = create_flat_btn(panel_cont, "Reset", &FineTunePanel::_handle_btn, this);
+  r.down  = create_text_btn(panel_cont, "-", &FineTunePanel::_handle_btn, this);
+  r.up    = create_text_btn(panel_cont, "+", &FineTunePanel::_handle_btn, this);
+  r.reset = create_text_btn(panel_cont, "Reset", &FineTunePanel::_handle_btn, this);
   int col = 1;
   for (lv_obj_t *btn : {r.down, r.up, r.reset}) {
     lv_obj_set_grid_cell(btn, LV_GRID_ALIGN_STRETCH, col++, 1, LV_GRID_ALIGN_STRETCH, grid_row, 1);

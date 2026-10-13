@@ -224,10 +224,13 @@ std::mutex &GuppyScreen::get_lock() {
 }
 
 void GuppyScreen::connect_ws(const std::string &url) {
-  init_panel.set_message(LV_SYMBOL_WARNING " Waiting for Klipper to start...");
+  init_panel.waiting_for_moonraker();
   ws.connect(url.c_str(),
-   [this]() { init_panel.connected(ws); },
-   [this]() { init_panel.disconnected(ws); });
+   [this]() { init_panel.websocket_connected(ws); },
+   [this]() { init_panel.klippy_ready(ws); },
+   [this]() { init_panel.klippy_disconnected(ws); },
+   [this]() { init_panel.klippy_shutdown(ws); },
+   [this]() { init_panel.websocket_disconnected(ws); });
 }
 
 void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
@@ -258,11 +261,11 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
   if (lv_obj_check_type(obj, &lv_btnmatrix_class) || lv_obj_check_type(obj, &lv_keyboard_class)) {
     lv_obj_add_style(obj, &s.key_body, LV_PART_MAIN);
     lv_obj_add_style(obj, &s.key, LV_PART_ITEMS);
+    lv_obj_add_style(obj, &s.key_pressed, LV_PART_ITEMS | LV_STATE_PRESSED);
     // a matrix's checked key is the chosen value: accent. A keyboard's checked
     // keys are its control keys: plain.
     if (!lv_obj_check_type(obj, &lv_keyboard_class)) {
       lv_obj_add_style(obj, &s.key_checked, LV_PART_ITEMS | LV_STATE_CHECKED);
-      lv_obj_add_style(obj, &s.key_checked, LV_PART_ITEMS | LV_STATE_PRESSED);
     }
   }
   if (lv_obj_check_type(obj, &lv_textarea_class)) {

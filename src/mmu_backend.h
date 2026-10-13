@@ -27,6 +27,14 @@ struct MmuSlot {
   bool can_configure = true;
 };
 
+// a tool a print file uses, from the slicer's metadata
+struct MmuFileTool {
+  int tool = -1;          // T(n)
+  std::string colour;     // "RRGGBB", "" unknown
+  std::string material;   // "" unknown
+  double grams = 0;
+};
+
 // What the unit is doing, in terms every unit shares. The panel owns the
 // wording it shows; a backend maps its own status onto the nearest of these
 // and reports Moving for anything else that involves motion.
@@ -101,6 +109,13 @@ class MmuBackend {
   // command for it says false and the panel drops its clear control rather
   // than offering a tap that quietly stores something invalid.
   virtual bool can_clear_colour() const { return true; }
+
+  // Tool mapping (MmuSlot::map holds the current map). A vendor without one
+  // leaves these alone and the print-start mapping screen is skipped.
+  virtual bool can_map_tool(int tool) const { (void)tool; return false; }
+  virtual void map_tool(int tool, int slot) { (void)tool; (void)slot; }
+  // may several tools draw from one slot
+  virtual bool can_share_slot() const { return false; }
 
   // Acknowledge the current `message`. Optional: only backends that hold
   // messages in a queue of their own have anything to do here, and for them a

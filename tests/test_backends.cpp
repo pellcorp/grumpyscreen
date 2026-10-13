@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "afc_backend.h"
+#include "mmu_tools.h"
 #ifdef MMU_BACKEND_HH
 #include "hh_backend.h"
 #endif
@@ -885,6 +886,96 @@ static void test_hh_hostile_status(KWebSocketClient &ws) {
 }
 #endif // MMU_BACKEND_HH
 
+
+// ---------------------------------------------------------------------------
+// tool mapping
+// ---------------------------------------------------------------------------
+static MmuSlot slot_with(const std::string &map, const std::string &material,
+                         const std::string &colour, bool filament) {
+  MmuSlot s;
+  s.name = s.map = map;
+  s.material = material;
+  s.colour = colour;
+  s.prepped = s.ready = filament;
+  return s;
+}
+
+static void test_tool_helpers() {
+  std::vector<MmuSlot> slots = {slot_with("T10", "", "", true), slot_with("T0, T1", "", "", true)};
+  CHECK_EQ(mmu_slot_for_tool(slots, 1), 1);  // whole entries: not inside T10
+  CHECK_EQ(mmu_slot_for_tool(slots, 10), 0);
+  CHECK_EQ(mmu_slot_for_tool(slots, 2), -1);
+
+  CHECK(mmu_same_material("petg", "PETG"));
+  CHECK(!mmu_same_material("PLA", "PLA+"));
+  CHECK(mmu_colour_distance("#FF0000", "ff0000") == 0);
+  CHECK(mmu_colour_distance("", "FF0000") < 0);
+  CHECK(mmu_colour_distance("F44336", "E53935") <= MMU_COLOUR_MISMATCH);  // two reds
+  CHECK(mmu_colour_distance("F44336", "212121") > MMU_COLOUR_MISMATCH);   // red, near-black
+}
+
+static void test_file_tools() {
+  // as moonraker returned it for an OrcaSlicer 2.4.2 file: types as a JSON
+  // array inside a string, unused tools at zero weight
+  json meta = json::parse(R"({"result": {
+    "filament_type": "[\"PLA\", \"PLA\", \"PLA\", \"PETG\"]",
+    "filament_colors": ["#9E9E9E", "#FF9800", "#9E9E9E", "#2196F3"],
+    "filament_weights": [10.41, 0.0, 0.0, 2.5]}})");
+  std::vector<MmuFileTool> tools = mmu_file_tools(meta);
+  CHECK_EQ(tools.size(), (size_t)2);
+  if (tools.size() == 2) {
+    CHECK_EQ(tools[0].colour, std::string("9E9E9E"));
+    CHECK_EQ(tools[1].tool, 3);
+    CHECK_EQ(tools[1].material, std::string("PETG"));
+  }
+
+  meta["result"]["filament_type"] = "PLA;ABS";
+  meta["result"]["filament_weights"] = json::array({0, 3});
+  tools = mmu_file_tools(meta);
+  CHECK_EQ(tools.size(), (size_t)1);
+  if (tools.size() == 1) CHECK_EQ(tools[0].material, std::string("ABS"));
+  meta["result"].erase("filament_weights");
+  CHECK(mmu_file_tools(meta).empty());
+}
+
+static void test_tool_map_verbs(KWebSocketClient &ws) {
+  json j = afc_status();
+  load_state(j);
+  AfcBackend afc(ws);
+  afc.refresh();
+
+  CHECK(afc.can_map_tool(0));
+  CHECK(!afc.can_map_tool(7));  // SET_MAP only takes a T(n) AFC registered
+  sent.clear();
+  afc.map_tool(1, 0);
+  CHECK_EQ(sent.size(), (size_t)1);
+  if (!sent.empty()) CHECK_EQ(sent[0], std::string("SET_MAP LANE=lane1 MAP=T1"));
+
+  CHECK(!afc.can_share_slot());
+  j["printer_state"]["AFC"]["multiple_tool_mapping"] = true;
+  load_state(j);
+  afc.refresh();
+  CHECK(afc.can_share_slot());
+
+  j["printer_state"]["print_stats"]["state"] = "printing";
+  load_state(j);
+  afc.refresh();
+  CHECK(!afc.can_map_tool(0));
+
+#ifdef MMU_BACKEND_HH
+  load_state(hh_status());
+  HhBackend hh(ws);
+  hh.refresh();
+  CHECK(hh.can_map_tool(3));
+  CHECK(!hh.can_map_tool(4));  // ttg_map holds four tools
+  CHECK(hh.can_share_slot());
+  sent.clear();
+  hh.map_tool(2, 0);
+  CHECK_EQ(sent.size(), (size_t)1);
+  if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_TTG_MAP TOOL=2 GATE=0 QUIET=1"));
+#endif
+}
+
 int main() {
   KWebSocketClient ws(NULL);
 
@@ -895,6 +986,9 @@ int main() {
   test_permissions(ws);
   test_verbs(ws);
   test_hostile_status(ws);
+  test_tool_helpers();
+  test_file_tools();
+  test_tool_map_verbs(ws);
 #ifdef MMU_BACKEND_HH
   test_hh_gate_mapping(ws);
   test_hh_activity(ws);
