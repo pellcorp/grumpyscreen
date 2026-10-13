@@ -2,22 +2,22 @@
 #define __MACRO_PANEL_H__
 
 #include "button_container.h"
-#include "websocket_client.h"
 #include "lvgl/lvgl.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
-// One button per [macro "GCODE"] section in grumpyscreen.cfg
+// One button per [macro "GCODE"] section in grumpyscreen.cfg, sent through the console
 class MacroPanel {
  public:
-  MacroPanel(KWebSocketClient &ws, lv_obj_t *parent);
+  MacroPanel(lv_obj_t *parent, std::function<void(const std::string &)> send);
 
  private:
   static void handle_click(lv_event_t *event);
 
-  KWebSocketClient &ws;
+  std::function<void(const std::string &)> send;
   lv_obj_t *grid;
   std::vector<std::unique_ptr<ButtonContainer>> buttons;
   std::vector<std::string> gcodes;

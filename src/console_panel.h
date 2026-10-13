@@ -20,6 +20,7 @@ class ConsolePanel {
   void handle_macro_response(json &d);
   void handle_delete_btn(lv_event_t *event);
   void handle_input(lv_event_t *event);
+  void send_gcode(const std::string &gcode);
 
   static void _handle_delete_btn(lv_event_t *event) {
     ConsolePanel *panel = (ConsolePanel*)event->user_data;

@@ -92,7 +92,8 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
     lv_obj_set_style_pad_all(lv_obj_get_parent(console_cont), 0, 0);
     lv_obj_set_style_pad_all(macro_tab, 0, 0);
     style_embedded_tabview(tabview);
-    macro_panel = std::make_unique<MacroPanel>(ws, macro_tab);
+    macro_panel = std::make_unique<MacroPanel>(macro_tab,
+        [this](const std::string &gcode) { this->send_gcode(gcode); });
   }
 
   ws.register_method_callback("notify_gcode_response",
@@ -174,6 +175,12 @@ void ConsolePanel::handle_macro_response(json &j) {
   }
 }
 
+void ConsolePanel::send_gcode(const std::string &gcode) {
+  // klipper does not echo commands, so show what was sent
+  ta_add_text_limit_lines(output, "> " + gcode);
+  ws.gcode_script(gcode);
+}
+
 void ConsolePanel::handle_input(lv_event_t *e) {
   const lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_FOCUSED) {
@@ -186,9 +193,7 @@ void ConsolePanel::handle_input(lv_event_t *e) {
   if (code == LV_EVENT_READY) {
     const char *text = lv_textarea_get_text(input);
     if (text != NULL && text[0] != '\0') {
-      // klipper does not echo commands, so show what was sent
-      ta_add_text_limit_lines(output, std::string("> ") + text);
-      ws.gcode_script(text);
+      send_gcode(text);
       lv_textarea_set_text(input, "");
     }
   }

@@ -40,8 +40,8 @@ static const lv_img_dsc_t *macro_icon(const std::string &name) {
   return Icons::REFRESH_IMG;
 }
 
-MacroPanel::MacroPanel(KWebSocketClient &websocket_client, lv_obj_t *parent)
-  : ws(websocket_client)
+MacroPanel::MacroPanel(lv_obj_t *parent, std::function<void(const std::string &)> send_gcode)
+  : send(std::move(send_gcode))
   , grid(create_screen(parent))
 {
   for (auto &m : Config::get_instance()->get_objects("/macro")) {
@@ -74,7 +74,7 @@ void MacroPanel::handle_click(lv_event_t *event) {
   lv_obj_t *tile = lv_event_get_current_target(event);
   for (size_t i = 0; i < panel->buttons.size(); i++) {
     if (panel->buttons[i]->get_container() == tile) {
-      panel->ws.gcode_script(panel->gcodes[i]);
+      panel->send(panel->gcodes[i]);
       return;
     }
   }
