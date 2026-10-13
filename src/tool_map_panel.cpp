@@ -59,16 +59,10 @@ void ToolMapPanel::create() {
   lv_obj_set_flex_grow(title, 1);
   lv_obj_set_style_pad_left(title, gap(), 0);
 
-  auto_btn = create_text_btn(controls, "Auto match", &ToolMapPanel::_handle_action, this);
-  lv_obj_set_size(auto_btn, LV_SIZE_CONTENT, touch_h());
-  lv_obj_set_style_pad_hor(auto_btn, gap() * 2, 0);
-  lv_obj_set_style_bg_color(auto_btn, theme_primary(), LV_STATE_PRESSED);
-  lv_obj_set_style_color_filter_opa(auto_btn, LV_OPA_TRANSP, LV_STATE_PRESSED);
-
-  back_btn = std::make_unique<ButtonContainer>(controls, Icons::BACK, "Back",
-                                               &ToolMapPanel::_handle_action, this);
   print_btn = std::make_unique<ButtonContainer>(controls, Icons::PRINT, "Print",
                                                 &ToolMapPanel::_handle_action, this);
+  back_btn = std::make_unique<ButtonContainer>(controls, Icons::BACK, "Back",
+                                               &ToolMapPanel::_handle_action, this);
   for (ButtonContainer *b : {back_btn.get(), print_btn.get()}) {
     b->use_card();
     b->hide_label();
@@ -317,24 +311,10 @@ void ToolMapPanel::close_picker() {
   hide_popout(picker);
 }
 
-// opt-in; the result is held like any pick (grams only count via spoolman)
-void ToolMapPanel::auto_match() {
-  const std::vector<int> target = mmu_automap(tools, backend->slots, want,
-                                              backend->can_share_slot(), backend->spoolman);
-  for (size_t t = 0; t < tools.size(); t++) {
-    if (!backend->can_map_tool(tools[t].tool)) continue;
-    if (target[t] == MMU_AUTOMAP_CLEAR) want[t] = -1;
-    else if (target[t] >= 0) assign(t, target[t]);
-  }
-  update();
-}
-
 void ToolMapPanel::handle_action(lv_event_t *e) {
   lv_obj_t *btn = lv_event_get_current_target(e);
   if (backend == NULL) return;
-  if (btn == auto_btn) {
-    auto_match();
-  } else if (btn == back_btn->get_container()) {
+  if (btn == back_btn->get_container()) {
     close();
   } else if (btn == print_btn->get_container() && !lv_obj_has_state(btn, LV_STATE_DISABLED)) {
     // one map command per changed tool, queued ahead of the print. In file

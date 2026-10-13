@@ -20,22 +20,10 @@ bool mmu_same_material(const std::string &a, const std::string &b);
 //   unrelated colours (white/black 87, blue/yellow 140) start at ~87.
 double mmu_colour_distance(const std::string &a, const std::string &b);
 static const double MMU_COLOUR_MISMATCH = 30;  // not the same colour: warn
-static const double MMU_COLOUR_CLOSE = 80;     // close enough for automap
 
 bool mmu_has_filament(const MmuSlot &slot);
 // the slot whose map holds T<tool>, -1 if none
 int mmu_slot_for_tool(const std::vector<MmuSlot> &slots, int tool);
-
-// Automap: the slot each tool should use, -1 to leave it, MMU_AUTOMAP_CLEAR to
-// leave it unassigned for the user. `current` is each tool's slot now.
-// Only picks a slot that is loaded, holds the same material, is within
-// MMU_COLOUR_CLOSE and, with `weights`, has the grams; nearest colour first,
-// sharing a slot only where `share` allows. Never forces a match.
-static const int MMU_AUTOMAP_CLEAR = -2;
-std::vector<int> mmu_automap(const std::vector<MmuFileTool> &tools,
-                             const std::vector<MmuSlot> &slots,
-                             const std::vector<int> &current,
-                             bool share, bool weights);
 
 // Tools a file uses (filament weight > 0) from its moonraker metadata response.
 std::vector<MmuFileTool> mmu_file_tools(const json &metadata);

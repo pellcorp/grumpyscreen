@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
-#include <tuple>
 
 std::string mmu_normalise_hex(const std::string &colour) {
   if (colour.empty() || colour == "NONE") return "";
@@ -80,62 +79,6 @@ int mmu_slot_for_tool(const std::vector<MmuSlot> &slots, int tool) {
     }
   }
   return -1;
-}
-
-std::vector<int> mmu_automap(const std::vector<MmuFileTool> &tools,
-                             const std::vector<MmuSlot> &slots,
-                             const std::vector<int> &current,
-                             bool share, bool weights) {
-  std::vector<int> target(tools.size(), MMU_AUTOMAP_CLEAR);
-  std::vector<bool> taken(slots.size(), false);
-  std::vector<double> used(slots.size(), 0);
-
-  auto fits = [&](size_t t, size_t s) {
-    const MmuFileTool &tool = tools[t];
-    const MmuSlot &slot = slots[s];
-    if (!mmu_has_filament(slot)) return false;
-    if (!tool.material.empty() && !mmu_same_material(tool.material, slot.material)) return false;
-    const double d = mmu_colour_distance(tool.colour, slot.colour);
-    if (!tool.colour.empty() && (d < 0 || d > MMU_COLOUR_CLOSE)) return false;
-    return !weights || slot.weight <= 0 || slot.weight >= used[s] + tool.grams;
-  };
-  auto distance = [&](size_t t, size_t s) {
-    return std::max(0.0, mmu_colour_distance(tools[t].colour, slots[s].colour));
-  };
-  auto take = [&](size_t t, size_t s) {
-    target[t] = (int)s;
-    taken[s] = true;
-    used[s] += tools[t].grams;
-  };
-
-  // nearest colour first, a tool's current slot winning a tie; a slot each
-  std::vector<std::tuple<double, bool, size_t, size_t>> pairs;
-  for (size_t t = 0; t < tools.size(); t++) {
-    for (size_t s = 0; s < slots.size(); s++) {
-      const bool moves = t >= current.size() || current[t] != (int)s;
-      if (fits(t, s)) pairs.emplace_back(distance(t, s), moves, t, s);
-    }
-  }
-  std::sort(pairs.begin(), pairs.end());
-  for (const auto &p : pairs) {
-    const size_t t = std::get<2>(p), s = std::get<3>(p);
-    if (target[t] == MMU_AUTOMAP_CLEAR && !taken[s]) take(t, s);
-  }
-
-  // then, where the vendor allows it, share a slot that fits
-  for (size_t t = 0; share && t < tools.size(); t++) {
-    if (target[t] != MMU_AUTOMAP_CLEAR) continue;
-    int best = -1;
-    for (size_t s = 0; s < slots.size(); s++) {
-      if (taken[s] && fits(t, s) && (best < 0 || distance(t, s) < distance(t, best))) best = (int)s;
-    }
-    if (best >= 0) take(t, best);
-  }
-
-  for (size_t t = 0; t < tools.size() && t < current.size(); t++) {
-    if (target[t] == current[t]) target[t] = -1;  // already there
-  }
-  return target;
 }
 
 // a slicer list field: an array, a JSON array in a string, or "a;b" (as

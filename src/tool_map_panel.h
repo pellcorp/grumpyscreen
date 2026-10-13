@@ -46,7 +46,6 @@ class ToolMapPanel {
   void close_picker();
   void handle_action(lv_event_t *e);
   void assign(size_t t, int slot);
-  void auto_match();
 
   MmuBackend *backend = NULL;
   std::vector<MmuFileTool> tools;
@@ -58,7 +57,6 @@ class ToolMapPanel {
   lv_obj_t *cont = NULL;
   lv_obj_t *table = NULL;
   lv_obj_t *title = NULL;
-  lv_obj_t *auto_btn = NULL;
   std::unique_ptr<ButtonContainer> back_btn;
   std::unique_ptr<ButtonContainer> print_btn;
   lv_obj_t *picker = NULL;

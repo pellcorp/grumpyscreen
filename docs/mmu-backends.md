@@ -90,9 +90,6 @@ the defaults and Print starts the job directly.
 | `void map_tool(int tool, int slot)` | does nothing | send that command; the new map arrives through the subscription |
 | `bool can_share_slot() const` | false | true if several tools may draw from one slot (Happy Hare; AFC with `enable_multiple_mapping`). Otherwise the screen keeps one tool per slot |
 
-The user-triggered auto match is the screen's (`mmu_automap()` in
-`src/mmu_tools.h`), not a backend's.
-
 ---
 
 ## Fill

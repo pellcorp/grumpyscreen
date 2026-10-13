@@ -900,15 +900,6 @@ static MmuSlot slot_with(const std::string &map, const std::string &material,
   return s;
 }
 
-static MmuFileTool file_tool(int tool, const std::string &material, const std::string &colour) {
-  MmuFileTool t;
-  t.tool = tool;
-  t.material = material;
-  t.colour = colour;
-  t.grams = 1;
-  return t;
-}
-
 static void test_tool_helpers() {
   std::vector<MmuSlot> slots = {slot_with("T10", "", "", true), slot_with("T0, T1", "", "", true)};
   CHECK_EQ(mmu_slot_for_tool(slots, 1), 1);  // whole entries: not inside T10
@@ -921,74 +912,6 @@ static void test_tool_helpers() {
   CHECK(mmu_colour_distance("", "FF0000") < 0);
   CHECK(mmu_colour_distance("F44336", "E53935") <= MMU_COLOUR_MISMATCH);  // two reds
   CHECK(mmu_colour_distance("F44336", "212121") > MMU_COLOUR_MISMATCH);   // red, near-black
-  CHECK(mmu_colour_distance("2196F3", "9C27B0") <= MMU_COLOUR_CLOSE);     // blue, purple
-  CHECK(mmu_colour_distance("2196F3", "FFEB3B") > MMU_COLOUR_CLOSE);      // blue, yellow
-}
-
-static void test_automap() {
-  const int CLEAR = MMU_AUTOMAP_CLEAR;
-  std::vector<MmuSlot> slots;
-  std::vector<MmuFileTool> tools;
-  auto automap = [&](bool share, bool weights) {
-    std::vector<int> current;
-    for (const auto &t : tools) current.push_back(mmu_slot_for_tool(slots, t.tool));
-    return mmu_automap(tools, slots, current, share, weights);
-  };
-
-  // red PLA: not the PETG lane, not the empty one
-  slots = {slot_with("T0", "PLA", "2196F3", true), slot_with("T1", "PLA", "F44336", true),
-           slot_with("T2", "PETG", "F44336", true), slot_with("T3", "PLA", "F44336", false)};
-  tools = {file_tool(0, "PLA", "F44336")};
-  CHECK_EQ(automap(false, false)[0], 1);
-
-  // never another material, a far colour, or a slot with no material set
-  tools = {file_tool(0, "ABS", "F44336")};
-  CHECK_EQ(automap(false, false)[0], CLEAR);
-  slots = {slot_with("T0", "PLA", "FFEB3B", true), slot_with("T1", "", "2196F3", true)};
-  tools = {file_tool(0, "PLA", "2196F3")};
-  CHECK_EQ(automap(false, false)[0], CLEAR);
-  // but a close colour will do: purple for blue
-  slots.push_back(slot_with("T2", "PLA", "9C27B0", true));
-  CHECK_EQ(automap(false, false)[0], 2);
-
-  // the nearer colour wins a slot; the other is left for the user
-  slots = {slot_with("T0", "PLA", "9C27B0", true)};
-  tools = {file_tool(0, "PLA", "2196F3"), file_tool(1, "PLA", "9C27B0")};
-  std::vector<int> target = automap(false, false);
-  CHECK_EQ(target[0], CLEAR);
-  CHECK_EQ(target[1], 0);
-
-  // two tools on each other's colours swap
-  slots = {slot_with("T0", "PLA", "2196F3", true), slot_with("T1", "PLA", "F44336", true)};
-  tools = {file_tool(0, "PLA", "F44336"), file_tool(1, "PLA", "2196F3")};
-  target = automap(false, false);
-  CHECK_EQ(target[0], 1);
-  CHECK_EQ(target[1], 0);
-
-  // T0 stays, T1 moves to its colour; red T2's only match is T0's slot:
-  // shared where allowed and the grams cover both, else left for the user
-  slots = {slot_with("T0", "PLA", "F44336", true), slot_with("T1", "PLA", "212121", true),
-           slot_with("T2", "PLA", "FFEB3B", true)};
-  tools = {file_tool(0, "PLA", "F44336"), file_tool(1, "PLA", "FFEB3B"), file_tool(2, "PLA", "F44336")};
-  slots[2].prepped = slots[2].ready = false;
-  slots.push_back(slot_with("T3", "PLA", "FFEB3B", true));
-  target = automap(false, false);
-  CHECK_EQ(target[0], -1);
-  CHECK_EQ(target[1], 3);
-  CHECK_EQ(target[2], CLEAR);
-  CHECK_EQ(automap(true, false)[2], 0);
-  slots[0].weight = 25;
-  tools[0].grams = 20;
-  tools[2].grams = 10;
-  CHECK_EQ(automap(true, true)[2], CLEAR);  // 30g asked of 25g
-
-  // with spoolman, a slot without the grams is no match
-  slots = {slot_with("T0", "PLA", "F44336", true), slot_with("T1", "PETG", "2196F3", true)};
-  slots[0].weight = 40;
-  tools = {file_tool(1, "PLA", "F44336")};
-  tools[0].grams = 50;
-  CHECK_EQ(automap(false, true)[0], CLEAR);
-  CHECK_EQ(automap(false, false)[0], 0);  // weights unknown: no refusal
 }
 
 static void test_file_tools() {
@@ -1064,7 +987,6 @@ int main() {
   test_verbs(ws);
   test_hostile_status(ws);
   test_tool_helpers();
-  test_automap();
   test_file_tools();
   test_tool_map_verbs(ws);
 #ifdef MMU_BACKEND_HH
