@@ -258,15 +258,16 @@ Styles &styles() {
   lv_style_set_img_recolor_opa(&s.icon_disabled, LV_OPA_COVER);
   lv_style_set_img_recolor(&s.icon_disabled, col(DISABLED));
 
-  // A button whose label carries the feedback an icon's would: it keeps the
-  // button face, and the word on it turns the accent under a finger. The
-  // colours go on the button, not its label, so the label inherits them and
-  // follows the button's state.
+  // Text-only actions use the same accent feedback as selected keys. Setting
+  // the pressed face explicitly also overrides LVGL's default darkening, so a
+  // press is visibly blue rather than merely a darker grey.
   lv_style_init(&s.text_btn);
   lv_style_set_text_color(&s.text_btn, col(TEXT));
 
   lv_style_init(&s.text_btn_pressed);
-  lv_style_set_text_color(&s.text_btn_pressed, theme_primary());
+  lv_style_set_bg_color(&s.text_btn_pressed, theme_primary());
+  lv_style_set_bg_opa(&s.text_btn_pressed, LV_OPA_COVER);
+  lv_style_set_text_color(&s.text_btn_pressed, col(ON_PRIMARY));
 
   lv_style_init(&s.text_btn_disabled);
   lv_style_set_text_color(&s.text_btn_disabled, col(DISABLED));
@@ -305,6 +306,13 @@ Styles &styles() {
   lv_style_set_bg_opa(&s.key, LV_OPA_COVER);
   lv_style_set_border_width(&s.key, 0);
   lv_style_set_text_color(&s.key, col(TEXT));
+
+  // Keyboards and button matrices use the same immediate feedback as text
+  // buttons: the key under a finger becomes the accent rather than dark grey.
+  lv_style_init(&s.key_pressed);
+  lv_style_set_bg_color(&s.key_pressed, theme_primary());
+  lv_style_set_bg_opa(&s.key_pressed, LV_OPA_COVER);
+  lv_style_set_text_color(&s.key_pressed, col(ON_PRIMARY));
 
   // the chosen key, and only it, wears the accent
   lv_style_init(&s.key_checked);
@@ -455,9 +463,9 @@ void style_embedded_tabview(lv_obj_t *tabview) {
   lv_obj_set_style_border_width(tab_btns, 0, 0);
 }
 
-// the btn look itself comes from the theme callback (every lv_btn wears it);
-// this only adds the label and the click
-lv_obj_t *create_flat_btn(lv_obj_t *parent, const char *text, lv_event_cb_t cb, void *user_data) {
+// The base button look comes from the theme callback. This adds its label,
+// click handling, and the shared blue pressed state for text actions.
+lv_obj_t *create_text_btn(lv_obj_t *parent, const char *text, lv_event_cb_t cb, void *user_data) {
   lv_obj_t *btn = lv_btn_create(parent);
   lv_obj_t *lbl = lv_label_create(btn);
   lv_label_set_text(lbl, text);
@@ -465,11 +473,6 @@ lv_obj_t *create_flat_btn(lv_obj_t *parent, const char *text, lv_event_cb_t cb, 
   if (cb != NULL) {
     lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, user_data);
   }
-  return btn;
-}
-
-lv_obj_t *create_text_btn(lv_obj_t *parent, const char *text, lv_event_cb_t cb, void *user_data) {
-  lv_obj_t *btn = create_flat_btn(parent, text, cb, user_data);
   lv_obj_add_style(btn, &styles().text_btn, 0);
   lv_obj_add_style(btn, &styles().text_btn_pressed, LV_STATE_PRESSED);
   lv_obj_add_style(btn, &styles().text_btn_disabled, LV_STATE_DISABLED);

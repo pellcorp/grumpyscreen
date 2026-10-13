@@ -66,7 +66,7 @@ using namespace Theme;
 
 lv_obj_t *page = create_screen(NULL);          // a full-screen panel root, padded by gap()
 lv_obj_t *row  = create_row(page);             // invisible layout container, children gap() apart
-lv_obj_t *go   = create_flat_btn(row, "Load", cb, this);
+lv_obj_t *go   = create_text_btn(row, "Load", cb, this);
 lv_obj_set_style_bg_color(go, col(DANGER), 0); // a role, never a grey
 lv_obj_set_style_height(go, scale_r(44), 0);   // a size at the 480x272 baseline
 ```

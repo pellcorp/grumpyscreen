@@ -136,8 +136,8 @@ ExcludeObjectPanel::ExcludeObjectPanel(KWebSocketClient &websocket_client, std::
   , info_cont(create_row(panel_cont))
   , status_label(lv_label_create(info_cont))
   , zoom_row(create_row(info_cont))
-  , zoom_out_btn(create_flat_btn(zoom_row, LV_SYMBOL_MINUS, &ExcludeObjectPanel::_handle_zoom, this))
-  , zoom_in_btn(create_flat_btn(zoom_row, LV_SYMBOL_PLUS, &ExcludeObjectPanel::_handle_zoom, this))
+  , zoom_out_btn(create_text_btn(zoom_row, LV_SYMBOL_MINUS, &ExcludeObjectPanel::_handle_zoom, this))
+  , zoom_in_btn(create_text_btn(zoom_row, LV_SYMBOL_PLUS, &ExcludeObjectPanel::_handle_zoom, this))
   , back_btn(panel_cont, Icons::BACK, "Back", &ExcludeObjectPanel::_handle_callback, this)
 {
   lv_obj_move_background(panel_cont);

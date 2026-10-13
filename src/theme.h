@@ -140,14 +140,14 @@ struct Styles {
   lv_style_t dim_label;              // section titles and secondary text
   lv_style_t icon_pressed;           // an icon under a finger: accent recolour
   lv_style_t icon_disabled;          // a greyed-out icon
-  lv_style_t text_btn;               // a button whose label carries the feedback
-  lv_style_t text_btn_pressed;       // its word under a finger: accent
+  lv_style_t text_btn;               // a text-only action
+  lv_style_t text_btn_pressed;       // its face under a finger: accent
   lv_style_t text_btn_disabled;      // and greyed out when it is off
   // applied by widget class from the theme callback, so every keyboard, text
   // entry and table in the UI wears them without the panel doing anything
   lv_style_t key_body;               // keyboard/btnmatrix body: bare, all room to the keys
   lv_style_t key_tray;               // a selector's outlined tray round a set of keys
-  lv_style_t key, key_checked;       // one key, and the chosen one
+  lv_style_t key, key_pressed, key_checked;  // one key; pressed and chosen states
   lv_style_t input;                  // a text entry
   lv_style_t input_placeholder;      // its hint text
   lv_style_t table;                  // a list/table: outlined, cells padded
@@ -209,10 +209,8 @@ lv_obj_t *create_screen(lv_obj_t *parent);
 // shared chrome for tabviews embedded inside a top-level page, such as System
 // and Settings. The parent panel owns sizing and tab padding.
 void style_embedded_tabview(lv_obj_t *tabview);
-lv_obj_t *create_flat_btn(lv_obj_t *parent, const char *text, lv_event_cb_t cb, void *user_data);
-// A flat button whose label does what an icon does: the word turns the accent
-// under a finger and greys out when disabled, rather than the box alone
-// reacting. Enable and disable it with LV_STATE_DISABLED, not set_action_btn.
+// A flat button that turns the accent colour while pressed and greys out when
+// disabled. Enable and disable it with LV_STATE_DISABLED, not set_action_btn.
 lv_obj_t *create_text_btn(lv_obj_t *parent, const char *text, lv_event_cb_t cb, void *user_data);
 void set_btn_label(lv_obj_t *btn, const char *text);
 // An action button carries the plain button grey unless its colour says

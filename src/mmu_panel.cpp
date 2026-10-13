@@ -315,7 +315,7 @@ void MmuPanel::create(lv_obj_t *parent) {
   lv_obj_set_size(nav_row, LV_PCT(100), scale_h(26));
   lv_obj_add_flag(nav_row, LV_OBJ_FLAG_HIDDEN);
 
-  nav_prev_btn = create_flat_btn(nav_row, "< Prev", &MmuPanel::_handle_page_prev, this);
+  nav_prev_btn = create_text_btn(nav_row, "< Prev", &MmuPanel::_handle_page_prev, this);
   lv_obj_set_size(nav_prev_btn, scale_w(70), LV_PCT(100));
   lv_obj_align(nav_prev_btn, LV_ALIGN_LEFT_MID, 0, 0);
 
@@ -323,7 +323,7 @@ void MmuPanel::create(lv_obj_t *parent) {
   lv_label_set_text(nav_label, "Page 1 / 1");
   lv_obj_center(nav_label);
 
-  nav_next_btn = create_flat_btn(nav_row, "Next >", &MmuPanel::_handle_page_next, this);
+  nav_next_btn = create_text_btn(nav_row, "Next >", &MmuPanel::_handle_page_next, this);
   lv_obj_set_size(nav_next_btn, scale_w(70), LV_PCT(100));
   lv_obj_align(nav_next_btn, LV_ALIGN_RIGHT_MID, 0, 0);
 }
@@ -381,10 +381,10 @@ void MmuPanel::create_edit_screen() {
   lv_obj_set_size(left_actions, LV_PCT(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(left_actions, LV_FLEX_FLOW_COLUMN);
 
-  edit_load_btn = create_flat_btn(left_actions, "Load", &MmuPanel::_handle_edit_action, this);
+  edit_load_btn = create_text_btn(left_actions, "Load", &MmuPanel::_handle_edit_action, this);
   lv_obj_set_size(edit_load_btn, LV_PCT(100), scale_r(40));
 
-  edit_eject_btn = create_flat_btn(left_actions, "Eject Spool", &MmuPanel::_handle_edit_action, this);
+  edit_eject_btn = create_text_btn(left_actions, "Eject Spool", &MmuPanel::_handle_edit_action, this);
   lv_obj_set_size(edit_eject_btn, LV_PCT(100), scale_r(40));
 
   // These two take the accent under a finger, the way a lane tile does. The
@@ -549,7 +549,7 @@ void MmuPanel::create_edit_screen() {
 
   material_btns.clear();
   for (const auto &mat_name : materials) {
-    lv_obj_t *b = create_flat_btn(mat_row, mat_name.c_str(), &MmuPanel::_handle_edit_action, this);
+    lv_obj_t *b = create_text_btn(mat_row, mat_name.c_str(), &MmuPanel::_handle_edit_action, this);
     lv_obj_set_height(b, LV_PCT(100));
     lv_obj_set_flex_grow(b, 1);
     lv_obj_add_style(b, &styles().dim_disabled, LV_STATE_DISABLED);
@@ -1383,7 +1383,7 @@ void MmuPanel::open_backup_picker() {
     backup_pick_names.push_back(l.name);
   }
 
-  lv_obj_t *cancel = create_flat_btn(backup_picker_list, "Cancel",
+  lv_obj_t *cancel = create_text_btn(backup_picker_list, "Cancel",
                                      &MmuPanel::_handle_edit_action, this);
   lv_obj_set_size(cancel, LV_PCT(100), scale_r(40));
   lv_obj_set_style_bg_color(cancel, theme_primary(), LV_STATE_PRESSED);
@@ -1464,12 +1464,12 @@ void MmuPanel::open_colour_picker() {
     lv_obj_set_size(btn_row, LV_PCT(100), scale_r(40));
     lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
 
-    colour_pick_ok = create_flat_btn(btn_row, "Save", &MmuPanel::_handle_edit_action, this);
+    colour_pick_ok = create_text_btn(btn_row, "Save", &MmuPanel::_handle_edit_action, this);
     lv_obj_set_height(colour_pick_ok, LV_PCT(100));
     lv_obj_set_flex_grow(colour_pick_ok, 1);
     lv_obj_set_style_bg_color(colour_pick_ok, theme_primary(), 0);
 
-    colour_pick_cancel = create_flat_btn(btn_row, "Cancel", &MmuPanel::_handle_edit_action, this);
+    colour_pick_cancel = create_text_btn(btn_row, "Cancel", &MmuPanel::_handle_edit_action, this);
     lv_obj_set_height(colour_pick_cancel, LV_PCT(100));
     lv_obj_set_flex_grow(colour_pick_cancel, 1);
   }
@@ -1519,13 +1519,13 @@ void MmuPanel::open_material_picker() {
     // chip height is what lets the title, the 14 built-in names in four
     // rows and Cancel share popout_max_h() at 480x272 without scrolling
     for (const auto &mat_name : material_catalog) {
-      lv_obj_t *b = create_flat_btn(material_picker_list, mat_name.c_str(),
+      lv_obj_t *b = create_text_btn(material_picker_list, mat_name.c_str(),
                                     &MmuPanel::_handle_edit_action, this);
       lv_obj_set_size(b, chip_w, scale_r(36));
       mat_pick_btns.push_back(b);
     }
 
-    lv_obj_t *cancel = create_flat_btn(material_picker_list, "Cancel",
+    lv_obj_t *cancel = create_text_btn(material_picker_list, "Cancel",
                                        &MmuPanel::_handle_edit_action, this);
     lv_obj_set_size(cancel, LV_PCT(100), scale_r(40));
     mat_pick_btns.push_back(cancel); // last tile, no material of its own
