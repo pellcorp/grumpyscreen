@@ -82,15 +82,16 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   delete_btn.hide_label();
   lv_obj_set_size(delete_btn.get_container(), scale_r(34), scale_r(34));
 
-  if (tabview != NULL) {
-    lv_obj_t *macro_tab = lv_tabview_add_tab(tabview, "Macros");
-    lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
-    lv_obj_set_style_pad_all(lv_obj_get_parent(console_cont), 0, 0);
-    lv_obj_set_style_pad_all(macro_tab, 0, 0);
-    style_embedded_tabview(tabview);
-    macro_panel = std::make_unique<MacroPanel>(macro_tab,
-        [this](const std::string &gcode) { this->send_gcode(gcode); });
-  }
+  macro_tab = lv_tabview_add_tab(tabview, "Macros");
+  lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_style_pad_all(lv_obj_get_parent(console_cont), 0, 0);
+  lv_obj_set_style_pad_all(macro_tab, 0, 0);
+  style_embedded_tabview(tabview);
+  macro_panel = std::make_unique<MacroPanel>(macro_tab,
+      [this](const std::string &gcode) {
+        lv_tabview_set_act(tabview, lv_obj_get_index(console_cont), LV_ANIM_OFF);
+        this->send_gcode(gcode);
+      });
 
   ws.register_method_callback("notify_gcode_response",
 			      "ConsolePanel",
@@ -98,26 +99,34 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
 }
 
 ConsolePanel::~ConsolePanel() {
-  lv_obj_t *outer = get_container();
-  if (outer != NULL) {
-    lv_obj_del(outer);
-    tabview = NULL;
-    console_cont = NULL;
-  }
+  lv_obj_del(tabview);
 }
 
 lv_obj_t *ConsolePanel::get_container() {
-  return tabview != NULL ? tabview : console_cont;
+  return tabview;
+}
+
+void ConsolePanel::select_first_tab() {
+  const uint16_t console_tab_index = lv_obj_get_index(console_cont);
+  lv_tabview_set_act(tabview, console_tab_index, LV_ANIM_OFF);
 }
 
 void ConsolePanel::set_gcode_input_enabled(bool enabled) {
   gcode_input_enabled = enabled;
+  const uint16_t macro_tab_index = lv_obj_get_index(macro_tab);
+  lv_obj_t *tab_btns = lv_tabview_get_tab_btns(tabview);
   if (enabled) {
     lv_obj_clear_state(input, LV_STATE_DISABLED);
+    lv_btnmatrix_clear_btn_ctrl(tab_btns, macro_tab_index, LV_BTNMATRIX_CTRL_DISABLED);
     return;
   }
 
   lv_obj_add_state(input, LV_STATE_DISABLED);
+  if (lv_tabview_get_tab_act(tabview) == macro_tab_index) {
+    lv_tabview_set_act(tabview, lv_obj_get_index(console_cont), LV_ANIM_OFF);
+  }
+  lv_btnmatrix_set_btn_ctrl(tab_btns, macro_tab_index,
+                            LV_BTNMATRIX_CTRL_DISABLED);
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
   lv_obj_set_height(lower_cont, LV_SIZE_CONTENT);
   lv_obj_clear_state(input, LV_STATE_FOCUSED);

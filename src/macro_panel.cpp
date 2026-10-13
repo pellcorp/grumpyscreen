@@ -11,6 +11,7 @@ using namespace Theme;
 static lv_coord_t grid_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
     LV_GRID_TEMPLATE_LAST};
 
+// FIXME - do we actually need all these icons for macros maybe we should only be supporting a subset
 static const std::map<std::string, const lv_img_dsc_t *> macro_icons = {
   {"arrow_down", Icons::ARROW_DOWN}, {"arrow_left", Icons::ARROW_LEFT},
   {"arrow_right", Icons::ARROW_RIGHT}, {"arrow_up", Icons::ARROW_UP},

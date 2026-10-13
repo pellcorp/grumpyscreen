@@ -198,7 +198,10 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
 
     const uint16_t idx = lv_tabview_get_tab_act(tv);
 
-    if (idx == lv_obj_get_index(self->setting_tab)) {
+    if (idx == lv_obj_get_index(self->console_tab)) {
+        self->console_panel.select_first_tab();
+    } else if (idx == lv_obj_get_index(self->setting_tab)) {
+        self->setting_panel.select_first_tab();
         self->setting_panel.foreground();
     }
 }

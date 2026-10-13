@@ -277,6 +277,10 @@ void SettingPanel::foreground() {
   refresh_active_tab();
 }
 
+void SettingPanel::select_first_tab() {
+  lv_tabview_set_act(tabview, lv_obj_get_index(actions_tab), LV_ANIM_OFF);
+}
+
 void SettingPanel::set_firmware_restart_available(bool available) {
   if (available) restart_firmware_btn.enable();
   else restart_firmware_btn.disable();

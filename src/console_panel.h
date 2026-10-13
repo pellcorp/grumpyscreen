@@ -17,6 +17,7 @@ class ConsolePanel {
 
   lv_obj_t *get_container();
   void foreground();
+  void select_first_tab();
   void set_gcode_input_enabled(bool enabled);
   void handle_macro_response(json &d);
   void handle_delete_btn(lv_event_t *event);
@@ -38,6 +39,7 @@ class ConsolePanel {
   // Console and Macros tabs
   lv_obj_t *tabview;
   lv_obj_t *console_cont;
+  lv_obj_t *macro_tab;
   lv_obj_t *top_cont;
   lv_obj_t *output;
   lv_obj_t *lower_cont;   // the entry row and its keyboard

@@ -57,6 +57,10 @@ pwm: false
 
 [fan "fan_generic chamber"]
 display_name: Chamber
+
+[macro "BED_MESH_CALIBRATE"]
+display_name: Bed Mesh
+icon: bed
 )INI";
 
     const std::string override_ini = R"INI(
@@ -93,6 +97,10 @@ controllable: true
 display_name: Extruder 2
 color: red
 controllable: true
+
+[macro "G28"]
+display_name: Home
+icon: home
 
 [missing_section]
 value: ignored
@@ -201,6 +209,18 @@ value: ignored
     auto fans = conf->get_objects("/fan");
     assert(fans.size() == 3);
 
+    auto macros = conf->get_objects("/macro");
+    assert(macros.size() == 2);
+    nlohmann::json macro_by_id = nlohmann::json::object();
+    for (const auto& macro : macros) {
+        macro_by_id[macro["id"].get<std::string>()] = macro;
+    }
+    assert(macro_by_id["BED_MESH_CALIBRATE"]["display_name"] == "Bed Mesh");
+    assert(macro_by_id["BED_MESH_CALIBRATE"]["icon"] == "bed");
+    // This macro exists only in the override file.
+    assert(macro_by_id["G28"]["display_name"] == "Home");
+    assert(macro_by_id["G28"]["icon"] == "home");
+
 		nlohmann::json fan_by_id = nlohmann::json::object();
 		for (const auto& o : fans) {
 				assert(o.is_object());
@@ -233,9 +253,25 @@ value: ignored
     assert(sensor_by_id.contains("extruder1"));
     assert(sensor_by_id.contains("extruder2"));
 
+    // A normal config has no [macro] sections. An override may introduce the
+    // group, rather than only modifying macros declared by the base config.
+    const auto macro_base_path = write_tmp_ini("build/test_config_macro_base.ini", "[ui]\n");
+    const auto macro_override_path = write_tmp_ini("build/test_config_macro_override.ini",
+        "[macro \"G28\"]\n"
+        "display_name: Home\n"
+        "icon: home\n");
+    assert(conf->load(macro_base_path));
+    assert(conf->load_override(macro_override_path));
+    auto override_only_macros = conf->get_objects("/macro");
+    assert(override_only_macros.size() == 1);
+    assert(override_only_macros[0]["id"] == "G28");
+    assert(override_only_macros[0]["display_name"] == "Home");
+
     std::remove("build/test_config.ini");
     std::remove("build/test_config_override.ini");
     std::remove("build/test_config_writable_override.ini");
+    std::remove("build/test_config_macro_base.ini");
+    std::remove("build/test_config_macro_override.ini");
     std::cout << "All config and MMU tests passed successfully!\n";
 
     return 0;
