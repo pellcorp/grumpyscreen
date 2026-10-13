@@ -237,14 +237,6 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_add_event_cb(sleep_timeout_selector, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
 
-  // Without CONFIG_OVERRIDE_FILE there is nowhere persistent to save these
-  // settings. Keep the controls visible so the capability is discoverable,
-  // but make their read-only state explicit instead of allowing a doomed edit.
-  if (!conf->has_override_path()) {
-    lv_obj_add_state(emergency_prompt_switch, LV_STATE_DISABLED);
-    lv_obj_add_state(sleep_timeout_selector, LV_STATE_DISABLED);
-  }
-
   // Optional tiles only appear with a command behind them; the grid is built
   // from what is left, four across, so a hidden tile never leaves a hole.
   auto has_cmd = [conf](const char *key) { return conf->get<std::string>(key) != ""; };
@@ -330,7 +322,7 @@ void SettingPanel::setting_changed(lv_event_t *event) {
 
   if (!saved) {
     create_simple_dialog(lv_scr_act(), "Unable to Save Setting",
-                         "The override config file could not be updated.", true, true);
+                         "The config file could not be updated.", true, true);
   }
 
   if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
