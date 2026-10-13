@@ -85,6 +85,7 @@ class ExcludeObjectPanel : public NotifyConsumer {
   void reset_view();
   void clamp_view();
   void set_zoom(double z);
+  void update_zoom_buttons();
   void redraw();
   double px_per_mm();
   lv_point_t to_px(double mx, double my);

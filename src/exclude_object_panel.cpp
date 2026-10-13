@@ -261,6 +261,7 @@ void ExcludeObjectPanel::reset_view() {
   zoom = 1.0;
   view_x = (bed_min_x + bed_max_x) / 2.0;
   view_y = (bed_min_y + bed_max_y) / 2.0;
+  update_zoom_buttons();
 }
 
 // keep the view centre on the bed so a drag can never lose it off screen
@@ -275,7 +276,22 @@ void ExcludeObjectPanel::set_zoom(double z) {
     reset_view();
   }
   clamp_view();
+  update_zoom_buttons();
   redraw();
+}
+
+void ExcludeObjectPanel::update_zoom_buttons() {
+  if (zoom <= 1.0) {
+    lv_obj_add_state(zoom_out_btn, LV_STATE_DISABLED);
+  } else {
+    lv_obj_clear_state(zoom_out_btn, LV_STATE_DISABLED);
+  }
+
+  if (zoom >= 8.0) {
+    lv_obj_add_state(zoom_in_btn, LV_STATE_DISABLED);
+  } else {
+    lv_obj_clear_state(zoom_in_btn, LV_STATE_DISABLED);
+  }
 }
 
 // at zoom 1 the whole bed fits the canvas inside the margin
