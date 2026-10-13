@@ -198,6 +198,10 @@ void PrintPanel::foreground() {
   subscribe();
 }
 
+void PrintPanel::background() {
+  lv_obj_move_background(files_cont);
+}
+
 void PrintPanel::handle_callback(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
 

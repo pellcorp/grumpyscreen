@@ -113,6 +113,10 @@ void FanPanel::foreground() {
   lv_obj_move_foreground(fanpanel_cont);
 }
 
+void FanPanel::background() {
+  lv_obj_move_background(fanpanel_cont);
+}
+
 void FanPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
   if (btn == back_btn.get_container()) {

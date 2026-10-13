@@ -196,6 +196,10 @@ void ExtruderPanel::foreground() {
   lv_obj_move_foreground(panel_cont);
 }
 
+void ExtruderPanel::background() {
+  lv_obj_move_background(panel_cont);
+}
+
 void ExtruderPanel::enable_spoolman() {
   spoolman_btn.enable();
 }

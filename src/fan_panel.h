@@ -21,6 +21,7 @@ class FanPanel : public NotifyConsumer {
   lv_obj_t *get_container();
   void create_fans(json &f);
   void foreground();
+  void background();
   void handle_callback(lv_event_t *event);
   void handle_fan_update(lv_event_t *event);
   void handle_fan_update_part_fan(lv_event_t *event);

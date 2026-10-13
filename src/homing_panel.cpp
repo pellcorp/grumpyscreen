@@ -160,6 +160,10 @@ void HomingPanel::foreground() {
   lv_obj_move_foreground(homing_cont);
 }
 
+void HomingPanel::background() {
+  lv_obj_move_background(homing_cont);
+}
+
 void HomingPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);  
   const char * distance = lv_btnmatrix_get_btn_text(distance_selector.get_selector(),
