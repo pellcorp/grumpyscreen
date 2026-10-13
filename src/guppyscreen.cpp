@@ -224,11 +224,13 @@ std::mutex &GuppyScreen::get_lock() {
 }
 
 void GuppyScreen::connect_ws(const std::string &url) {
-  init_panel.set_message(LV_SYMBOL_WARNING " Waiting for Klipper to start...");
+  init_panel.waiting_for_moonraker();
   ws.connect(url.c_str(),
    [this]() { init_panel.websocket_connected(ws); },
    [this]() { init_panel.klippy_ready(ws); },
-   [this]() { init_panel.disconnected(ws); });
+   [this]() { init_panel.klippy_disconnected(ws); },
+   [this]() { init_panel.klippy_shutdown(ws); },
+   [this]() { init_panel.websocket_disconnected(ws); });
 }
 
 void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {

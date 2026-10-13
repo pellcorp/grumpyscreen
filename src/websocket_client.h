@@ -20,7 +20,9 @@ class KWebSocketClient : public hv::WebSocketClient {
   int connect(const char* url,
 	      std::function<void()> opened,
 	      std::function<void()> klippy_ready,
-	      std::function<void()> disconnected);
+	      std::function<void()> klippy_disconnected,
+	      std::function<void()> klippy_shutdown,
+	      std::function<void()> websocket_disconnected);
 
   void register_notify_update(NotifyConsumer *consumer);
   void unregister_notify_update(NotifyConsumer *consumer);

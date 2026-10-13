@@ -88,6 +88,11 @@ void MainPanel::subscribe() {
   print_panel.subscribe();
 }
 
+void MainPanel::set_firmware_restart_available(bool available) {
+  std::lock_guard<std::mutex> lock(lv_lock);
+  setting_panel.set_firmware_restart_available(available);
+}
+
 bool MainPanel::home_active() const {
   return lv_tabview_get_tab_act(tabview) == lv_obj_get_index(main_tab);
 }

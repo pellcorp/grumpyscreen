@@ -19,6 +19,9 @@ class SettingPanel {
 
   lv_obj_t *get_container();
   void foreground();
+  // Firmware restart is a Klipper RPC, so it only works while Moonraker is
+  // connected to Klipper.
+  void set_firmware_restart_available(bool available);
 
   void handle_callback(lv_event_t *event);
 

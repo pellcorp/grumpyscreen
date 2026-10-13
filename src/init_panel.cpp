@@ -26,7 +26,7 @@ InitPanel::InitPanel(MainPanel &mp, std::mutex& l)
   lv_obj_center(cont);
 
   lv_obj_set_width(label, LV_PCT(100));
-  lv_label_set_text(label, LV_SYMBOL_WARNING " Waiting for Klipper to start...");
+  lv_label_set_text(label, LV_SYMBOL_WARNING " Waiting for Moonraker to start...");
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
 
   main_panel.add_tab_change_cb(&InitPanel::_tabview_event_cb, this);
@@ -43,11 +43,13 @@ InitPanel::~InitPanel() {
 
 void InitPanel::websocket_connected(KWebSocketClient &ws) {
   LOG_DEBUG("init panel websocket connected");
+  begin_waiting(LV_SYMBOL_WARNING " Waiting for Klipper to start...", false);
   start_initialization(ws);
 }
 
 void InitPanel::klippy_ready(KWebSocketClient &ws) {
   LOG_DEBUG("init panel klippy ready");
+  main_panel.set_firmware_restart_available(true);
   start_initialization(ws);
 }
 
@@ -74,8 +76,14 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
     if (!initialization_active(generation)) return;
     State::get_instance()->set_data("printer_info", info, "/result");
     const std::string klippy_state = info.value("/result/state"_json_pointer, std::string());
+    const bool klipper_connected = !klippy_state.empty() && klippy_state != "disconnected";
+    main_panel.set_firmware_restart_available(klipper_connected);
     if (klippy_state != "ready") {
       LOG_DEBUG("Klipper is not ready (state: {})", klippy_state.empty() ? "unknown" : klippy_state);
+      begin_waiting(klipper_connected
+                        ? LV_SYMBOL_WARNING " Waiting for Klipper to be ready..."
+                        : LV_SYMBOL_WARNING " Waiting for Klipper to start...",
+                    klipper_connected);
       wait_for_klipper(generation);
       return;
     }
@@ -179,14 +187,35 @@ void InitPanel::initialization_complete(uint64_t generation) {
   update_visibility();
 }
 
-void InitPanel::disconnected(KWebSocketClient &ws) {
-  LOG_DEBUG("init panel disconnected");
-  std::lock_guard<std::mutex> lock(lv_lock);
-  ++lifecycle_generation;
-  lifecycle = Lifecycle::WaitingForKlipper;
-  set_message(LV_SYMBOL_WARNING " Waiting for Klipper to start...");
-  waiting = true;
-  update_visibility();
+void InitPanel::klippy_disconnected(KWebSocketClient &ws) {
+  LOG_DEBUG("init panel Klipper disconnected");
+  begin_waiting(LV_SYMBOL_WARNING " Waiting for Klipper to start...", false);
+}
+
+void InitPanel::klippy_shutdown(KWebSocketClient &ws) {
+  LOG_DEBUG("init panel Klipper shutdown");
+  begin_waiting(LV_SYMBOL_WARNING " Waiting for Klipper to be ready...", true);
+}
+
+void InitPanel::websocket_disconnected(KWebSocketClient &ws) {
+  LOG_DEBUG("init panel Moonraker disconnected");
+  waiting_for_moonraker();
+}
+
+void InitPanel::waiting_for_moonraker() {
+  begin_waiting(LV_SYMBOL_WARNING " Waiting for Moonraker to start...", false);
+}
+
+void InitPanel::begin_waiting(const char *message, bool firmware_restart_available) {
+  {
+    std::lock_guard<std::mutex> lock(lv_lock);
+    ++lifecycle_generation;
+    lifecycle = Lifecycle::WaitingForKlipper;
+    set_message(message);
+    waiting = true;
+    update_visibility();
+  }
+  main_panel.set_firmware_restart_available(firmware_restart_available);
 }
 
 void InitPanel::set_message(const char *message) {

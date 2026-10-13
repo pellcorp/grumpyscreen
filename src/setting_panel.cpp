@@ -146,6 +146,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
 {
+  // Restart Klipper is a local service command and remains useful even when
+  // Moonraker or Klipper is unavailable. Firmware restart, on the other hand,
+  // is a Klipper RPC and starts disabled until that connection is confirmed.
+  restart_firmware_btn.disable();
   lv_obj_set_style_pad_all(cont, 0, 0);
   lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
   lv_obj_add_event_cb(tabview, &SettingPanel::_tabview_event_cb,
@@ -257,6 +261,11 @@ lv_obj_t *SettingPanel::get_container() {
 
 void SettingPanel::foreground() {
   refresh_active_tab();
+}
+
+void SettingPanel::set_firmware_restart_available(bool available) {
+  if (available) restart_firmware_btn.enable();
+  else restart_firmware_btn.disable();
 }
 
 void SettingPanel::_tabview_event_cb(lv_event_t *event) {

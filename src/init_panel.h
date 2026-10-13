@@ -18,8 +18,10 @@ class InitPanel {
   // separate from notify_klippy_ready so startup has one owner.
   void websocket_connected(KWebSocketClient &ws);
   void klippy_ready(KWebSocketClient &ws);
-  void disconnected(KWebSocketClient &ws);
-  void set_message(const char *message);
+  void klippy_disconnected(KWebSocketClient &ws);
+  void klippy_shutdown(KWebSocketClient &ws);
+  void websocket_disconnected(KWebSocketClient &ws);
+  void waiting_for_moonraker();
 
  private:
   enum class Lifecycle {
@@ -32,6 +34,8 @@ class InitPanel {
   bool initialization_active(uint64_t generation);
   void wait_for_klipper(uint64_t generation);
   void initialization_complete(uint64_t generation);
+  void begin_waiting(const char *message, bool firmware_restart_available);
+  void set_message(const char *message);
   void update_visibility();
   static void _tabview_event_cb(lv_event_t *event);
   lv_obj_t *cont;
