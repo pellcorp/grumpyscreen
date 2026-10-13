@@ -35,6 +35,7 @@ class SettingPanel {
   static void _setting_changed_cb(lv_event_t *event);
   void refresh_active_tab();
   void setting_changed(lv_event_t *event);
+  void refresh_emergency_stop_warning();
 
   KWebSocketClient &ws;
   bool owns_cont;
@@ -48,6 +49,7 @@ class SettingPanel {
   lv_obj_t *settings_cont;
   lv_obj_t *about_cont;
   lv_obj_t *emergency_prompt_switch;
+  lv_obj_t *emergency_stop_warning;
   lv_obj_t *sleep_timeout_selector;
 #ifdef COSMOS
   UpdateManagerClient update_manager;

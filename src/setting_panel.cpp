@@ -123,6 +123,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , settings_cont(Theme::create_screen(settings_tab))
   , about_cont(Theme::create_screen(about_tab))
   , emergency_prompt_switch(nullptr)
+  , emergency_stop_warning(nullptr)
   , sleep_timeout_selector(nullptr)
 #ifdef COSMOS
   , update_manager(c, l)
@@ -187,11 +188,24 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_set_style_pad_row(settings_panel, Theme::gap() * 2, 0);
 
   lv_obj_t *emergency_row = Theme::create_row(settings_panel);
-  lv_obj_set_size(emergency_row, LV_PCT(100), Theme::touch_h());
+  lv_obj_set_size(emergency_row, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_min_height(emergency_row, Theme::touch_h(), 0);
   lv_obj_set_flex_flow(emergency_row, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(emergency_row, LV_FLEX_ALIGN_SPACE_BETWEEN,
                         LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_t *emergency_label = lv_label_create(emergency_row);
+
+  // Keep the warning with the label it qualifies, rather than making it read
+  // like a separate setting below this row.
+  lv_obj_t *emergency_text = lv_obj_create(emergency_row);
+  lv_obj_remove_style_all(emergency_text);
+  lv_obj_clear_flag(emergency_text, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_set_width(emergency_text, 0);
+  lv_obj_set_flex_grow(emergency_text, 1);
+  lv_obj_set_flex_flow(emergency_text, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(emergency_text, LV_FLEX_ALIGN_START,
+                        LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+
+  lv_obj_t *emergency_label = lv_label_create(emergency_text);
   lv_label_set_text(emergency_label, "Confirm emergency stop");
   lv_obj_add_style(emergency_label, &Theme::styles().dim_label, 0);
   emergency_prompt_switch = lv_switch_create(emergency_row);
@@ -200,6 +214,14 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   }
   lv_obj_add_event_cb(emergency_prompt_switch, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
+
+  emergency_stop_warning = lv_label_create(emergency_text);
+  lv_label_set_text(emergency_stop_warning,
+                    "Long press of E-stop will be required to activate!");
+  lv_obj_set_width(emergency_stop_warning, LV_PCT(100));
+  lv_label_set_long_mode(emergency_stop_warning, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_color(emergency_stop_warning, Theme::col(Theme::DANGER), 0);
+  refresh_emergency_stop_warning();
 
   add_about_line(settings_panel, "Screen timeout", true);
   sleep_timeout_selector = lv_btnmatrix_create(settings_panel);
@@ -309,6 +331,16 @@ void SettingPanel::setting_changed(lv_event_t *event) {
   if (!saved) {
     create_simple_dialog(lv_scr_act(), "Unable to Save Setting",
                          "The override config file could not be updated.", true, true);
+  }
+
+  if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
+}
+
+void SettingPanel::refresh_emergency_stop_warning() {
+  if (lv_obj_has_state(emergency_prompt_switch, LV_STATE_CHECKED)) {
+    lv_obj_add_flag(emergency_stop_warning, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_clear_flag(emergency_stop_warning, LV_OBJ_FLAG_HIDDEN);
   }
 }
 
