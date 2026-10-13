@@ -159,6 +159,24 @@ value: ignored
         "[moonraker]\n"
         "host: moonraker.local\n");
 
+    // When no CONFIG_OVERRIDE_FILE is configured, persist the same two
+    // settings in the loaded main config instead.
+    assert(conf->load(path) && "reload without override should succeed");
+    assert(!conf->has_override_path());
+    assert(conf->set_prompt_emergency_stop(false));
+    assert(conf->set_display_sleep_sec(-1));
+    assert(!conf->get<bool>("/ui/prompt_emergency_stop"));
+    assert(conf->get<int32_t>("/ui/display_sleep_sec") == -1);
+
+    std::ifstream main_patched_input(path);
+    const std::string main_patched((std::istreambuf_iterator<char>(main_patched_input)),
+                                   std::istreambuf_iterator<char>());
+    assert(main_patched.find("prompt_emergency_stop: false") != std::string::npos);
+    assert(main_patched.find("display_sleep_sec: -1") != std::string::npos);
+
+    // The remaining object assertions cover the merged override view.
+    assert(conf->load_override(override_path) && "override reload should succeed");
+
     // objects
     auto leds = conf->get_objects("/led");
     assert(leds.size() == 3);

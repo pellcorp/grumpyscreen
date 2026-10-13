@@ -33,13 +33,13 @@ public:
     bool has_override_path() const { return !override_path_.empty(); }
 
     bool set_prompt_emergency_stop(bool enabled) {
-        if (!ConfigOverride(override_path_).set_prompt_emergency_stop(enabled)) return false;
+        if (!ConfigOverride(writable_path()).set_prompt_emergency_stop(enabled)) return false;
         j_["ui"]["prompt_emergency_stop"] = enabled;
         return true;
     }
 
     bool set_display_sleep_sec(int32_t seconds) {
-        if (seconds < -1 || !ConfigOverride(override_path_).set_display_sleep_sec(seconds)) return false;
+        if (seconds < -1 || !ConfigOverride(writable_path()).set_display_sleep_sec(seconds)) return false;
         j_["ui"]["display_sleep_sec"] = seconds;
         return true;
     }
@@ -78,6 +78,12 @@ private:
     Config() = default;
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
+
+    // A configured override is the preferred place for UI-managed values.
+    // Otherwise, persist them in the main config that was loaded at startup.
+    const std::string& writable_path() const {
+        return override_path_.empty() ? path_ : override_path_;
+    }
 
     static void trim(std::string& s) {
         size_t b = 0; while (b < s.size() && std::isspace(static_cast<unsigned char>(s[b]))) ++b;
