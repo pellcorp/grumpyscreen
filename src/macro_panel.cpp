@@ -19,7 +19,7 @@ static const std::map<std::string, const lv_img_dsc_t *> macro_icons = {
   {"clock", Icons::CLOCK_IMG}, {"cooldown", Icons::COOLDOWN_IMG}, {"delete", Icons::DELETE_IMG},
   {"emergency", Icons::EMERGENCY}, {"extrude", Icons::EXTRUDE_IMG}, {"extruder", Icons::EXTRUDER},
   {"factory_reset", Icons::FACTORY_RESET_IMG}, {"fan", Icons::FAN}, {"fan_off", Icons::FAN_OFF_IMG},
-  {"fan_on", Icons::FAN_ON}, {"filament", Icons::FILAMENT_IMG}, {"fine_tune", Icons::FINE_TUNE_IMG},
+  {"fan_on", Icons::FAN_ON}, {"fine_tune", Icons::FINE_TUNE_IMG},
   {"firmware", Icons::FIRMWARE_IMG}, {"flow", Icons::EXTRUDE}, {"flow_up", Icons::FLOW_UP_IMG},
   {"gui", Icons::GUI_IMG}, {"heater", Icons::HEATER}, {"home", Icons::HOME}, {"home_z", Icons::HOME_Z},
   {"hourglass", Icons::HOURGLASS}, {"infinity", Icons::INFINITY_IMG}, {"info", Icons::INFO_IMG},
