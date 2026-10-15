@@ -42,6 +42,7 @@ PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, l
     , flex(create_row(prompt_cont))
     , header(lv_label_create(prompt_cont))
     , footer_cont(button_row(prompt_cont))
+    , numpad(prompt_cont)
 {
   // header, body, buttons: the one-line header and the button row take what
   // they need, the body gets the rest
@@ -116,8 +117,25 @@ void PromptPanel::handle_callback(lv_event_t *event) {
   if (command != NULL) {
     std::string cmd = lv_label_get_text(command);
     LOG_DEBUG("button: {}", cmd);
-    ws.gcode_script(cmd);
+    if (cmd.find("=NUMPAD") != std::string::npos) {
+      open_numpad();
+    } else {
+      ws.gcode_script(cmd);
+    }
   }
+}
+
+// A klipper prompt has no number entry, so a button command with a
+// NAME=NUMPAD param opens the numpad when the prompt shows, and the number
+// replaces NUMPAD
+void PromptPanel::open_numpad() {
+  numpad.set_callback([this](double v) {
+    std::string cmd = numpad_cmd;
+    cmd.replace(cmd.find("=NUMPAD") + 1, strlen("NUMPAD"), fmt::format("{:g}", v));
+    ws.gcode_script(cmd);
+  });
+  numpad.cover_from(0);
+  numpad.foreground_reset();
 }
 
 void PromptPanel::handle_macro_response(json &j) {
@@ -145,6 +163,8 @@ void PromptPanel::handle_macro_response(json &j) {
         // remove buttons
         lv_obj_clean(footer_cont);
         lv_obj_clean(flex);
+        numpad.background();
+        numpad_cmd.clear();
 
         // set header here
         lv_label_set_text(header, prompt_header.c_str());
@@ -220,6 +240,9 @@ void PromptPanel::handle_macro_response(json &j) {
           lv_obj_add_flag(command, LV_OBJ_FLAG_HIDDEN);
           lv_label_set_text(label, prompt_footer_button.c_str());
           lv_label_set_text(command, prompt_button_command.c_str());
+          if (prompt_button_command.find("=NUMPAD") != std::string::npos) {
+            numpad_cmd = prompt_button_command;
+          }
           lv_obj_center(label);
           colour_prompt_btn(btn, prompt_button_type);
           lv_obj_add_event_cb(btn, _handle_callback, LV_EVENT_CLICKED, this);
@@ -228,6 +251,9 @@ void PromptPanel::handle_macro_response(json &j) {
         LOG_DEBUG("PROMPT_SHOW");
         restore_print_status_foreground_ = print_status_panel.is_foreground();
         foreground();
+        if (!numpad_cmd.empty()) {
+          open_numpad();
+        }
       } else if (command.find("prompt_end") == 0) {
         LOG_DEBUG("PROMPT_END");
         background();
@@ -240,6 +266,8 @@ void PromptPanel::handle_macro_response(json &j) {
         // remove buttons
         lv_obj_clean(footer_cont);
         lv_obj_clean(flex);
+        numpad.background();
+        numpad_cmd.clear();
       } else {
         LOG_DEBUG("action {} --- not supported", command);
       }
