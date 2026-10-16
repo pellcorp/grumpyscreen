@@ -7,12 +7,6 @@
 
 using namespace Theme;
 
-LV_FONT_DECLARE(materialdesign_font_18);
-// the screws tilt icons fluidd uses: mdi rotate-right, rotate-left, check-circle
-#define MDI_ROTATE_RIGHT "\xF3\xB0\x91\xA7"
-#define MDI_ROTATE_LEFT "\xF3\xB0\x91\xA5"
-#define MDI_CHECK_CIRCLE "\xF3\xB0\x97\xA0"
-
 // a colour as label recolour wants it: "#RRGGBB text#"
 static std::string hex(lv_color_t c) {
   return fmt::format("{:06X}", lv_color_to32(c) & 0xFFFFFF);
@@ -287,7 +281,7 @@ void PromptPanel::show_screws_tilt(json &st) {
   open(KlipperDialog::SCREWS_TILT, "Screws Tilt Adjust");
 
   // fluidd's table: name over X/Y, Z under how far it is off the base, and the
-  // turn with fluidd's icons, green under 6 minutes
+  // turn as klipper gives it (CW 00:15), green under 6 minutes
   lv_obj_t *table = create_table(flex);
   for (int n = 1; results.contains(fmt::format("screw{}", n)); n++) {
     auto &r = results[fmt::format("screw{}", n)];
@@ -327,14 +321,11 @@ void PromptPanel::show_screws_tilt(json &st) {
     } else {
       int minutes = std::stoi(adjust.substr(0, 2)) * 60 + std::stoi(adjust.substr(3, 2));
       lv_obj_set_style_bg_color(chip, minutes < 6 ? lv_palette_main(LV_PALETTE_GREEN) : col(DANGER), 0);
-      lv_obj_t *icon = lv_label_create(chip);
-      lv_obj_set_style_text_font(icon, &materialdesign_font_18, 0);
-      lv_label_set_text(icon, minutes == 0 ? MDI_CHECK_CIRCLE
-                              : r.value("sign", "") == "CW" ? MDI_ROTATE_RIGHT : MDI_ROTATE_LEFT);
     }
     lv_obj_t *adj = lv_label_create(chip);
     lv_obj_set_style_text_font(adj, scale_font(16), 0);
-    lv_label_set_text(adj, r.value("is_base", false) ? "base" : adjust.c_str());
+    lv_label_set_text(adj, r.value("is_base", false) ? "base"
+                           : fmt::format("{} {}", r.value("sign", ""), adjust).c_str());
   }
 
   add_button(footer_cont, "Retry", "SCREWS_TILT_CALCULATE", "none");
