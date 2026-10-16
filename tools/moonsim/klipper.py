@@ -9,6 +9,7 @@ UI meets the same answers it gets from a real printer.
 import asyncio
 import json
 import math
+import random
 import re
 import time
 
@@ -64,13 +65,23 @@ def build_config():
                                             "fan_speed": 1.0}
     CONFIG["virtual_sdcard"] = {"path": a.session_dir + "/gcodes", "on_error_gcode": "TURN_OFF_HEATERS"}
     CONFIG["idle_timeout"] = {"timeout": float(a.idle_timeout), "gcode": "TURN_OFF_HEATERS\nM84"}
+    CONFIG["bed_screws"] = {}
+    CONFIG["screws_tilt_adjust"] = {"screw_thread": "CW-M3", "speed": 50.0, "horizontal_move_z": 5.0}
+    for i, (name, x, y) in enumerate(SCREWS, 1):
+        for sec in ("bed_screws", "screws_tilt_adjust"):
+            CONFIG[sec]["screw%d" % i] = [x, y]
+            CONFIG[sec]["screw%d_name" % i] = name
+
+
+SCREWS = (("front left", 30.0, 30.0), ("front right", 226.0, 30.0),
+          ("rear right", 226.0, 226.0), ("rear left", 30.0, 226.0))
 
 
 def raw_config():
     """configfile.config: every value as the text it would be in printer.cfg."""
     def text(v):
         if isinstance(v, list):
-            return ", ".join(v)
+            return ", ".join(text(x) for x in v)
         if isinstance(v, float) and v == int(v):
             return "%d" % v
         return str(v)
@@ -144,6 +155,10 @@ def build_objects(keep=()):
                               "steppers": ["extruder", "stepper_x", "stepper_y", "stepper_z"],
                               "trapq": ["extruder", "toolhead"]}
     STATE["exclude_object"] = {"objects": [], "excluded_objects": [], "current_object": None}
+    STATE["manual_probe"] = {"is_active": False, "z_position": None,
+                             "z_position_lower": None, "z_position_upper": None}
+    STATE["bed_screws"] = {"is_active": False, "state": None, "current_screw": 0, "accepted_screws": 0}
+    STATE["screws_tilt_adjust"] = {"error": False, "max_deviation": None, "results": {}}
     MOTION.reset()
     SD.reset()
 
@@ -766,6 +781,111 @@ async def g_home(cmd):
         MOTION.update_status(pos)
         mark("toolhead", "gcode_move")
     return 0.0
+
+
+PAST_Z = []            # heights TESTZ has left, for the bisect steps
+
+
+@gcode("PROBE_CALIBRATE", "Z_ENDSTOP_CALIBRATE")
+async def g_manual_probe(cmd):
+    mp = STATE["manual_probe"]
+    if mp["is_active"] or STATE["bed_screws"]["is_active"]:
+        raise GcodeError("Already in a manual Z probe. Use ABORT to abort it.")
+    mp.update(is_active=True, z_position=5.0, z_position_lower=None, z_position_upper=None)
+    PAST_Z.clear()
+    mark("manual_probe")
+    await respond_info("Starting manual Z probe. Use TESTZ to adjust position.\n"
+                       "Finish with ACCEPT or ABORT command.")
+
+
+@gcode("BED_SCREWS_ADJUST")
+async def g_bed_screws(cmd):
+    if STATE["manual_probe"]["is_active"] or STATE["bed_screws"]["is_active"]:
+        raise GcodeError("Already in a manual Z probe. Use ABORT to abort it.")
+    STATE["bed_screws"].update(is_active=True, state="adjust", current_screw=0, accepted_screws=0)
+    mark("bed_screws")
+    await respond_info("Adjust %s. Then run ACCEPT, ADJUSTED, or ABORT\n"
+                       "Use ADJUSTED if a significant screw adjustment is made" % SCREWS[0][0])
+
+
+async def bed_screws_step(cmd):
+    """bed_screws.py, without the fine adjust pass: every screw accepted in a
+    row finishes, an ADJUSTED starts the count again."""
+    bs = STATE["bed_screws"]
+    if cmd.name == "ABORT":
+        bs.update(is_active=False, state=None, current_screw=0, accepted_screws=0)
+    else:
+        bs["accepted_screws"] = 0 if cmd.name == "ADJUSTED" else bs["accepted_screws"] + 1
+        if bs["accepted_screws"] >= len(SCREWS):
+            bs.update(is_active=False, state=None, current_screw=0, accepted_screws=0)
+            await respond_info("Bed screws tool completed successfully")
+        else:
+            bs["current_screw"] = (bs["current_screw"] + 1) % len(SCREWS)
+            await respond_info("Adjust %s. Then run ACCEPT, ADJUSTED, or ABORT"
+                               % SCREWS[bs["current_screw"]][0])
+    mark("bed_screws")
+
+
+@gcode("SCREWS_TILT_CALCULATE")
+async def g_screws_tilt(cmd):
+    st = STATE["screws_tilt_adjust"]
+    md = cmd.get("MAX_DEVIATION", None)
+    st["max_deviation"] = float(md) if md is not None else None
+    await asyncio.sleep(2.0)  # probing every screw
+    base = 2.5
+    results = {"screw1": {"z": base, "sign": "CW", "adjust": "00:00", "is_base": True}}
+    lines = ["%s (base) : x=%.1f, y=%.1f, z=%.5f" % (SCREWS[0] + (base,))]
+    for i, (name, x, y) in enumerate(SCREWS[1:], 2):
+        z = round(base + random.uniform(-0.3, 0.3), 5)
+        turns = abs(z - base) / 0.5  # M3: 0.5mm a turn
+        adjust = "%02d:%02d" % (int(turns), round((turns - int(turns)) * 60))
+        sign = "CW" if z > base else "CCW"
+        results["screw%d" % i] = {"z": z, "sign": sign, "adjust": adjust, "is_base": False}
+        lines.append("%s : x=%.1f, y=%.1f, z=%.5f : adjust %s %s" % (name, x, y, z, sign, adjust))
+    st.update(results=results, error=False)
+    mark("screws_tilt_adjust")
+    await respond_info("\n".join(lines))
+
+
+@gcode("TESTZ", "ACCEPT", "ADJUSTED", "ABORT")
+async def g_manual_probe_step(cmd):
+    if STATE["bed_screws"]["is_active"] and cmd.name != "TESTZ":
+        return await bed_screws_step(cmd)
+    mp = STATE["manual_probe"]
+    if not mp["is_active"] or cmd.name == "ADJUSTED":
+        await respond_info('Unknown command:"%s"' % cmd.name)
+        return
+    if cmd.name == "TESTZ":
+        # manual_probe.py's cmd_TESTZ: +/- bisect towards the heights already
+        # tried, ++/-- go to them, at most 0.2 at a time
+        z, pp = mp["z_position"], PAST_Z
+        if z not in pp:
+            pp.append(z)
+            pp.sort()
+        i = pp.index(z)
+        req = cmd.get("Z")
+        if req in ("+", "++"):
+            check = pp[i + 1] if i + 1 < len(pp) else 1e12
+            nz = min((check + z) / 2 if req == "+" else check, z + 0.2)
+        elif req in ("-", "--"):
+            check = pp[i - 1] if i > 0 else -1e12
+            nz = max((check + z) / 2 if req == "-" else check, z - 0.2)
+        else:
+            nz = z + cmd.get_float("Z")
+        nz = round(max(nz, -2.0), 6)
+        lower = [p for p in pp if p < nz]
+        upper = [p for p in pp if p > nz]
+        mp.update(z_position=nz, z_position_lower=lower[-1] if lower else None,
+                  z_position_upper=upper[0] if upper else None)
+        await respond_info("Z position: %.3f" % nz)
+    elif cmd.name == "ACCEPT":
+        await respond_info("probe: z_offset: %.3f\nThe SAVE_CONFIG command will update the printer config\n"
+                           "file with the above and restart the printer." % mp["z_position"])
+        mp.update(is_active=False, z_position=None, z_position_lower=None, z_position_upper=None)
+    else:
+        await respond_info("Manual probe failed")
+        mp.update(is_active=False, z_position=None, z_position_lower=None, z_position_upper=None)
+    mark("manual_probe")
 
 
 @gcode("G90", "G91")
