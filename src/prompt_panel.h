@@ -5,6 +5,7 @@
 #include "websocket_client.h"
 #include "notify_consumer.h"
 #include "button_container.h"
+#include "numpad.h"
 
 #include <map>
 #include <memory>
@@ -37,6 +38,7 @@ class PromptPanel : public NotifyConsumer {
         void background();
 
     private:
+        void open_numpad(std::string cmd);
 
         KWebSocketClient &ws;
         PrintStatusPanel &print_status_panel;
@@ -45,8 +47,13 @@ class PromptPanel : public NotifyConsumer {
         lv_obj_t *prompt_cont;
         lv_obj_t *flex;
         lv_obj_t *header;
-        lv_obj_t *button_group_cont;
+        lv_obj_t *button_group_cont = NULL;
         lv_obj_t *footer_cont;
+        // a button whose command has a NAME=NUMPAD param asks for a number
+        Numpad numpad;
+        std::string numpad_cmd;
+        bool prompt_shown = false;
+        lv_obj_t *error_label = NULL;
 
 };
 

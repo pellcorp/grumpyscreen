@@ -42,6 +42,7 @@ PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, l
     , flex(create_row(prompt_cont))
     , header(lv_label_create(prompt_cont))
     , footer_cont(button_row(prompt_cont))
+    , numpad(prompt_cont)
 {
   // header, body, buttons: the one-line header and the button row take what
   // they need, the body gets the rest
@@ -116,8 +117,23 @@ void PromptPanel::handle_callback(lv_event_t *event) {
   if (command != NULL) {
     std::string cmd = lv_label_get_text(command);
     LOG_DEBUG("button: {}", cmd);
-    ws.gcode_script(cmd);
+    if (cmd.find("=NUMPAD") != std::string::npos) {
+      open_numpad(cmd);
+    } else {
+      ws.gcode_script(cmd);
+    }
   }
+}
+
+// A klipper prompt has no number entry, so a button command with a
+// NAME=NUMPAD param opens the numpad, and the number replaces NUMPAD
+void PromptPanel::open_numpad(std::string cmd) {
+  numpad.set_callback([this, cmd](double v) mutable {
+    cmd.replace(cmd.find("=NUMPAD") + 1, strlen("NUMPAD"), fmt::format("{:g}", v));
+    ws.gcode_script(cmd);
+  });
+  numpad.cover_from(0);
+  numpad.foreground_reset();
 }
 
 void PromptPanel::handle_macro_response(json &j) {
@@ -132,6 +148,19 @@ void PromptPanel::handle_macro_response(json &j) {
     std::lock_guard<std::mutex> lock(lv_lock);
     LOG_TRACE("data: {}", resp);
 
+    // a klipper error while the prompt is up shows in it, otherwise a button
+    // whose command fails only says so in the console
+    if (resp.find("!! ", 0) == 0 && prompt_shown) {
+      if (error_label == NULL) {
+        error_label = lv_label_create(flex);
+        lv_obj_set_size(error_label, lv_pct(100), LV_SIZE_CONTENT);
+        lv_label_set_long_mode(error_label, LV_LABEL_LONG_WRAP);
+        lv_obj_set_style_text_color(error_label, col(DANGER), 0);
+      }
+      lv_label_set_text(error_label, resp.substr(3).c_str());
+      return;
+    }
+
     if (resp.find("// action:", 0) == 0) {
       // it is an action
       std::string command = resp.substr(10);
@@ -145,6 +174,10 @@ void PromptPanel::handle_macro_response(json &j) {
         // remove buttons
         lv_obj_clean(footer_cont);
         lv_obj_clean(flex);
+        numpad.background();
+        prompt_shown = false;
+        error_label = NULL;
+        numpad_cmd.clear();
 
         // set header here
         lv_label_set_text(header, prompt_header.c_str());
@@ -220,6 +253,9 @@ void PromptPanel::handle_macro_response(json &j) {
           lv_obj_add_flag(command, LV_OBJ_FLAG_HIDDEN);
           lv_label_set_text(label, prompt_footer_button.c_str());
           lv_label_set_text(command, prompt_button_command.c_str());
+          if (prompt_button_command.find("=NUMPAD") != std::string::npos) {
+            numpad_cmd = prompt_button_command;
+          }
           lv_obj_center(label);
           colour_prompt_btn(btn, prompt_button_type);
           lv_obj_add_event_cb(btn, _handle_callback, LV_EVENT_CLICKED, this);
@@ -228,6 +264,12 @@ void PromptPanel::handle_macro_response(json &j) {
         LOG_DEBUG("PROMPT_SHOW");
         restore_print_status_foreground_ = print_status_panel.is_foreground();
         foreground();
+        prompt_shown = true;
+        // a NUMPAD button opens the numpad as the prompt shows, so the screen follows a
+        // prompt another client moved on to
+        if (!numpad_cmd.empty()) {
+          open_numpad(numpad_cmd);
+        }
       } else if (command.find("prompt_end") == 0) {
         LOG_DEBUG("PROMPT_END");
         background();
@@ -240,6 +282,9 @@ void PromptPanel::handle_macro_response(json &j) {
         // remove buttons
         lv_obj_clean(footer_cont);
         lv_obj_clean(flex);
+        numpad.background();
+        prompt_shown = false;
+        error_label = NULL;
       } else {
         LOG_DEBUG("action {} --- not supported", command);
       }
