@@ -177,6 +177,7 @@ void PromptPanel::handle_macro_response(json &j) {
         numpad.background();
         prompt_shown = false;
         error_label = NULL;
+        numpad_cmd.clear();
 
         // set header here
         lv_label_set_text(header, prompt_header.c_str());
@@ -252,6 +253,9 @@ void PromptPanel::handle_macro_response(json &j) {
           lv_obj_add_flag(command, LV_OBJ_FLAG_HIDDEN);
           lv_label_set_text(label, prompt_footer_button.c_str());
           lv_label_set_text(command, prompt_button_command.c_str());
+          if (prompt_button_command.find("=NUMPAD") != std::string::npos) {
+            numpad_cmd = prompt_button_command;
+          }
           lv_obj_center(label);
           colour_prompt_btn(btn, prompt_button_type);
           lv_obj_add_event_cb(btn, _handle_callback, LV_EVENT_CLICKED, this);
@@ -261,6 +265,11 @@ void PromptPanel::handle_macro_response(json &j) {
         restore_print_status_foreground_ = print_status_panel.is_foreground();
         foreground();
         prompt_shown = true;
+        // a NUMPAD button opens the numpad as the prompt shows, so the screen follows a
+        // prompt another client moved on to
+        if (!numpad_cmd.empty()) {
+          open_numpad(numpad_cmd);
+        }
       } else if (command.find("prompt_end") == 0) {
         LOG_DEBUG("PROMPT_END");
         background();

@@ -51,6 +51,7 @@ class PromptPanel : public NotifyConsumer {
         lv_obj_t *footer_cont;
         // a button whose command has a NAME=NUMPAD param asks for a number
         Numpad numpad;
+        std::string numpad_cmd;
         bool prompt_shown = false;
         lv_obj_t *error_label = NULL;
 
