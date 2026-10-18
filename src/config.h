@@ -29,6 +29,15 @@ public:
         return true;
     }
 
+#ifndef COSMOS
+    // A vendor config is a normal config layer, equivalent to appending its
+    // contents to the main config. Unlike an override it may add any section,
+    // key, or grouped object.
+    bool load_vendor(const std::string& ini_path) {
+        return load_ini(ini_path, j_);
+    }
+#endif
+
     void set_override_path(const std::string& ini_path) { override_path_ = ini_path; }
     bool has_override_path() const { return !override_path_.empty(); }
 

@@ -108,10 +108,37 @@ value: ignored
 
     auto path = write_tmp_ini("build/test_config.ini", ini);
     auto override_path = write_tmp_ini("build/test_config_override.ini", override_ini);
+#ifndef COSMOS
+    const auto vendor_path = write_tmp_ini("build/test_config_vendor.ini", R"INI(
+[moonraker]
+host: vendor.moonraker.local
+vendor_only: enabled
+
+[vendor]
+name: Example Vendor
+
+[fan "fan_generic vendor"]
+display_name: Vendor Fan
+)INI");
+#endif
 
     Config* conf = Config::get_instance();
     assert(conf->load(path) && "load should succeed");
     assert(!conf->has_override_path());
+#ifndef COSMOS
+    // Vendor config is a normal final config layer: it can add sections and
+    // keys that the restricted override mechanism deliberately ignores.
+    assert(conf->load_vendor(vendor_path) && "vendor load should succeed");
+    assert(conf->get<std::string>("/moonraker/host") == "vendor.moonraker.local");
+    assert(conf->get<std::string>("/moonraker/vendor_only") == "enabled");
+    assert(conf->get<std::string>("/vendor/name") == "Example Vendor");
+    auto vendor_fans = conf->get_objects("/fan");
+    assert(vendor_fans.size() == 3);
+    assert(vendor_fans.back()["id"] == "fan_generic vendor");
+
+    // Overrides remain the final layer and therefore take precedence over
+    // settings supplied by the vendor config.
+#endif
     assert(conf->load_override(override_path) && "override load should succeed");
     assert(conf->has_override_path());
 
@@ -269,6 +296,9 @@ value: ignored
 
     std::remove("build/test_config.ini");
     std::remove("build/test_config_override.ini");
+#ifndef COSMOS
+    std::remove("build/test_config_vendor.ini");
+#endif
     std::remove("build/test_config_writable_override.ini");
     std::remove("build/test_config_macro_base.ini");
     std::remove("build/test_config_macro_override.ini");

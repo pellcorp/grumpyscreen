@@ -63,6 +63,21 @@ int main(void) {
         return 1;
     }
 
+#ifndef COSMOS
+    const char* config_vendor_env = std::getenv("CONFIG_VENDOR_FILE");
+    if (config_vendor_env && config_vendor_env[0] != '\0') {
+        fs::path config_vendor_path = fs::path(config_vendor_env);
+        if (fs::exists(config_vendor_path)) {
+            if (!conf->load_vendor(config_vendor_path.string())) {
+                LOG_ERROR("Failed to load vendor config {}", config_vendor_path.string());
+                return 1;
+            }
+        } else {
+            LOG_INFO("Vendor config file {} not found, continuing without vendor config", config_vendor_path.string());
+        }
+    }
+#endif
+
     const char* config_override_env = std::getenv("CONFIG_OVERRIDE_FILE");
     if (config_override_env && config_override_env[0] != '\0') {
         fs::path config_override_path = fs::path(config_override_env);
