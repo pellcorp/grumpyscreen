@@ -39,6 +39,7 @@ class MainPanel : public NotifyConsumer {
   void disable_mmu();
   void set_firmware_restart_available(bool available);
   void set_klipper_ready(bool ready);
+  void append_console_output(const std::string &text);
   MmuPanel *mmu() { return mmu_panel; }
   bool home_active() const;
   void add_tab_change_cb(lv_event_cb_t cb, void *user_data);

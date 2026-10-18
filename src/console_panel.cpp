@@ -176,6 +176,10 @@ void ta_add_text_limit_lines(lv_obj_t * ta, const std::string &line) {
   lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
 }
 
+void ConsolePanel::append_output(const std::string &text) {
+  if (!text.empty()) ta_add_text_limit_lines(output, text);
+}
+
 void ConsolePanel::handle_macro_response(json &j) {
   if (get_log_level() <= LogLevel::TRACE) {
     LOG_TRACE("console macro response {}", j.dump());
@@ -189,14 +193,14 @@ void ConsolePanel::handle_macro_response(json &j) {
           // Ignore TEMPERATURE_WAIT spam
           return;
       }
-      ta_add_text_limit_lines(output, v);
+      append_output(v);
     }
   }
 }
 
 void ConsolePanel::send_gcode(const std::string &gcode) {
   // klipper does not echo commands, so show what was sent
-  ta_add_text_limit_lines(output, "> " + gcode);
+  append_output("> " + gcode);
   ws.gcode_script(gcode);
 }
 

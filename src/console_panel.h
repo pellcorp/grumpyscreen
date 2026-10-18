@@ -19,6 +19,7 @@ class ConsolePanel {
   void foreground();
   void select_first_tab();
   void set_gcode_input_enabled(bool enabled);
+  void append_output(const std::string &text);
   void handle_macro_response(json &d);
   void handle_delete_btn(lv_event_t *event);
   void handle_input(lv_event_t *event);

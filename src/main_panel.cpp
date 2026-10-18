@@ -118,6 +118,11 @@ void MainPanel::set_klipper_ready(bool ready) {
   }
 }
 
+void MainPanel::append_console_output(const std::string &text) {
+  std::lock_guard<std::mutex> lock(lv_lock);
+  console_panel.append_output(text);
+}
+
 bool MainPanel::home_active() const {
   return lv_tabview_get_tab_act(tabview) == lv_obj_get_index(main_tab);
 }

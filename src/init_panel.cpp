@@ -79,6 +79,7 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
     const bool klipper_connected = !klippy_state.empty() && klippy_state != "disconnected";
     main_panel.set_firmware_restart_available(klipper_connected);
     if (klippy_state != "ready") {
+      show_klippy_error(info);
       LOG_DEBUG("Klipper is not ready (state: {})", klippy_state.empty() ? "unknown" : klippy_state);
       begin_waiting(klipper_connected
                         ? LV_SYMBOL_WARNING " Waiting for Klipper to be ready..."
@@ -179,6 +180,17 @@ void InitPanel::wait_for_klipper(uint64_t generation) {
   }
 }
 
+void InitPanel::show_klippy_error(json &printer_info) {
+  const std::string state = printer_info.value("/result/state"_json_pointer, std::string());
+  const std::string message =
+      printer_info.value("/result/state_message"_json_pointer, std::string());
+  // Klipper uses "error" for failures during startup (such as an MCU that
+  // cannot be configured), and "shutdown" for failures after it was ready.
+  if ((state == "error" || state == "shutdown") && !message.empty()) {
+    main_panel.append_console_output(message);
+  }
+}
+
 void InitPanel::initialization_complete(uint64_t generation) {
   {
     std::lock_guard<std::mutex> lock(lv_lock);
@@ -193,11 +205,18 @@ void InitPanel::initialization_complete(uint64_t generation) {
 void InitPanel::klippy_disconnected(KWebSocketClient &ws) {
   LOG_DEBUG("init panel Klipper disconnected");
   begin_waiting(LV_SYMBOL_WARNING " Waiting for Klipper to start...", false);
+  // A config parse failure commonly reaches Moonraker as a disconnect rather
+  // than notify_klippy_shutdown.  Query its retained state after that event;
+  // it changes to "error" once Klipper has finished attempting the startup.
+  ws.send_jsonrpc("printer.info", [this](json &info) { show_klippy_error(info); });
 }
 
 void InitPanel::klippy_shutdown(KWebSocketClient &ws) {
   LOG_DEBUG("init panel Klipper shutdown");
   begin_waiting(LV_SYMBOL_WARNING " Waiting for Klipper to be ready...", true);
+  // Startup failures are kept in printer.info.state_message and may occur
+  // before this client can receive a live gcode-response notification.
+  ws.send_jsonrpc("printer.info", [this](json &info) { show_klippy_error(info); });
 }
 
 void InitPanel::websocket_disconnected(KWebSocketClient &ws) {
