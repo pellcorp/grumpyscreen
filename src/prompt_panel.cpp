@@ -54,14 +54,19 @@ PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, l
   static lv_coord_t grid_main_col_dsc_detail[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(prompt_cont, grid_main_col_dsc_detail, grid_main_row_dsc_detail);
 
-  lv_obj_set_grid_cell(header,      LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START,   0, 1);
-  lv_obj_set_grid_cell(flex,        LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
-  lv_obj_set_grid_cell(footer_cont, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_END,     2, 1);
+  lv_obj_add_style(box, &styles().popout_box, 0);
+  lv_obj_set_size(box, popout_w(), LV_SIZE_CONTENT);
+  lv_obj_center(box);
+  lv_obj_set_flex_flow(box, LV_FLEX_FLOW_COLUMN);
+  lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_move_to_index(header, 0);
 
   lv_obj_set_style_text_font(header, scale_font(16), 0);
 
-  lv_obj_set_flex_flow(flex, LV_FLEX_FLOW_COLUMN_WRAP);
-  lv_obj_set_flex_align(flex, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_size(flex, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(flex, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(flex, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  manage_scroll(flex);
 
 #ifdef DEBUG_LINES
   // for debugging
@@ -349,68 +354,20 @@ void PromptPanel::background() {
   lv_obj_move_background(prompt_cont);
 }
 
-void PromptPanel::open(KlipperDialog d, const std::string &title) {
-  if (klipper_dialog == KlipperDialog::NONE) {
-    restore_print_status_foreground_ = print_status_panel.is_foreground();
+// a prompt taller than the screen takes the full height and scrolls its body,
+// so the header and the footer buttons stay in view
+void PromptPanel::fit_box() {
+  lv_obj_set_height(box, LV_SIZE_CONTENT);
+  lv_obj_set_height(flex, LV_SIZE_CONTENT);
+  lv_obj_set_flex_grow(flex, 0);
+  lv_obj_update_layout(box);
+  if (lv_obj_get_height(box) >= popout_max_h()) {
+    lv_obj_set_height(box, popout_max_h());
+    lv_obj_set_flex_grow(flex, 1);
+    lv_obj_update_layout(box);
   }
-  clear();
-  klipper_dialog = d;
-  lv_label_set_text(header, title.c_str());
-  foreground();
-}
-
-void PromptPanel::clear() {
-  lv_obj_clean(footer_cont);
-  lv_obj_clean(flex);
-  info_label = NULL;
-  z_min_label = NULL;
-  z_max_label = NULL;
-  progress_bar = NULL;
-  klipper_dialog = KlipperDialog::NONE;
-}
-
-void PromptPanel::close() {
-  background();
-
-  if (restore_print_status_foreground_) {
-    print_status_panel.foreground();
-  }
-  restore_print_status_foreground_ = false;
-
-  clear();
-}
-
-lv_obj_t *PromptPanel::add_text(const std::string &text) {
-  lv_obj_t *textfield = lv_label_create(flex);
-  lv_obj_set_size(textfield, lv_pct(100), LV_SIZE_CONTENT);
-  lv_obj_set_style_min_height(textfield, touch_h(), 0);
-  lv_label_set_long_mode(textfield, LV_LABEL_LONG_WRAP);
-  lv_obj_set_flex_grow(textfield, 1);
-  lv_label_set_text(textfield, text.c_str());
-#ifdef DEBUG_LINES
-  lv_obj_set_style_border_width(textfield, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_border_color(textfield, lv_palette_main(LV_PALETTE_GREEN), LV_PART_MAIN | LV_STATE_DEFAULT);
-  lv_obj_set_style_bg_color(textfield, lv_palette_lighten(LV_PALETTE_GREEN, 2), LV_PART_MAIN | LV_STATE_DEFAULT);
-#endif
-  return textfield;
-}
-
-void PromptPanel::add_button(lv_obj_t *parent, const std::string &text, const std::string &cmd, const std::string &type) {
-  lv_obj_t *btn = lv_btn_create(parent);
-  lv_obj_set_size(btn, lv_pct(45), touch_h());
-  lv_obj_set_style_max_width(btn, lv_pct(45), 0);
-  lv_obj_set_style_min_width(btn, scale_w(32), 0);
-  lv_obj_set_flex_grow(btn, 1);
-  lv_obj_t *label = lv_label_create(btn);
-  // a hidden label is abused to transfer the command and auto-clean it
-  lv_obj_t *command = lv_label_create(btn);
-  lv_obj_set_size(command, 1, 1);
-  lv_obj_add_flag(command, LV_OBJ_FLAG_HIDDEN);
-  lv_label_set_text(label, text.c_str());
-  lv_label_set_text(command, cmd.c_str());
-  lv_obj_center(label);
-  colour_prompt_btn(btn, type);
-  lv_obj_add_event_cb(btn, _handle_callback, LV_EVENT_CLICKED, this);
+  lv_obj_scroll_to_y(flex, 0, LV_ANIM_OFF);
+  refresh_scroll(flex);
 }
 
 void PromptPanel::handle_callback(lv_event_t *event) {
@@ -522,6 +479,7 @@ void PromptPanel::handle_macro_response(json &j) {
         LOG_DEBUG("PROMPT_SHOW");
         restore_print_status_foreground_ = print_status_panel.is_foreground();
         foreground();
+        fit_box();
       } else if (command.find("prompt_end") == 0) {
         LOG_DEBUG("PROMPT_END");
         close();

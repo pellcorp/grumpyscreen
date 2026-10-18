@@ -37,17 +37,7 @@ class PromptPanel : public NotifyConsumer {
         void background();
 
     private:
-        // dialogs klipper opens off printer status rather than action:prompt
-        enum class KlipperDialog { NONE, MANUAL_PROBE, BED_SCREWS, SCREWS_TILT };
-
-        void add_button(lv_obj_t *parent, const std::string &text, const std::string &cmd, const std::string &type);
-        lv_obj_t *add_text(const std::string &text);
-        void open(KlipperDialog d, const std::string &title);
-        void clear();
-        void close();
-        void update_manual_probe(json &mp);
-        void update_bed_screws(json &bs);
-        void show_screws_tilt(json &st);
+        void fit_box();
 
         KWebSocketClient &ws;
         PrintStatusPanel &print_status_panel;
