@@ -5,6 +5,7 @@
 #include "websocket_client.h"
 #include "notify_consumer.h"
 #include "button_container.h"
+#include "numpad.h"
 
 #include <map>
 #include <memory>
@@ -48,6 +49,7 @@ class PromptPanel : public NotifyConsumer {
         enum class KlipperDialog { NONE, MANUAL_PROBE, SCREWS_TILT };
 
         void fit_box();
+        void open_numpad(std::string cmd);
         lv_obj_t *add_button(lv_obj_t *parent, const std::string &text, const std::string &cmd, const std::string &type);
         lv_obj_t *add_text(const std::string &text);
         void open(KlipperDialog d, const std::string &title);
@@ -72,6 +74,11 @@ class PromptPanel : public NotifyConsumer {
         lv_obj_t *header;
         lv_obj_t *button_group_cont = NULL;
         lv_obj_t *footer_cont;
+        // a button whose command has a NAME=NUMPAD param asks for a number
+        Numpad numpad;
+        std::string numpad_cmd;
+        bool prompt_shown = false;
+        lv_obj_t *error_label = NULL;
 
 };
 
