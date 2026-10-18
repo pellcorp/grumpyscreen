@@ -212,10 +212,14 @@ void PromptPanel::update_manual_probe(json &mp) {
     add_button(bisect, "+", "TESTZ Z=+", "primary");
     add_button(bisect, "++", "TESTZ Z=++", "primary");
 
-    // fluidd's offsets (1, 0.1 and its default z adjust distances) as one row
-    // to pick from, then one - and + by that step: two rows, so the dialog
-    // fits an 800x480 screen without scrolling
+    // fluidd's offsets (1, 0.1 and its default z adjust distances) to pick
+    // from, and a - and + that move by the one picked
     lv_obj_t *steps = create_table_row(table);
+#ifdef GUPPY_SMALL_SCREEN
+    // 480x272: - and + share the step row so it all fits without scrolling
+    lv_obj_t *move = steps;
+    add_button(move, LV_SYMBOL_MINUS, "TESTZ Z=-{step}", "primary");
+#endif
     for (const char *step : {"1", "0.1", "0.05", "0.025", "0.01", "0.005"}) {
       lv_obj_t *btn = add_button(steps, step, "", "none");
       lv_obj_remove_event_cb(btn, _handle_callback);
@@ -226,9 +230,11 @@ void PromptPanel::update_manual_probe(json &mp) {
         lv_obj_add_state(btn, LV_STATE_CHECKED);
       }
     }
-
+#ifndef GUPPY_SMALL_SCREEN
+    // 800x480: - and + get their own row
     lv_obj_t *move = create_table_row(table);
     add_button(move, LV_SYMBOL_MINUS, "TESTZ Z=-{step}", "primary");
+#endif
     add_button(move, LV_SYMBOL_PLUS, "TESTZ Z=+{step}", "primary");
 
     add_button(footer_cont, "Abort", "ABORT", "none");
