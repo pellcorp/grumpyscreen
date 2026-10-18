@@ -15,12 +15,12 @@ static std::string hex(lv_color_t c) {
 // uncomment for helper boxes
 // #define DEBUG_LINES
 
-// a row of prompt buttons, spread evenly; the footer and every button group
-static lv_obj_t *button_row(lv_obj_t *parent) {
+// a row of prompt buttons; the footer and every button group
+static lv_obj_t *button_row(lv_obj_t *parent, lv_flex_align_t align) {
   lv_obj_t *row = create_row(parent);
   lv_obj_set_size(row, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_flex_align(row, align, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   return row;
 }
 
@@ -43,16 +43,17 @@ PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, l
     : NotifyConsumer(lock)
     , ws(websocket_client)
     , print_status_panel(print_status_panel)
-    , prompt_cont(create_screen(lv_scr_act()))
-    , flex(create_row(prompt_cont))
-    , header(lv_label_create(prompt_cont))
-    , footer_cont(button_row(prompt_cont))
+    , prompt_cont(lv_obj_create(lv_scr_act()))
+    , box(lv_obj_create(prompt_cont))
+    , flex(create_row(box))
+    , header(lv_label_create(box))
+    , footer_cont(button_row(box, LV_FLEX_ALIGN_END))
 {
-  // header, body, buttons: the one-line header and the button row take what
-  // they need, the body gets the rest
-  static lv_coord_t grid_main_row_dsc_detail[] = {LV_GRID_CONTENT, LV_GRID_FR(1), LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t grid_main_col_dsc_detail[] = {LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  lv_obj_set_grid_dsc_array(prompt_cont, grid_main_col_dsc_detail, grid_main_row_dsc_detail);
+  // a popout like the screen's own: the page dimmed behind a box sized to the
+  // prompt, header over the body over the buttons
+  lv_obj_set_size(prompt_cont, lv_pct(100), lv_pct(100));
+  lv_obj_add_style(prompt_cont, &styles().popout, 0);
+  lv_obj_clear_flag(prompt_cont, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_add_style(box, &styles().popout_box, 0);
   lv_obj_set_size(box, popout_w(), LV_SIZE_CONTENT);
@@ -61,7 +62,12 @@ PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, l
   lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_move_to_index(header, 0);
 
-  lv_obj_set_style_text_font(header, scale_font(16), 0);
+  lv_obj_set_width(header, lv_pct(100));
+  lv_obj_set_style_text_font(header, scale_font(18), 0);
+  lv_obj_set_style_pad_bottom(header, gap(), 0);
+  lv_obj_set_style_border_side(header, LV_BORDER_SIDE_BOTTOM, 0);
+  lv_obj_set_style_border_width(header, border_w(), 0);
+  lv_obj_set_style_border_color(header, col(BORDER), 0);
 
   lv_obj_set_size(flex, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(flex, LV_FLEX_FLOW_COLUMN);
@@ -149,12 +155,11 @@ static bool printing() {
   return state.is_string() && state.template get<std::string>() == "printing";
 }
 
-// a column that scrolls when its rows do not fit
+// a column of rows; the popout body scrolls it when it does not fit
 static lv_obj_t *create_table(lv_obj_t *parent) {
   lv_obj_t *table = create_row(parent);
-  lv_obj_set_size(table, lv_pct(100), lv_pct(100));
+  lv_obj_set_size(table, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(table, LV_FLEX_FLOW_COLUMN);
-  lv_obj_add_flag(table, LV_OBJ_FLAG_SCROLLABLE);
   return table;
 }
 
@@ -163,6 +168,7 @@ static lv_obj_t *create_table_row(lv_obj_t *table) {
   lv_obj_set_size(row, lv_pct(100), LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(row, scale_r(4), 0);
   return row;
 }
 
@@ -191,7 +197,8 @@ void PromptPanel::update_manual_probe(json &mp) {
     return;
   }
 
-  if (klipper_dialog != KlipperDialog::MANUAL_PROBE) {
+  bool opening = klipper_dialog != KlipperDialog::MANUAL_PROBE;
+  if (opening) {
     if (printing()) {
       return;
     }
@@ -207,17 +214,27 @@ void PromptPanel::update_manual_probe(json &mp) {
     lv_obj_t *bisect = create_table_row(table);
     add_button(bisect, "--", "TESTZ Z=--", "primary");
     add_button(bisect, "-", "TESTZ Z=-", "primary");
-    lv_obj_set_flex_grow(create_cell(bisect, ""), 2);
     add_button(bisect, "+", "TESTZ Z=+", "primary");
     add_button(bisect, "++", "TESTZ Z=++", "primary");
 
-    // fluidd's offsets: 1, 0.1 and its default z adjust distances
-    for (const char *offset : {"1", "0.1", "0.05", "0.025", "0.01", "0.005"}) {
-      lv_obj_t *row = create_table_row(table);
-      add_button(row, LV_SYMBOL_MINUS, fmt::format("TESTZ Z=-{}", offset), "primary");
-      create_cell(row, offset);
-      add_button(row, LV_SYMBOL_PLUS, fmt::format("TESTZ Z=+{}", offset), "primary");
+    // fluidd's offsets (1, 0.1 and its default z adjust distances) as one row
+    // to pick from, then one - and + by that step: two rows, so the dialog
+    // fits an 800x480 screen without scrolling
+    lv_obj_t *steps = create_table_row(table);
+    for (const char *step : {"1", "0.1", "0.05", "0.025", "0.01", "0.005"}) {
+      lv_obj_t *btn = add_button(steps, step, "", "none");
+      lv_obj_remove_event_cb(btn, _handle_callback);
+      lv_obj_add_event_cb(btn, _handle_step, LV_EVENT_CLICKED, this);
+      lv_obj_set_style_bg_color(btn, theme_primary(), LV_STATE_CHECKED);
+      lv_obj_set_style_text_color(btn, col(ON_PRIMARY), LV_STATE_CHECKED);
+      if (probe_step == step) {
+        lv_obj_add_state(btn, LV_STATE_CHECKED);
+      }
     }
+
+    lv_obj_t *move = create_table_row(table);
+    add_button(move, LV_SYMBOL_MINUS, "TESTZ Z=-{step}", "primary");
+    add_button(move, LV_SYMBOL_PLUS, "TESTZ Z=+{step}", "primary");
 
     add_button(footer_cont, "Abort", "ABORT", "none");
     add_button(footer_cont, "Accept", "ACCEPT", "primary");
@@ -226,6 +243,10 @@ void PromptPanel::update_manual_probe(json &mp) {
   lv_label_set_text(z_min_label, z_field("Z Min", mp["z_position_lower"]).c_str());
   lv_label_set_text(info_label, z_field("Z", mp["z_position"]).c_str());
   lv_label_set_text(z_max_label, z_field("Z Max", mp["z_position_upper"]).c_str());
+
+  if (opening) {
+    fit_box();
+  }
 }
 
 void PromptPanel::update_bed_screws(json &bs) {
@@ -237,7 +258,8 @@ void PromptPanel::update_bed_screws(json &bs) {
     return;
   }
 
-  if (klipper_dialog != KlipperDialog::BED_SCREWS) {
+  bool opening = klipper_dialog != KlipperDialog::BED_SCREWS;
+  if (opening) {
     if (printing()) {
       return;
     }
@@ -265,6 +287,10 @@ void PromptPanel::update_bed_screws(json &bs) {
                                             current + 1, screws, accepted, screws).c_str());
   lv_bar_set_range(progress_bar, 0, screws > 0 ? screws : 1);
   lv_bar_set_value(progress_bar, accepted, LV_ANIM_OFF);
+
+  if (opening) {
+    fit_box();
+  }
 }
 
 void PromptPanel::show_screws_tilt(json &st) {
@@ -335,6 +361,8 @@ void PromptPanel::show_screws_tilt(json &st) {
 
   add_button(footer_cont, "Retry", "SCREWS_TILT_CALCULATE", "none");
   add_button(footer_cont, "Accept", "", "primary");
+
+  fit_box();
 }
 
 PromptPanel::~PromptPanel() {
@@ -370,6 +398,85 @@ void PromptPanel::fit_box() {
   refresh_scroll(flex);
 }
 
+void PromptPanel::open(KlipperDialog d, const std::string &title) {
+  if (klipper_dialog == KlipperDialog::NONE) {
+    restore_print_status_foreground_ = print_status_panel.is_foreground();
+  }
+  clear();
+  klipper_dialog = d;
+  lv_label_set_text(header, title.c_str());
+  foreground();
+}
+
+void PromptPanel::clear() {
+  lv_obj_clean(footer_cont);
+  lv_obj_clean(flex);
+  button_group_cont = NULL;
+  info_label = NULL;
+  z_min_label = NULL;
+  z_max_label = NULL;
+  progress_bar = NULL;
+  klipper_dialog = KlipperDialog::NONE;
+}
+
+void PromptPanel::close() {
+  background();
+
+  if (restore_print_status_foreground_) {
+    print_status_panel.foreground();
+  }
+  restore_print_status_foreground_ = false;
+
+  clear();
+}
+
+lv_obj_t *PromptPanel::add_text(const std::string &text) {
+  lv_obj_t *textfield = lv_label_create(flex);
+  lv_obj_set_size(textfield, lv_pct(100), LV_SIZE_CONTENT);
+  lv_label_set_long_mode(textfield, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_line_space(textfield, scale_r(3), 0);
+  lv_label_set_text(textfield, text.c_str());
+#ifdef DEBUG_LINES
+  lv_obj_set_style_border_width(textfield, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_border_color(textfield, lv_palette_main(LV_PALETTE_GREEN), LV_PART_MAIN | LV_STATE_DEFAULT);
+  lv_obj_set_style_bg_color(textfield, lv_palette_lighten(LV_PALETTE_GREEN, 2), LV_PART_MAIN | LV_STATE_DEFAULT);
+#endif
+  return textfield;
+}
+
+// footer actions sit right, sized to their label like the screen's dialogs; a
+// button on its own in the body is 60% wide; buttons in a row (a button group,
+// a dialog row) share it evenly, like keys
+lv_obj_t *PromptPanel::add_button(lv_obj_t *parent, const std::string &text, const std::string &cmd, const std::string &type) {
+  lv_obj_t *btn = lv_btn_create(parent);
+  if (parent == footer_cont) {
+    lv_obj_set_size(btn, LV_SIZE_CONTENT, touch_h());
+    lv_obj_set_style_min_width(btn, scale_w(96), 0);
+    lv_obj_set_style_pad_hor(btn, gap() * 2, 0);
+  } else if (parent == flex) {
+    lv_obj_set_size(btn, lv_pct(60), touch_h());
+  } else {
+    lv_obj_set_size(btn, 1, touch_h());
+    lv_obj_set_flex_grow(btn, 1);
+    lv_obj_add_style(btn, &styles().key, 0);
+  }
+  lv_obj_add_style(btn, &styles().text_btn, 0);
+  if (type == "none") {
+    lv_obj_add_style(btn, &styles().text_btn_pressed, LV_STATE_PRESSED);
+  }
+  lv_obj_t *label = lv_label_create(btn);
+  // a hidden label is abused to transfer the command and auto-clean it
+  lv_obj_t *command = lv_label_create(btn);
+  lv_obj_set_size(command, 1, 1);
+  lv_obj_add_flag(command, LV_OBJ_FLAG_HIDDEN);
+  lv_label_set_text(label, text.c_str());
+  lv_label_set_text(command, cmd.c_str());
+  lv_obj_center(label);
+  colour_prompt_btn(btn, type);
+  lv_obj_add_event_cb(btn, _handle_callback, LV_EVENT_CLICKED, this);
+  return btn;
+}
+
 void PromptPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
 
@@ -388,6 +495,11 @@ void PromptPanel::handle_callback(lv_event_t *event) {
 
   if (command != NULL) {
     std::string cmd = lv_label_get_text(command);
+    // the manual probe's - and + move by the step picked above them
+    size_t step = cmd.find("{step}");
+    if (step != std::string::npos) {
+      cmd.replace(step, strlen("{step}"), probe_step);
+    }
     LOG_DEBUG("button: {}", cmd);
     if (klipper_dialog == KlipperDialog::SCREWS_TILT) {
       // klipper never ends the results, the dialog goes on any button; not
@@ -398,6 +510,18 @@ void PromptPanel::handle_callback(lv_event_t *event) {
       ws.gcode_script(cmd);
     }
   }
+}
+
+// a manual probe step: the one picked shows checked, the others not
+void PromptPanel::handle_step(lv_event_t *event) {
+  lv_obj_t *btn = lv_event_get_current_target(event);
+  lv_obj_t *row = lv_obj_get_parent(btn);
+  for (uint32_t i = 0; i < lv_obj_get_child_cnt(row); i++) {
+    lv_obj_clear_state(lv_obj_get_child(row, i), LV_STATE_CHECKED);
+  }
+  lv_obj_add_state(btn, LV_STATE_CHECKED);
+  probe_step = lv_label_get_text(lv_obj_get_child(btn, 0));
+  LOG_DEBUG("manual probe step {}", probe_step);
 }
 
 void PromptPanel::handle_macro_response(json &j) {
@@ -435,10 +559,8 @@ void PromptPanel::handle_macro_response(json &j) {
       } else if (command.find("prompt_button_group_start") == 0) {
         LOG_DEBUG("Button group created");
         // create new button group in flex window and mark active
-        button_group_cont = button_row(flex);
-        lv_obj_set_flex_grow(button_group_cont, 1);
-        lv_obj_set_style_max_height(button_group_cont, lv_pct(62), 0);
-        lv_obj_set_style_min_height(button_group_cont, touch_h(), 0);
+        button_group_cont = button_row(flex, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_pad_column(button_group_cont, scale_r(4), 0);
 
 #ifdef DEBUG_LINES
         lv_obj_set_style_border_width(button_group_cont, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
