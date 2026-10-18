@@ -95,8 +95,8 @@ PromptPanel::PromptPanel(KWebSocketClient &websocket_client, std::mutex &lock, l
 
 // klipper's own dialogs send no action:prompt, they are printer status the
 // way fluidd and mainsail open them: manual_probe (PROBE_CALIBRATE,
-// Z_ENDSTOP_CALIBRATE and the like), bed_screws (BED_SCREWS_ADJUST) and
-// screws_tilt_adjust (SCREWS_TILT_CALCULATE)
+// Z_ENDSTOP_CALIBRATE and the like) and screws_tilt_adjust
+// (SCREWS_TILT_CALCULATE)
 void PromptPanel::consume(json &j) {
   auto &status = j["/params/0"_json_pointer];
   if (!status.is_object()) {
@@ -104,9 +104,8 @@ void PromptPanel::consume(json &j) {
   }
 
   bool manual_probe = status.contains("manual_probe");
-  bool bed_screws = status.contains("bed_screws");
   bool screws_tilt = status.contains("screws_tilt_adjust") && status["screws_tilt_adjust"].contains("results");
-  if (!manual_probe && !bed_screws && !screws_tilt) {
+  if (!manual_probe && !screws_tilt) {
     return;
   }
 
@@ -116,10 +115,6 @@ void PromptPanel::consume(json &j) {
   if (manual_probe) {
     json mp = state->get_data("/printer_state/manual_probe"_json_pointer);
     update_manual_probe(mp);
-  }
-  if (bed_screws) {
-    json bs = state->get_data("/printer_state/bed_screws"_json_pointer);
-    update_bed_screws(bs);
   }
   if (screws_tilt) {
     show_screws_tilt(status["screws_tilt_adjust"]);
@@ -249,50 +244,6 @@ void PromptPanel::update_manual_probe(json &mp) {
   }
 }
 
-void PromptPanel::update_bed_screws(json &bs) {
-  bool active = bs.is_object() && bs.value("is_active", false);
-  if (!active) {
-    if (klipper_dialog == KlipperDialog::BED_SCREWS) {
-      close();
-    }
-    return;
-  }
-
-  bool opening = klipper_dialog != KlipperDialog::BED_SCREWS;
-  if (opening) {
-    if (printing()) {
-      return;
-    }
-    open(KlipperDialog::BED_SCREWS, "Bed Screws Adjust");
-    info_label = add_text("");
-    lv_obj_t *msg = add_text("Click Adjusted if a significant adjustment is necessary on the current screw; "
-                             "otherwise, click Accept to continue.");
-    lv_obj_set_style_text_align(msg, LV_TEXT_ALIGN_CENTER, 0);
-    progress_bar = lv_bar_create(flex);
-    lv_obj_set_width(progress_bar, lv_pct(100));
-    add_button(footer_cont, "Abort", "ABORT", "warning");
-    add_button(footer_cont, "Adjusted", "ADJUSTED", "primary");
-    add_button(footer_cont, "Accept", "ACCEPT", "primary");
-  }
-
-  json settings = State::get_instance()->get_data("/printer_state/configfile/settings/bed_screws"_json_pointer);
-  int screws = 0;
-  while (settings.is_object() && settings.contains(fmt::format("screw{}", screws + 1))) {
-    screws++;
-  }
-  int current = bs.value("current_screw", 0);
-  int accepted = bs.value("accepted_screws", 0);
-  lv_label_set_text(info_label, fmt::format("Screw name: {}\nScrew index: {} of {}\nAccepted screws: {} of {}",
-                                            screw_name(settings, current + 1),
-                                            current + 1, screws, accepted, screws).c_str());
-  lv_bar_set_range(progress_bar, 0, screws > 0 ? screws : 1);
-  lv_bar_set_value(progress_bar, accepted, LV_ANIM_OFF);
-
-  if (opening) {
-    fit_box();
-  }
-}
-
 void PromptPanel::show_screws_tilt(json &st) {
   // MAX_DEVIATION makes it a check (a print start), not something to read off
   json max_deviation = State::get_instance()->get_data("/printer_state/screws_tilt_adjust/max_deviation"_json_pointer);
@@ -415,7 +366,6 @@ void PromptPanel::clear() {
   info_label = NULL;
   z_min_label = NULL;
   z_max_label = NULL;
-  progress_bar = NULL;
   klipper_dialog = KlipperDialog::NONE;
 }
 

@@ -65,12 +65,10 @@ def build_config():
                                             "fan_speed": 1.0}
     CONFIG["virtual_sdcard"] = {"path": a.session_dir + "/gcodes", "on_error_gcode": "TURN_OFF_HEATERS"}
     CONFIG["idle_timeout"] = {"timeout": float(a.idle_timeout), "gcode": "TURN_OFF_HEATERS\nM84"}
-    CONFIG["bed_screws"] = {}
     CONFIG["screws_tilt_adjust"] = {"screw_thread": "CW-M3", "speed": 50.0, "horizontal_move_z": 5.0}
     for i, (name, x, y) in enumerate(SCREWS, 1):
-        for sec in ("bed_screws", "screws_tilt_adjust"):
-            CONFIG[sec]["screw%d" % i] = [x, y]
-            CONFIG[sec]["screw%d_name" % i] = name
+        CONFIG["screws_tilt_adjust"]["screw%d" % i] = [x, y]
+        CONFIG["screws_tilt_adjust"]["screw%d_name" % i] = name
 
 
 SCREWS = (("front left", 30.0, 30.0), ("front right", 226.0, 30.0),
@@ -157,7 +155,6 @@ def build_objects(keep=()):
     STATE["exclude_object"] = {"objects": [], "excluded_objects": [], "current_object": None}
     STATE["manual_probe"] = {"is_active": False, "z_position": None,
                              "z_position_lower": None, "z_position_upper": None}
-    STATE["bed_screws"] = {"is_active": False, "state": None, "current_screw": 0, "accepted_screws": 0}
     STATE["screws_tilt_adjust"] = {"error": False, "max_deviation": None, "results": {}}
     MOTION.reset()
     SD.reset()
@@ -789,41 +786,13 @@ PAST_Z = []            # heights TESTZ has left, for the bisect steps
 @gcode("PROBE_CALIBRATE", "Z_ENDSTOP_CALIBRATE")
 async def g_manual_probe(cmd):
     mp = STATE["manual_probe"]
-    if mp["is_active"] or STATE["bed_screws"]["is_active"]:
+    if mp["is_active"]:
         raise GcodeError("Already in a manual Z probe. Use ABORT to abort it.")
     mp.update(is_active=True, z_position=5.0, z_position_lower=None, z_position_upper=None)
     PAST_Z.clear()
     mark("manual_probe")
     await respond_info("Starting manual Z probe. Use TESTZ to adjust position.\n"
                        "Finish with ACCEPT or ABORT command.")
-
-
-@gcode("BED_SCREWS_ADJUST")
-async def g_bed_screws(cmd):
-    if STATE["manual_probe"]["is_active"] or STATE["bed_screws"]["is_active"]:
-        raise GcodeError("Already in a manual Z probe. Use ABORT to abort it.")
-    STATE["bed_screws"].update(is_active=True, state="adjust", current_screw=0, accepted_screws=0)
-    mark("bed_screws")
-    await respond_info("Adjust %s. Then run ACCEPT, ADJUSTED, or ABORT\n"
-                       "Use ADJUSTED if a significant screw adjustment is made" % SCREWS[0][0])
-
-
-async def bed_screws_step(cmd):
-    """bed_screws.py, without the fine adjust pass: every screw accepted in a
-    row finishes, an ADJUSTED starts the count again."""
-    bs = STATE["bed_screws"]
-    if cmd.name == "ABORT":
-        bs.update(is_active=False, state=None, current_screw=0, accepted_screws=0)
-    else:
-        bs["accepted_screws"] = 0 if cmd.name == "ADJUSTED" else bs["accepted_screws"] + 1
-        if bs["accepted_screws"] >= len(SCREWS):
-            bs.update(is_active=False, state=None, current_screw=0, accepted_screws=0)
-            await respond_info("Bed screws tool completed successfully")
-        else:
-            bs["current_screw"] = (bs["current_screw"] + 1) % len(SCREWS)
-            await respond_info("Adjust %s. Then run ACCEPT, ADJUSTED, or ABORT"
-                               % SCREWS[bs["current_screw"]][0])
-    mark("bed_screws")
 
 
 @gcode("SCREWS_TILT_CALCULATE")
@@ -847,12 +816,10 @@ async def g_screws_tilt(cmd):
     await respond_info("\n".join(lines))
 
 
-@gcode("TESTZ", "ACCEPT", "ADJUSTED", "ABORT")
+@gcode("TESTZ", "ACCEPT", "ABORT")
 async def g_manual_probe_step(cmd):
-    if STATE["bed_screws"]["is_active"] and cmd.name != "TESTZ":
-        return await bed_screws_step(cmd)
     mp = STATE["manual_probe"]
-    if not mp["is_active"] or cmd.name == "ADJUSTED":
+    if not mp["is_active"]:
         await respond_info('Unknown command:"%s"' % cmd.name)
         return
     if cmd.name == "TESTZ":
