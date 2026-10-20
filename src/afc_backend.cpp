@@ -170,7 +170,8 @@ void AfcBackend::refresh() {
       // refetched from spoolman at every PREP, so a local edit here would
       // apply and then quietly revert. Spoolman owns it; edit it there.
       if (spoolman && st.contains("spool_id") && st["spool_id"].is_number()) {
-        slot.can_configure = st["spool_id"].template get<int>() < 0;
+        slot.spool_id = st["spool_id"].template get<int>();
+        slot.can_configure = slot.spool_id < 0;
       }
 
       slots.push_back(slot);

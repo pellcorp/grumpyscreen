@@ -25,6 +25,7 @@ struct MmuSlot {
   // metadata ownership elsewhere, e.g. pulling it from spoolman instead.
   // Backends that never refuse leave it true.
   bool can_configure = true;
+  int spool_id = -1;     // spoolman spool in the slot, -1 = none (only set when linked)
 };
 
 // a tool a print file uses, from the slicer's metadata

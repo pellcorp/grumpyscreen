@@ -764,6 +764,18 @@ void MmuPanel::rebuild_grid(size_t page_count) {
     lv_obj_add_style(card.material, &styles().dim_label, 0);
     lv_obj_clear_flag(card.material, LV_OBJ_FLAG_CLICKABLE);
 
+    // "Spool #12", pinned in the empty room at the card's foot. Floating, so
+    // it is outside the card's layout: showing it moves nothing else
+    card.spool_id = lv_label_create(card.cont);
+    lv_obj_add_flag(card.spool_id, LV_OBJ_FLAG_FLOATING);
+    lv_label_set_long_mode(card.spool_id, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(card.spool_id, LV_PCT(100));
+    lv_obj_set_style_text_align(card.spool_id, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(card.spool_id, "");
+    lv_obj_add_style(card.spool_id, &styles().dim_label, 0);
+    lv_obj_clear_flag(card.spool_id, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(card.spool_id, LV_ALIGN_BOTTOM_MID, 0, 0);
+
     visible_cards.push_back(card);
   }
 
@@ -844,6 +856,13 @@ void MmuPanel::populate() {
       lv_label_set_text(card.material, slot.material.empty() ? "-" : slot.material.c_str());
     } else {
       lv_label_set_text(card.material, slot.material.empty() ? "Empty" : slot.material.c_str());
+    }
+
+    // the spoolman spool, when one is assigned, at the card's foot
+    if (spoolman_active && slot.spool_id >= 0) {
+      lv_label_set_text(card.spool_id, fmt::format("Spool #{}", slot.spool_id).c_str());
+    } else {
+      lv_label_set_text(card.spool_id, "");
     }
 
     // the loaded lane outlines itself in the accent, a step heavier than the

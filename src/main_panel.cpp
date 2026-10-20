@@ -51,7 +51,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , print_status_panel(websocket, lock, main_cont)
   , print_panel(ws, lock, print_status_panel, mmu)
   , numpad(Numpad(main_cont))
-  , extruder_panel(ws, lock, numpad, sm)
+  , extruder_panel(ws, lock, numpad)
   , prompt_panel(websocket, lock, main_cont, print_status_panel)
   , spoolman_panel(sm)
   , mmu_panel(mmu)
@@ -275,11 +275,6 @@ void MainPanel::create_panel() {
 
   // no tab at all until moonraker reports its spoolman component
   set_spoolman_tab_visible(false);
-  // the extruder panel's Spoolman tile takes you to the tab
-  extruder_panel.set_spoolman_cb([this]() {
-    extruder_panel.background();
-    lv_tabview_set_act(tabview, lv_obj_get_index(spoolman_tab), LV_ANIM_OFF);
-  });
 
   create_main(main_tab);
 }
@@ -531,7 +526,6 @@ void MainPanel::enable_spoolman() {
     std::lock_guard<std::mutex> lock(lv_lock);
     // built the first time spoolman appears, like the mmu panel
     spoolman_panel.create(spoolman_tab);
-    extruder_panel.enable_spoolman();
     set_spoolman_tab_visible(true);
   }
   spoolman_panel.init();
@@ -542,7 +536,6 @@ void MainPanel::enable_spoolman() {
 void MainPanel::disable_spoolman() {
   LOG_DEBUG("disabling spoolman tab");
   std::lock_guard<std::mutex> lock(lv_lock);
-  extruder_panel.disable_spoolman();
   set_spoolman_tab_visible(false);
 }
 

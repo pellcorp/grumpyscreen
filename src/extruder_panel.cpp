@@ -93,12 +93,10 @@ uint32_t resolve_default_idx(const std::string &config_key,
 
 ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 			     std::mutex &lock,
-			     Numpad &numpad,
-			     SpoolmanPanel &sm)
+			     Numpad &numpad)
   : NotifyConsumer(lock)
   , ws(websocket_client)
   , panel_cont(create_screen(NULL))
-  , spoolman_panel(sm)
   , temp_options(load_selector_options("/ui/extruder_temp_presets", 8))
   , temp_option_map(build_selector_map(temp_options))
   , temp_default_idx(resolve_default_idx("/ui/extruder_temp_default", temp_options))
@@ -109,7 +107,6 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , load_btn(panel_cont, Icons::LOAD_FILAMENT_IMG, "Load", &ExtruderPanel::_handle_callback, this)
   , unload_btn(panel_cont, Icons::UNLOAD_FILAMENT_IMG, "Unload", &ExtruderPanel::_handle_callback, this)
   , right_col(create_row(panel_cont))
-  , spoolman_btn(right_col, Icons::SPOOLMAN_IMG, "Spoolman", &ExtruderPanel::_handle_callback, this)
   , cooldown_btn(right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
   , back_btn(right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
 {
@@ -125,17 +122,17 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   // Keep the readout at the top of the main section; the action column owns
   // the right edge for the full height of the panel.
   lv_obj_set_grid_cell(extruder_temp.get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_START, 0, 1);
-  ButtonContainer *all_tiles[] = {&spoolman_btn, &back_btn, &load_btn, &unload_btn, &cooldown_btn};
+  ButtonContainer *all_tiles[] = {&back_btn, &load_btn, &unload_btn, &cooldown_btn};
   for (ButtonContainer *b : all_tiles) b->use_card();
 
-  // The three utility actions divide the right-hand column evenly.
+  // The utility actions divide the right-hand column evenly.
   lv_obj_set_grid_cell(right_col, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 3);
   lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);
   // Keep the utility tiles as a compact, screen-edge-aligned stack rather
   // than centring their icons in the whole grid column.
   lv_obj_set_flex_align(right_col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
   lv_obj_set_style_pad_row(right_col, 0, 0);
-  for (ButtonContainer *b : {&spoolman_btn, &cooldown_btn, &back_btn}) {
+  for (ButtonContainer *b : {&cooldown_btn, &back_btn}) {
     lv_obj_set_width(b->get_container(), scale_w(90));
     lv_obj_set_height(b->get_container(), 0);
     lv_obj_set_flex_grow(b->get_container(), 1);
@@ -145,7 +142,6 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
   lv_obj_set_grid_cell(unload_btn.get_container(), LV_GRID_ALIGN_STRETCH, 1, 1,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
-  spoolman_btn.disable();  // state, not style: until moonraker says spoolman is there
 
   lv_obj_set_grid_cell(temp_selector.get_container(), LV_GRID_ALIGN_STRETCH, 0, 2,
                        LV_GRID_ALIGN_STRETCH, 2, 1);
@@ -168,14 +164,6 @@ void ExtruderPanel::foreground() {
 
 void ExtruderPanel::background() {
   lv_obj_move_background(panel_cont);
-}
-
-void ExtruderPanel::enable_spoolman() {
-  spoolman_btn.enable();
-}
-
-void ExtruderPanel::disable_spoolman() {
-  spoolman_btn.disable();
 }
 
 void ExtruderPanel::consume(json& j) {
@@ -252,9 +240,5 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       ws.gcode_script(cooldown_macro);
     }
 
-    // disable() clears the clickable flag, so a tap cannot arrive while it is off
-    if (btn == spoolman_btn.get_container() && spoolman_cb) {
-      spoolman_cb();
-    }
   }
 }

@@ -200,6 +200,7 @@ void HhBackend::refresh() {
     if (gate_spool_id.is_array() && g < (int)gate_spool_id.size() &&
         gate_spool_id[g].is_number()) {
       const int sid = gate_spool_id[g].template get<int>();
+      if (spoolman && sid > 0) slot.spool_id = sid;
       const auto w = sid > 0 ? spool_weights.find(sid) : spool_weights.end();
       if (w != spool_weights.end()) slot.weight = w->second;
     }

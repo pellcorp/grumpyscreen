@@ -91,6 +91,7 @@ class MmuPanel : public NotifyConsumer {
     lv_obj_t *hole;
     lv_obj_t *title;
     lv_obj_t *material;
+    lv_obj_t *spool_id;  // "Spool #12", hidden when no spoolman spool is assigned
   };
 
   void refresh();

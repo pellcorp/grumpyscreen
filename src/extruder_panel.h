@@ -3,7 +3,6 @@
 
 #include "websocket_client.h"
 #include "notify_consumer.h"
-#include "spoolman_panel.h"
 #include "selector.h"
 #include "button_container.h"
 #include "sensor_container.h"
@@ -14,15 +13,11 @@
 
 class ExtruderPanel : public NotifyConsumer {
  public:
-  ExtruderPanel(KWebSocketClient &ws, std::mutex &l, Numpad &np, SpoolmanPanel &sm);
+  ExtruderPanel(KWebSocketClient &ws, std::mutex &l, Numpad &np);
   ~ExtruderPanel();
 
   void foreground();
   void background();
-  void enable_spoolman();
-  void disable_spoolman();
-  // what the Spoolman tile does: MainPanel points it at the Spoolman tab
-  void set_spoolman_cb(std::function<void()> cb) { spoolman_cb = cb; }
   void consume(json &j);
   void handle_callback(lv_event_t *e);
 
@@ -34,8 +29,6 @@ class ExtruderPanel : public NotifyConsumer {
  private:
   KWebSocketClient &ws;
   lv_obj_t *panel_cont;
-  SpoolmanPanel &spoolman_panel;
-  std::function<void()> spoolman_cb;
   std::vector<std::string> temp_options;
   std::vector<const char*> temp_option_map;
   uint32_t temp_default_idx;
@@ -47,7 +40,6 @@ class ExtruderPanel : public NotifyConsumer {
   // the header can stay the height of the readout while they still get a full
   // tile's worth of room each. Declared before them: it is their parent.
   lv_obj_t *right_col;
-  ButtonContainer spoolman_btn;
   ButtonContainer cooldown_btn;
   ButtonContainer back_btn;
 };
