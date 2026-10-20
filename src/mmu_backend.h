@@ -117,6 +117,12 @@ class MmuBackend {
   // may several tools draw from one slot
   virtual bool can_share_slot() const { return false; }
 
+  // Put a spoolman spool in a slot. Only backends linked to spoolman offer it;
+  // the rest leave these alone and the spoolman tab offers no lanes.
+  virtual bool can_assign_spool() const { return false; }
+  // spool_id -1 takes the spool out of the slot
+  virtual void assign_spool(int slot, int spool_id) { (void)slot; (void)spool_id; }
+
   // Acknowledge the current `message`. Optional: only backends that hold
   // messages in a queue of their own have anything to do here, and for them a
   // local dismissal is not enough -- an unacknowledged message sits at the head

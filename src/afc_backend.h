@@ -46,6 +46,10 @@ class AfcBackend : public MmuBackend {
   void map_tool(int tool, int slot) override;
   bool can_share_slot() const override { return multiple_mapping; }
 
+  // SET_SPOOL_ID only means something with AFC's spoolman link on
+  bool can_assign_spool() const override { return spoolman; }
+  void assign_spool(int slot, int spool_id) override;
+
  private:
   // MmuSlot::name is a display name; AFC's gcode needs the raw lane name, so
   // keep them side by side, indexed the same as slots

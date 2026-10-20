@@ -273,6 +273,17 @@ async def handle_afc(cmd):
         lane = STATE[lane_key(cmd.get("LANE"))]
         lane["color"] = "#" + p.get("COLOR", "").lstrip("#")
         mark(lane_key(lane["name"]))
+    elif cmd.name == "SET_SPOOL_ID":
+        # like AFC: the lane takes the spool's colour, material and weight
+        lane = STATE[lane_key(cmd.get("LANE"))]
+        raw = str(p.get("SPOOL_ID", "")).strip()
+        sid = int(raw) if raw.lstrip("-").isdigit() else -1  # empty clears
+        s = spoolman.find(sid)
+        lane["spool_id"] = sid if s else None
+        if s:
+            lane.update(color="#" + s["color"].lstrip("#"), material=s["material"],
+                        weight=round(s["remaining"], 1))
+        mark(lane_key(lane["name"]))
     elif cmd.name == "SET_WEIGHT":
         lane = STATE[lane_key(cmd.get("LANE"))]
         lane["weight"] = cmd.get_float("WEIGHT", 0.0)

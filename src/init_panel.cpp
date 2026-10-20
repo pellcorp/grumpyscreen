@@ -109,14 +109,16 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
       }
       State::get_instance()->set_data("server_info", j, "/result");
 
+      // runs again on every reconnect, so the tab follows spoolman down as well as up
+      bool has_spoolman = false;
       const auto components_ptr = "/result/components"_json_pointer;
-      if (j.contains(components_ptr) && !j[components_ptr].is_null()) {
-        auto &components = j[components_ptr];
-        const auto &has_spoolman = components.template get<std::vector<std::string>>();
-        if (std::find(has_spoolman.begin(), has_spoolman.end(), "spoolman") != has_spoolman.end()) {
-          this->main_panel.enable_spoolman();
+      if (j.contains(components_ptr) && j[components_ptr].is_array()) {
+        for (const auto &c : j[components_ptr]) {
+          if (c.is_string() && c.template get<std::string>() == "spoolman") has_spoolman = true;
         }
       }
+      if (has_spoolman) this->main_panel.enable_spoolman();
+      else this->main_panel.disable_spoolman();
     });
 
     auto display_sensors = state->get_display_sensors();

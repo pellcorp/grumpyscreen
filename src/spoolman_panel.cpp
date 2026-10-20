@@ -4,6 +4,8 @@
 #include "utils.h"
 #include "logger.h"
 #include "icons.h"
+#include "mmu_backend.h"
+#include "simple_dialog.h"
 
 using namespace Theme;
 
@@ -52,26 +54,34 @@ static std::string spool_name(const json &spool) {
 SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   : ws(c)
   , lv_lock(l)
-  , cont(create_screen(NULL))
-  , table_box(create_row(cont))
-  , spool_table(lv_table_create(table_box))
-  , empty_box(create_row(cont))
-  , controls(create_row(cont))
-  , switch_cont(create_row(controls))
-  , show_archived(lv_switch_create(switch_cont))
-  , reload_btn(controls, Icons::REFRESH_IMG, "Reload", &SpoolmanPanel::_handle_callback, this)
-  , back_btn(controls, Icons::BACK, "Back", &SpoolmanPanel::_handle_callback, this)
   , active_id(-1)
   , sorted_by(SORTED_BY_ID)
 {
+  ws.register_method_callback("notify_active_spool_set",
+			      "SpoolmanPanel",
+			      [this](json& d) { this->handle_active_id_update(d); });
+}
+
+void SpoolmanPanel::create(lv_obj_t *parent) {
+  if (cont != NULL) return;
+  cont = create_screen(parent);
+  table_box = create_row(cont);
+  spool_table = lv_table_create(table_box);
+  empty_box = create_row(cont);
+  controls = create_row(cont);
+  switch_cont = create_row(controls);
+  show_archived = lv_switch_create(switch_cont);
+  reload_btn = std::make_unique<ButtonContainer>(controls, Icons::REFRESH_IMG, "Reload",
+                                                 &SpoolmanPanel::_handle_callback, this);
+  // the tab page deletes the panel with itself; forget it then
+  lv_obj_add_event_cb(cont, [](lv_event_t *e) {
+    ((SpoolmanPanel *)lv_event_get_user_data(e))->cont = NULL;
+  }, LV_EVENT_DELETE, this);
+
   // icon-only square tiles a finger tall: the table gets the rest of the screen
-  for (ButtonContainer *b : {&reload_btn, &back_btn}) {
-    b->use_card();
-    b->hide_label();
-    lv_obj_set_size(b->get_container(), touch_h(), touch_h());
-  }
-  lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_move_background(cont);
+  reload_btn->use_card();
+  reload_btn->hide_label();
+  lv_obj_set_size(reload_btn->get_container(), touch_h(), touch_h());
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
 
   // the table takes the height above the controls, its scrollbar beside it
@@ -121,39 +131,39 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
 
   lv_obj_add_event_cb(spool_table, &SpoolmanPanel::_handle_spoolman_action, LV_EVENT_VALUE_CHANGED, this);
   lv_obj_add_event_cb(spool_table, &SpoolmanPanel::_handle_spoolman_action, LV_EVENT_DRAW_PART_BEGIN, this);
-
-  ws.register_method_callback("notify_active_spool_set",
-			      "SpoolmanPanel",
-			      [this](json& d) { this->handle_active_id_update(d); });
-
+  lv_obj_add_event_cb(spool_table, &SpoolmanPanel::_handle_spoolman_action, LV_EVENT_PRESSED, this);
+  lv_obj_add_event_cb(spool_table, &SpoolmanPanel::_handle_spoolman_action, LV_EVENT_LONG_PRESSED, this);
 }
 
-SpoolmanPanel::~SpoolmanPanel() {
-  if (cont != NULL) {
-    lv_obj_del(cont);
-    cont = NULL;
-  }
-}
+// the tab page owns and deletes the widgets
+SpoolmanPanel::~SpoolmanPanel() {}
 
 void SpoolmanPanel::init() {
   json param = {
     { "request_method", "GET" },
-    { "path", "/v1/spool?allow_archived=true" },
+    { "path", want_archived ? "/v1/spool?allow_archived=true" : "/v1/spool" },
   };
 
   ws.send_jsonrpc("server.spoolman.proxy", param, [this](json &d) {
     const auto result_ptr = "/result"_json_pointer;
-    if (d.contains(result_ptr) && !d[result_ptr].is_null() && !d[result_ptr].empty()) {
-      auto &s = d[result_ptr];
-      spools.clear();
-      for (auto &e : s) {
-        if (e.contains("id")) {
-          uint32_t spool_id = e["id"].template get<uint32_t>();
-          spools.insert({spool_id, e});
-        }
+    if (d.contains(result_ptr) && d[result_ptr].is_array()) {
+      std::map<uint32_t, SpoolRec> fresh;
+      for (auto &e : d[result_ptr]) {
+        if (!e.contains("id") || !e["id"].is_number()) continue;
+        SpoolRec r;
+        r.id = uint_at(e, "/id"_json_pointer);
+        r.name = spool_name(e);
+        r.vendor = string_at(e, "/filament/vendor/name"_json_pointer);
+        r.material = string_at(e, "/filament/material"_json_pointer);
+        r.colour = string_at(e, "/filament/color_hex"_json_pointer);
+        r.weight = number_at(e, "/remaining_weight"_json_pointer);
+        r.length = number_at(e, "/remaining_length"_json_pointer) / 1000;  // mm to m
+        r.archived = bool_at(e, "/archived"_json_pointer);
+        fresh.insert({r.id, std::move(r)});
       }
 
       std::lock_guard<std::mutex> lock(this->lv_lock);
+      spools.swap(fresh);
       repopulate();
     }
   });
@@ -163,30 +173,27 @@ void SpoolmanPanel::init() {
       LOG_TRACE("got spool active id {}", d.dump());
     }
     const auto spool_id_ptr = "/result/spool_id"_json_pointer;
-    if (d.contains(spool_id_ptr) && !d[spool_id_ptr].is_null()) {
-      this->active_id = d[spool_id_ptr].template get<int>();
-
+    if (d.contains("/result"_json_pointer)) {
+      // null: no active spool
+      const bool set = d.contains(spool_id_ptr) && d[spool_id_ptr].is_number();
       std::lock_guard<std::mutex> lock(this->lv_lock);
+      this->active_id = set ? d[spool_id_ptr].template get<int>() : -1;
       repopulate();
     }
   });
 }
 
-void SpoolmanPanel::foreground() {
-  lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_move_foreground(cont);
-}
-
 void SpoolmanPanel::repopulate() {
-  std::vector<json> sorted_spools;
-  KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [](json &a, json &b) {
-    return uint_at(a, "/id"_json_pointer) < uint_at(b, "/id"_json_pointer);
+  if (cont == NULL) return;  // not built: no spoolman yet
+  std::vector<SpoolRec> sorted_spools;
+  KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [](SpoolRec &a, SpoolRec &b) {
+    return a.id < b.id;
   });
   sorted_by = SORTED_BY_ID;
   populate_spools(sorted_spools);
 }
 
-void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
+void SpoolmanPanel::populate_spools(std::vector<SpoolRec> &sorted_spools) {
   size_t row_idx = 1;
   if (!spools.empty()) {
     lv_table_set_cell_value(spool_table, 0, 0, "ID");
@@ -198,23 +205,20 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
     bool skip_archive = !lv_obj_has_state(show_archived, LV_STATE_CHECKED);
 
     for (auto &el : sorted_spools) {
-      if (get_log_level() <= LogLevel::TRACE) {
-        LOG_TRACE("spool {}", el.dump());
-      }
-      bool is_archived = bool_at(el, "/archived"_json_pointer);
+      bool is_archived = el.archived;
       if (skip_archive && is_archived) {
 	      continue;
       }
       
-      auto id = uint_at(el, "/id"_json_pointer);
-      bool is_active = id == active_id;
+      auto id = el.id;
+      bool is_active = (int32_t)id == active_id;
 
-      auto material = string_at(el, "/filament/material"_json_pointer);
-      auto remaining_weight = number_at(el, "/remaining_weight"_json_pointer);
-      auto remaining_len = number_at(el, "/remaining_length"_json_pointer) / 1000; // mm to m
+      const std::string &material = el.material;
+      const double remaining_weight = el.weight;
+      const double remaining_len = el.length;
 
       lv_table_set_cell_value(spool_table, row_idx, 0, std::to_string(id).c_str());
-      lv_table_set_cell_value(spool_table, row_idx, 1, spool_name(el).c_str());
+      lv_table_set_cell_value(spool_table, row_idx, 1, el.name.c_str());
       lv_table_set_cell_value(spool_table, row_idx, 2, material.c_str());
       lv_table_set_cell_value(spool_table, row_idx, 3, "");
 
@@ -275,26 +279,91 @@ void SpoolmanPanel::layout_columns() {
   lv_table_set_col_width(spool_table, 5, len_field_width);
 }
 
+// Buttons 1..n are the MMU's lanes in order, then Cancel. Nothing opens when
+// there is no MMU, or it is not linked to spoolman.
+void SpoolmanPanel::show_assign(int spool_id, const std::string &name) {
+  MmuBackend *b = mmu != NULL ? mmu->active_backend() : NULL;
+  if (b == NULL || !b->can_assign_spool() || b->slots.empty()) {
+    long_pressed = false;  // nothing opened, so let the release be a tap
+    return;
+  }
+
+  assign_spool_id = spool_id;
+  lane_labels.clear();
+  for (size_t i = 0; i < b->slots.size(); i++) lane_labels.push_back(std::to_string(i + 1));
+  lane_labels.push_back("Clear");
+  lane_labels.push_back("Cancel");
+  // lane_labels is not touched again until the next hold, so both button lists
+  // stay valid while either dialog is open
+  lane_btns.clear();
+  for (auto &l : lane_labels) lane_btns.push_back(l.c_str());
+  lane_btns.push_back("");
+  clear_btns.clear();
+  for (size_t i = 0; i < b->slots.size(); i++) clear_btns.push_back(lane_labels[i].c_str());
+  clear_btns.push_back("Cancel");
+  clear_btns.push_back("");
+
+  SimpleDialogOptions opts;
+  opts.buttons = lane_btns.data();
+  opts.result_cb = &SpoolmanPanel::_assign_result;
+  opts.user_data = this;
+  // "Polymaker PLA": the vendor and material, as on the spool's label
+  std::string label = name;
+  auto it = spools.find((uint32_t)spool_id);
+  if (it != spools.end()) {
+    const std::string &vendor = it->second.vendor;
+    const std::string &material = it->second.material;
+    label = vendor.empty() ? material : material.empty() ? vendor : vendor + " " + material;
+    if (label.empty()) label = name;
+  }
+  const std::string msg = fmt::format("Put spool #{} ({}) in which lane?", spool_id, label);
+  create_configurable_dialog(lv_layer_top(), "Assign Spool", msg.c_str(), opts);
+}
+
+void SpoolmanPanel::_assign_result(lv_obj_t *mbox, uint32_t idx, void *user_data) {
+  (void)mbox;
+  SpoolmanPanel *self = (SpoolmanPanel *)user_data;
+  MmuBackend *b = self->mmu != NULL ? self->mmu->active_backend() : NULL;
+  // the unit may have changed under the dialog
+  if (b == NULL || !b->can_assign_spool()) return;
+  if (idx == b->slots.size()) {
+    // Clear: then which lane
+    SimpleDialogOptions opts;
+    opts.buttons = self->clear_btns.data();
+    opts.result_cb = &SpoolmanPanel::_clear_result;
+    opts.user_data = self;
+    create_configurable_dialog(lv_layer_top(), "Clear Lane", "Take the spool out of which lane?", opts);
+    return;
+  }
+  if (idx > b->slots.size()) return;  // Cancel
+  LOG_DEBUG("assigning spool {} to slot {}", self->assign_spool_id, idx);
+  b->assign_spool((int)idx, self->assign_spool_id);
+}
+
+void SpoolmanPanel::_clear_result(lv_obj_t *mbox, uint32_t idx, void *user_data) {
+  (void)mbox;
+  SpoolmanPanel *self = (SpoolmanPanel *)user_data;
+  MmuBackend *b = self->mmu != NULL ? self->mmu->active_backend() : NULL;
+  if (b == NULL || !b->can_assign_spool() || idx >= b->slots.size()) return;  // Cancel
+  LOG_DEBUG("clearing the spool from slot {}", idx);
+  b->assign_spool((int)idx, -1);
+}
+
 void SpoolmanPanel::handle_active_id_update(json &j) {
   if (get_log_level() <= LogLevel::TRACE) {
     LOG_TRACE("active spool id update {}", j.dump());
   }
   const auto spool_id_ptr = "/params/0/spool_id"_json_pointer;
-  if (j.contains(spool_id_ptr) && !j[spool_id_ptr].is_null()) {
-    active_id = j[spool_id_ptr].template get<int>();
-
-    std::lock_guard<std::mutex> lock(lv_lock);
-    repopulate();
-  }
+  // null when the active spool was cleared
+  const bool set = j.contains(spool_id_ptr) && j[spool_id_ptr].is_number();
+  std::lock_guard<std::mutex> lock(lv_lock);
+  active_id = set ? j[spool_id_ptr].template get<int>() : -1;
+  repopulate();
 }
 
 void SpoolmanPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
-  if (btn == back_btn.get_container()) {
-    LOG_TRACE("spoolman back button pressed");
-    lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_background(cont);
-  } else if (btn == reload_btn.get_container()) {
+  if (reload_btn && btn == reload_btn->get_container()) {
     LOG_TRACE("spoolman reload button pressed");
     init();
   }
@@ -302,10 +371,42 @@ void SpoolmanPanel::handle_callback(lv_event_t *event) {
 
 void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_PRESSED) {
+    lv_indev_t *indev = lv_indev_get_act();
+    if (indev != NULL) lv_indev_get_point(indev, &press_point);
+    return;
+  }
+  if (code == LV_EVENT_LONG_PRESSED) {
+    // a slow drag to scroll lasts as long as a hold: only a finger that stayed
+    // put, on a list that is not scrolling, is a hold
+    lv_indev_t *indev = lv_indev_get_act();
+    if (indev == NULL || lv_indev_get_scroll_obj(indev) != NULL) return;
+    lv_point_t now;
+    lv_indev_get_point(indev, &now);
+    const lv_coord_t slop = gap();
+    if (LV_ABS(now.x - press_point.x) > slop || LV_ABS(now.y - press_point.y) > slop) return;
+
+    uint16_t row;
+    uint16_t col;
+    lv_table_get_selected_cell(spool_table, &row, &col);
+    if (row == LV_TABLE_CELL_NONE || row == 0 || row >= lv_table_get_row_cnt(spool_table)) return;
+    const char *id_txt = lv_table_get_cell_value(spool_table, row, 0);
+    const char *name = lv_table_get_cell_value(spool_table, row, 1);
+    if (id_txt == NULL || id_txt[0] == '\0') return;
+    long_pressed = true;  // the release that follows is not a tap
+    show_assign(std::atoi(id_txt), name != NULL ? name : "");
+    return;
+  }
   if (code == LV_EVENT_VALUE_CHANGED) {
     lv_obj_t *clicked = lv_event_get_target(e);
     if (clicked == show_archived) {
-      repopulate();  // already on the UI thread, which holds lv_lock
+      // archived spools are only fetched while asked for
+      want_archived = lv_obj_has_state(show_archived, LV_STATE_CHECKED);
+      init();
+      return;
+    }
+    if (long_pressed) {
+      long_pressed = false;
       return;
     }
 
@@ -322,10 +423,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       if (col == 0) {
         // sort by id
         bool reversed = sorted_by & SORTED_BY_ID;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = uint_at(a, "/id"_json_pointer);
-          auto y = uint_at(b, "/id"_json_pointer);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.id;
+          auto y = b.id;
 	        return reversed ? x > y : y > x;
 	      });
 
@@ -334,10 +435,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       } else if (col == 1) {
         // sort by name
         bool reversed = sorted_by & SORTED_BY_NAME;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = spool_name(a);
-          auto y = spool_name(b);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.name;
+          auto y = b.name;
           return reversed ? x > y : y > x;
         });
         sorted_by = (sorted_by ^ SORTED_BY_NAME) & SORTED_BY_NAME;
@@ -345,10 +446,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       } else if (col == 2) {
         // sort by material
         bool reversed = sorted_by & SORTED_BY_MAT;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = string_at(a, "/filament/material"_json_pointer);
-          auto y = string_at(b, "/filament/material"_json_pointer);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.material;
+          auto y = b.material;
 
           return reversed ? x > y : y > x;
         });
@@ -361,10 +462,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       } else if (col == 4) {
         // sort by weight
         bool reversed = sorted_by & SORTED_BY_WT;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = number_at(a, "/remaining_weight"_json_pointer);
-          auto y = number_at(b, "/remaining_weight"_json_pointer);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.weight;
+          auto y = b.weight;
 
           return reversed ? x > y : y > x;
         });
@@ -374,10 +475,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       } else if (col == 5) {
         // sort by length
         bool reversed = sorted_by & SORTED_BY_LEN;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = number_at(a, "/remaining_length"_json_pointer);
-          auto y = number_at(b, "/remaining_length"_json_pointer);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.length;
+          auto y = b.length;
           return reversed ? x > y : y > x;
         });
         sorted_by = (sorted_by ^ SORTED_BY_LEN) & SORTED_BY_LEN;
@@ -389,6 +490,16 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
     const char *spool_id = lv_table_get_cell_value(spool_table, row, 0);
     LOG_TRACE("selected {}, {}, value {}", row, col, spool_id);
     if (row != 0) {
+      // "(active)" spans both action columns, and LVGL reports a tap on its
+      // right half as column 7, so look at the cell the text is in
+      const char *marker = lv_table_get_cell_value(spool_table, row, 6);
+      if ((col == 6 || col == 7) && marker != NULL && strcmp(marker, "(active)") == 0) {
+        // the active spool's own marker clears it
+        LOG_TRACE("clear active spool");
+        json param = { {"spool_id", nullptr} };
+        ws.send_jsonrpc("server.spoolman.post_spool_id", param);
+        return;
+      }
       if (col == 6 && selected != NULL && strlen(selected) != 0 && std::memcmp(LV_SYMBOL_PLAY, selected, 3) == 0) {
         // set active spool
         int id = std::stoi(spool_id);
@@ -448,7 +559,7 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
         uint32_t id = std::stoi(spool_id);
         const auto &spool = spools.find(id);
         if (spool != spools.end()) {
-          const auto color = string_at(spool->second, "/filament/color_hex"_json_pointer);
+          const auto &color = spool->second.colour;
           lv_color_t colour;
           // a spool without a colour, or with one spoolman spells oddly, keeps the row colour
           if (parse_colour(color, &colour)) {

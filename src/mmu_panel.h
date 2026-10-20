@@ -42,6 +42,8 @@ class MmuPanel : public NotifyConsumer {
   static bool enabled();
   // detect the configured backend; returns it (NULL when it is not there)
   MmuBackend *select_backend();
+  // the backend in use, NULL when there is none
+  MmuBackend *active_backend() const { return backend; }
 
   // build the UI into the MMU tab. caller must hold lv_lock.
   void create(lv_obj_t *parent);

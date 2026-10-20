@@ -56,6 +56,8 @@ GuppyScreen::GuppyScreen()
   if (hh_backend != nullptr) mmu_panel->add_backend("hh", hh_backend.get());
 #endif
   main_panel.create_panel();
+  // a held spool row can then be put in one of its lanes
+  spoolman_panel.set_mmu(mmu_panel.get());
 }
 
 GuppyScreen *GuppyScreen::get() {

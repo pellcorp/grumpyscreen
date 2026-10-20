@@ -153,6 +153,7 @@ void HhBackend::refresh() {
   // In pull mode the spoolman database is the source of truth for the gate map
   // and HH refuses local edits; in push mode the gate map is, so they are fine.
   const bool editable = spoolman_mode != "pull";
+  spool_assignable = spoolman && editable;
 
   // endless_spool_enabled is the current name; endless_spool is the
   // deprecated alias HH still publishes for older clients
@@ -370,6 +371,11 @@ void HhBackend::gate_map(int slot, const std::string &args) {
     temp = fmt::format(" TEMP={}", temps[slot].template get<int>());
   }
   ws.gcode_script(fmt::format("MMU_GATE_MAP GATE={} {}{}", slot, args, temp));
+}
+
+void HhBackend::assign_spool(int slot, int spool_id) {
+  if (!valid(slot)) return;
+  gate_map(slot, fmt::format("SPOOLID={}", spool_id >= 0 ? spool_id : -1));  // -1: no spool
 }
 
 void HhBackend::set_colour(int slot, const std::string &hex) {

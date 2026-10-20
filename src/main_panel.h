@@ -35,6 +35,7 @@ class MainPanel : public NotifyConsumer {
   void init(json &data);
   void subscribe();
   void enable_spoolman();
+  void disable_spoolman();
   void enable_mmu();
   void disable_mmu();
   void set_firmware_restart_available(bool available);
@@ -98,6 +99,11 @@ class MainPanel : public NotifyConsumer {
 
  private:
   void create_main(lv_obj_t *parent);
+  // put the spoolman tab in the bar, after mmu, or take it out entirely.
+  // caller holds lv_lock
+  void set_spoolman_tab_visible(bool visible);
+  // the tab bar's per-button flags, which lv_btnmatrix_set_map clears
+  void refresh_tab_ctrls();
   static void _tabview_event_cb(lv_event_t *e);
   KWebSocketClient &ws;
   HomingPanel homing_panel;
@@ -108,6 +114,12 @@ class MainPanel : public NotifyConsumer {
   // NULL when /mmu/backend is none; otherwise the tab exists from startup and
   // its button stays disabled until the backend is detected
   lv_obj_t *mmu_tab;
+  // only in the tab bar while moonraker reports spoolman; otherwise its page
+  // is hidden at the end and its button is out of the bar
+  lv_obj_t *spoolman_tab;
+  bool spoolman_tab_shown = true;
+  const char *spoolman_tab_name = NULL;  // the bar's label while it is out
+  bool mmu_ready = false;
   lv_obj_t *console_tab;
   ConsolePanel console_panel;
   lv_obj_t *setting_tab;

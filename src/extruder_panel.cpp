@@ -174,6 +174,10 @@ void ExtruderPanel::enable_spoolman() {
   spoolman_btn.enable();
 }
 
+void ExtruderPanel::disable_spoolman() {
+  spoolman_btn.disable();
+}
+
 void ExtruderPanel::consume(json& j) {
   std::lock_guard<std::mutex> lock(lv_lock);
   auto target_value = j["/params/0/extruder/target"_json_pointer];
@@ -249,8 +253,8 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
     }
 
     // disable() clears the clickable flag, so a tap cannot arrive while it is off
-    if (btn == spoolman_btn.get_container()) {
-      spoolman_panel.foreground();
+    if (btn == spoolman_btn.get_container() && spoolman_cb) {
+      spoolman_cb();
     }
   }
 }

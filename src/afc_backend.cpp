@@ -241,6 +241,14 @@ void AfcBackend::set_colour(int slot, const std::string &hex) {
   ws.gcode_script(fmt::format("SET_COLOR LANE={} COLOR={}", lane_id(slot), hex));
 }
 
+void AfcBackend::assign_spool(int slot, int spool_id) {
+  if (!valid(slot)) return;
+  // AFC then pulls the lane's colour, material and weight from spoolman
+  // an empty SPOOL_ID clears the lane's spool
+  ws.gcode_script(fmt::format("SET_SPOOL_ID LANE={} SPOOL_ID={}", lane_id(slot),
+                              spool_id >= 0 ? std::to_string(spool_id) : ""));
+}
+
 void AfcBackend::set_material(int slot, const std::string &material) {
   if (!valid(slot)) return;
   ws.gcode_script(fmt::format("SET_MATERIAL LANE={} MATERIAL={}",

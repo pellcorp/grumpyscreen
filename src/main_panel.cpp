@@ -28,6 +28,7 @@ static int reclaimed_tab_bar_w() { return FULL_TAB_BAR_W - tab_bar_w(); }
 #define HOME_SYMBOL    u8"\U000F02DC"
 #define CONSOLE_SYMBOL u8"\U000F018D"
 #define SPOOL_SYMBOL   u8"\U000F07DE"
+#define SPOOLMAN_SYMBOL u8"\U000F01BC"
 
 MainPanel::MainPanel(KWebSocketClient &websocket,
 		     std::mutex &lock,
@@ -41,6 +42,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, tab_bar_w()))
   , main_tab(lv_tabview_add_tab(tabview, HOME_SYMBOL))
   , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
+  , spoolman_tab(lv_tabview_add_tab(tabview, SPOOLMAN_SYMBOL))
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
   , console_panel(ws, lock, console_tab)
   , setting_tab(lv_tabview_add_tab(tabview, TOOLS_SYMBOL))
@@ -77,6 +79,8 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
 
 MainPanel::~MainPanel() {
   if (tabview != NULL) {
+    // back in the bar, so the tabview frees its label with the rest
+    set_spoolman_tab_visible(true);
     lv_obj_del(tabview);
     tabview = NULL;
   }
@@ -256,7 +260,7 @@ void MainPanel::create_panel() {
   lv_obj_set_style_bg_color(lv_scr_act(), col(BG), 0);
   lv_obj_set_style_bg_color(tabview, col(BG), 0);
   lv_obj_set_style_bg_opa(tabview, LV_OPA_COVER, 0);
-  for (lv_obj_t *tab : {main_tab, console_tab, setting_tab, mmu_tab}) {
+  for (lv_obj_t *tab : {main_tab, console_tab, setting_tab, mmu_tab, spoolman_tab}) {
     if (tab == NULL) continue;
     lv_obj_add_style(tab, &styles().screen, 0);
     // the tab is only a page behind a panel that pads itself; without this
@@ -268,6 +272,14 @@ void MainPanel::create_panel() {
     // greyed out until klipper confirms the configured backend is there
     lv_btnmatrix_set_btn_ctrl(tab_btns, lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
   }
+
+  // no tab at all until moonraker reports its spoolman component
+  set_spoolman_tab_visible(false);
+  // the extruder panel's Spoolman tile takes you to the tab
+  extruder_panel.set_spoolman_cb([this]() {
+    extruder_panel.background();
+    lv_tabview_set_act(tabview, lv_obj_get_index(spoolman_tab), LV_ANIM_OFF);
+  });
 
   create_main(main_tab);
 }
@@ -514,8 +526,74 @@ void MainPanel::create_leds(json &leds) {
 }
 
 void MainPanel::enable_spoolman() {
+  LOG_DEBUG("enabling spoolman tab");
+  {
+    std::lock_guard<std::mutex> lock(lv_lock);
+    // built the first time spoolman appears, like the mmu panel
+    spoolman_panel.create(spoolman_tab);
+    extruder_panel.enable_spoolman();
+    set_spoolman_tab_visible(true);
+  }
   spoolman_panel.init();
-  extruder_panel.enable_spoolman();
+}
+
+// moonraker came back without spoolman: the tab leaves the bar, and anyone on
+// it lands on home
+void MainPanel::disable_spoolman() {
+  LOG_DEBUG("disabling spoolman tab");
+  std::lock_guard<std::mutex> lock(lv_lock);
+  extruder_panel.disable_spoolman();
+  set_spoolman_tab_visible(false);
+}
+
+// LVGL 8's tabview can only append tabs, so this edits its button map in place.
+// With the tabs on the left the map is "name0", "\n", "name1", ..., "": two
+// entries a tab, allocated by lv_tabview_add_tab for every tab. Taking the
+// spoolman tab out drops its two entries and parks its page, hidden, after the
+// last tab, so every other page's index still matches its button's index.
+void MainPanel::set_spoolman_tab_visible(bool visible) {
+  if (visible == spoolman_tab_shown) return;
+
+  lv_tabview_t *tv = (lv_tabview_t *)tabview;
+  lv_obj_t *content = lv_tabview_get_content(tabview);
+  // the page on show now, to stay on it once the indices have moved
+  lv_obj_t *active = lv_obj_get_child(content, tv->tab_cur);
+  // spoolman sits just after mmu, or after home when there is no mmu tab
+  const int32_t idx = (mmu_tab != NULL ? lv_obj_get_index(mmu_tab) : lv_obj_get_index(main_tab)) + 1;
+  const char **map = tv->map;
+  const int32_t used = tv->tab_cnt * 2;  // entries in use, the closing "" included
+
+  if (visible) {
+    for (int32_t i = used - 1; i >= 2 * idx - 1; i--) map[i + 2] = map[i];
+    map[2 * idx - 1] = "\n";
+    map[2 * idx] = spoolman_tab_name;
+    spoolman_tab_name = NULL;
+    tv->tab_cnt++;
+    lv_obj_clear_flag(spoolman_tab, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_to_index(spoolman_tab, idx);
+  } else {
+    if (active == spoolman_tab) active = main_tab;
+    spoolman_tab_name = map[2 * idx];
+    for (int32_t i = 2 * idx - 1; i + 2 < used; i++) map[i] = map[i + 2];
+    tv->tab_cnt--;
+    lv_obj_add_flag(spoolman_tab, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_to_index(spoolman_tab, -1);
+  }
+  spoolman_tab_shown = visible;
+
+  lv_btnmatrix_set_map(lv_tabview_get_tab_btns(tabview), map);
+  refresh_tab_ctrls();
+  lv_tabview_set_act(tabview, lv_obj_get_index(active), LV_ANIM_OFF);
+}
+
+void MainPanel::refresh_tab_ctrls() {
+  lv_obj_t *btns = lv_tabview_get_tab_btns(tabview);
+  // as lv_tabview_add_tab sets them
+  lv_btnmatrix_set_btn_ctrl_all(btns, LV_BTNMATRIX_CTRL_CHECKABLE | LV_BTNMATRIX_CTRL_CLICK_TRIG |
+                                LV_BTNMATRIX_CTRL_NO_REPEAT);
+  if (mmu_tab != NULL && !mmu_ready) {
+    lv_btnmatrix_set_btn_ctrl(btns, lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
+  }
 }
 
 void MainPanel::enable_mmu() {
@@ -524,6 +602,7 @@ void MainPanel::enable_mmu() {
   LOG_DEBUG("enabling mmu panel");
   std::lock_guard<std::mutex> lock(lv_lock);
   mmu_panel->create(mmu_tab);
+  mmu_ready = true;
   lv_btnmatrix_clear_btn_ctrl(lv_tabview_get_tab_btns(tabview),
                               lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
 }
@@ -537,6 +616,7 @@ void MainPanel::disable_mmu() {
   LOG_DEBUG("disabling mmu panel");
   std::lock_guard<std::mutex> lock(lv_lock);
   mmu_panel->clear();
+  mmu_ready = false;
   const uint16_t idx = lv_obj_get_index(mmu_tab);
   if (lv_tabview_get_tab_act(tabview) == idx) {
     lv_tabview_set_act(tabview, lv_obj_get_index(main_tab), LV_ANIM_OFF);

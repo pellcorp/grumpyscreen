@@ -19,7 +19,10 @@ class ExtruderPanel : public NotifyConsumer {
 
   void foreground();
   void background();
-  void enable_spoolman();  
+  void enable_spoolman();
+  void disable_spoolman();
+  // what the Spoolman tile does: MainPanel points it at the Spoolman tab
+  void set_spoolman_cb(std::function<void()> cb) { spoolman_cb = cb; }
   void consume(json &j);
   void handle_callback(lv_event_t *e);
 
@@ -32,6 +35,7 @@ class ExtruderPanel : public NotifyConsumer {
   KWebSocketClient &ws;
   lv_obj_t *panel_cont;
   SpoolmanPanel &spoolman_panel;
+  std::function<void()> spoolman_cb;
   std::vector<std::string> temp_options;
   std::vector<const char*> temp_option_map;
   uint32_t temp_default_idx;
