@@ -102,12 +102,32 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , temp_options(load_selector_options("/ui/extruder_temp_presets", 8))
   , temp_option_map(build_selector_map(temp_options))
   , temp_default_idx(resolve_default_idx("/ui/extruder_temp_default", temp_options))
+  , length_options(load_selector_options("/ui/extruder_length_presets", 8))
+  , length_option_map(build_selector_map(length_options))
+  , length_default_idx(resolve_default_idx("/ui/extruder_length_default", length_options))
+  , speed_options(load_selector_options("/ui/extruder_speed_presets", 8))
+  , speed_option_map(build_selector_map(speed_options))
+  , speed_default_idx(resolve_default_idx("/ui/extruder_speed_default", speed_options))
   , extruder_temp(ws, panel_cont, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
                   "extruder", NULL, NULL)
-  , temp_selector(panel_cont, "Extruder Temperature (C)",
-		  temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
-  , load_btn(panel_cont, Icons::LOAD_FILAMENT_IMG, "Load", &ExtruderPanel::_handle_callback, this)
-  , unload_btn(panel_cont, Icons::UNLOAD_FILAMENT_IMG, "Unload", &ExtruderPanel::_handle_callback, this)
+  , tabview(lv_tabview_create(panel_cont, LV_DIR_TOP, scale_r(36)))
+  , load_tab(lv_tabview_add_tab(tabview, "Load / Unload"))
+  , extrude_tab(lv_tabview_add_tab(tabview, "Extrude / Retract"))
+  , load_cont(create_screen(load_tab))
+  , extrude_cont(create_screen(extrude_tab))
+  , extrude_col(create_row(extrude_cont))
+  , load_temp_selector(load_cont, "Extruder Temperature (C)",
+		       temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
+  , load_btn(load_cont, Icons::LOAD_FILAMENT_IMG, "Load", &ExtruderPanel::_handle_callback, this)
+  , unload_btn(load_cont, Icons::UNLOAD_FILAMENT_IMG, "Unload", &ExtruderPanel::_handle_callback, this)
+  , speed_selector(extrude_cont, "Extrude Speed (mm/s)",
+		   speed_option_map, speed_default_idx, &ExtruderPanel::_handle_callback, this)
+  , length_selector(extrude_cont, "Extrude Length (mm)",
+		    length_option_map, length_default_idx, &ExtruderPanel::_handle_callback, this)
+  , extrude_temp_selector(extrude_cont, "Extruder Temperature (C)",
+			  temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
+  , extrude_btn(extrude_col, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
+  , retract_btn(extrude_col, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
   , right_col(create_row(panel_cont))
   , spoolman_btn(right_col, Icons::SPOOLMAN_IMG, "Spoolman", &ExtruderPanel::_handle_callback, this)
   , cooldown_btn(right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
@@ -115,44 +135,68 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 {
   lv_obj_move_background(panel_cont);
 
-  // The main section has the readout, a horizontal Load/Unload pair, then the
-  // temperature presets. The utility tiles retain their own right-hand column.
-  static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(3), LV_GRID_FR(6), LV_GRID_FR(6),
-    LV_GRID_TEMPLATE_LAST};
-  static lv_coord_t grid_main_col_dsc[] = {LV_GRID_FR(4), LV_GRID_FR(4), LV_GRID_FR(3), LV_GRID_TEMPLATE_LAST};
-  lv_obj_set_grid_dsc_array(panel_cont, grid_main_col_dsc, grid_main_row_dsc);
+  // The readout sits over the tabview, which takes the rest of the height; a
+  // column on the right spans both and holds the tiles that apply whichever
+  // tab is showing.
+  static lv_coord_t grid_panel_col_dsc[] = {LV_GRID_FR(1), (lv_coord_t)scale_w(90), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t grid_panel_row_dsc[] = {LV_GRID_CONTENT, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  lv_obj_set_grid_dsc_array(panel_cont, grid_panel_col_dsc, grid_panel_row_dsc);
+  lv_obj_set_grid_cell(extruder_temp.get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START, 0, 1);
+  lv_obj_set_grid_cell(tabview, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
+  lv_obj_set_grid_cell(right_col, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 2);
+  for (lv_obj_t *tab : {load_tab, extrude_tab}) {
+    lv_obj_set_style_pad_all(tab, 0, 0);
+  }
+  style_embedded_tabview(tabview);
 
-  // Keep the readout at the top of the main section; the action column owns
-  // the right edge for the full height of the panel.
-  lv_obj_set_grid_cell(extruder_temp.get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 2, LV_GRID_ALIGN_START, 0, 1);
-  ButtonContainer *all_tiles[] = {&spoolman_btn, &back_btn, &load_btn, &unload_btn, &cooldown_btn};
+  ButtonContainer *all_tiles[] = {&spoolman_btn, &load_btn, &unload_btn, &extrude_btn, &retract_btn,
+                                  &cooldown_btn, &back_btn};
   for (ButtonContainer *b : all_tiles) b->use_card();
 
-  // The three utility actions divide the right-hand column evenly.
-  lv_obj_set_grid_cell(right_col, LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 3);
+  // Spoolman, Cooldown and Back divide the right-hand column evenly.
   lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);
-  // Keep the utility tiles as a compact, screen-edge-aligned stack rather
-  // than centring their icons in the whole grid column.
-  lv_obj_set_flex_align(right_col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
   lv_obj_set_style_pad_row(right_col, 0, 0);
   for (ButtonContainer *b : {&spoolman_btn, &cooldown_btn, &back_btn}) {
-    lv_obj_set_width(b->get_container(), scale_w(90));
+    lv_obj_set_width(b->get_container(), LV_PCT(100));
     lv_obj_set_height(b->get_container(), 0);
     lv_obj_set_flex_grow(b->get_container(), 1);
   }
 
+  // Load / Unload: the pair side by side, the temperature presets beneath.
+  static lv_coord_t grid_load_row_dsc[] = {LV_GRID_FR(6), LV_GRID_FR(6), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t grid_load_col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  lv_obj_set_grid_dsc_array(load_cont, grid_load_col_dsc, grid_load_row_dsc);
   lv_obj_set_grid_cell(load_btn.get_container(), LV_GRID_ALIGN_STRETCH, 0, 1,
-                       LV_GRID_ALIGN_STRETCH, 1, 1);
+                       LV_GRID_ALIGN_STRETCH, 0, 1);
   lv_obj_set_grid_cell(unload_btn.get_container(), LV_GRID_ALIGN_STRETCH, 1, 1,
+                       LV_GRID_ALIGN_STRETCH, 0, 1);
+  lv_obj_set_grid_cell(load_temp_selector.get_container(), LV_GRID_ALIGN_STRETCH, 0, 2,
                        LV_GRID_ALIGN_STRETCH, 1, 1);
+
+  // Extrude / Retract: the pair stacked on the left, three selectors beside them.
+  static lv_coord_t grid_extrude_row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
+    LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t grid_extrude_col_dsc[] = {LV_GRID_FR(3), LV_GRID_FR(7), LV_GRID_TEMPLATE_LAST};
+  lv_obj_set_grid_dsc_array(extrude_cont, grid_extrude_col_dsc, grid_extrude_row_dsc);
+  lv_obj_set_grid_cell(extrude_col, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 0, 3);
+  lv_obj_set_flex_flow(extrude_col, LV_FLEX_FLOW_COLUMN);
+  for (ButtonContainer *b : {&extrude_btn, &retract_btn}) {
+    lv_obj_set_width(b->get_container(), LV_PCT(100));
+    lv_obj_set_height(b->get_container(), 0);
+    lv_obj_set_flex_grow(b->get_container(), 1);
+  }
+  Selector *mid[] = {&speed_selector, &length_selector, &extrude_temp_selector};
+  for (int r = 0; r < 3; r++) {
+    lv_obj_set_grid_cell(mid[r]->get_container(), LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, r, 1);
+    // Three selectors share the column, so a cell is shorter than a full key
+    // row plus the panel's padding: let the keys shrink into what it leaves.
+    lv_obj_set_style_min_height(mid[r]->get_selector(), 0, 0);
+    lv_obj_set_style_pad_bottom(mid[r]->get_container(), 0, 0);
+  }
+
   spoolman_btn.disable();  // state, not style: until moonraker says spoolman is there
 
-  lv_obj_set_grid_cell(temp_selector.get_container(), LV_GRID_ALIGN_STRETCH, 0, 2,
-                       LV_GRID_ALIGN_STRETCH, 2, 1);
-  lv_obj_set_style_min_height(temp_selector.get_selector(), 0, 0);
-  lv_obj_set_style_pad_bottom(temp_selector.get_container(), 0, 0);
-
-  ws.register_notify_update(this);    
+  ws.register_notify_update(this);
 }
 
 ExtruderPanel::~ExtruderPanel() {
@@ -163,6 +207,7 @@ ExtruderPanel::~ExtruderPanel() {
 }
 
 void ExtruderPanel::foreground() {
+  lv_tabview_set_act(tabview, lv_obj_get_index(load_tab), LV_ANIM_OFF);
   lv_obj_move_foreground(panel_cont);
 }
 
@@ -181,9 +226,9 @@ void ExtruderPanel::consume(json& j) {
     int target = target_value.template get<int>();
     extruder_temp.update_target(target);
   }
-  
+
   auto temp_value = j["/params/0/extruder/temperature"_json_pointer];
-  if (!temp_value.is_null()) {   
+  if (!temp_value.is_null()) {
     int value = temp_value.template get<int>();
     extruder_temp.update_value(value);
   }
@@ -203,12 +248,14 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
     uint32_t idx = lv_btnmatrix_get_selected_btn(selector);
     const char * v = lv_btnmatrix_get_btn_text(selector, idx);
 
-    if (selector == temp_selector.get_selector()) {
-      temp_selector.set_selected_idx(idx);
+    for (Selector *sel : {&load_temp_selector, &speed_selector, &length_selector,
+                          &extrude_temp_selector}) {
+      if (selector == sel->get_selector()) {
+        sel->set_selected_idx(idx);
+      }
     }
 
-    LOG_TRACE("selector {} {} {}, temp {}", fmt::ptr(selector), idx, v,
-		  fmt::ptr(temp_selector.get_selector()));
+    LOG_TRACE("selector {} {} {}", fmt::ptr(selector), idx, v);
     
   } else if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
     lv_obj_t *btn = lv_event_get_current_target(e);
@@ -218,15 +265,35 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
     }
 
     Config *conf = Config::get_instance();
+    auto selected = [](Selector &sel) {
+      return lv_btnmatrix_get_btn_text(sel.get_selector(), sel.get_selected_idx());
+    };
+
+    if (btn == extrude_btn.get_container()) {
+      if (!extrude_btn.start_pressed_transition(2000)) {
+        return;
+      }
+      const std::string extrude_macro = conf->get<std::string>("/default_macros/extrude");
+      ws.gcode_script(fmt::format(extrude_macro, selected(extrude_temp_selector),
+                                  selected(length_selector), std::stoi(selected(speed_selector)) * 60));
+    }
+
+    if (btn == retract_btn.get_container()) {
+      if (!retract_btn.start_pressed_transition(2000)) {
+        return;
+      }
+      const std::string retract_macro = conf->get<std::string>("/default_macros/retract");
+      ws.gcode_script(fmt::format(retract_macro, selected(extrude_temp_selector),
+                                  selected(length_selector), std::stoi(selected(speed_selector)) * 60));
+    }
+
     if (btn == unload_btn.get_container()) {
       if (!unload_btn.start_pressed_transition(2000)) {
         return;
       }
       const std::string unload_filament_macro = conf->get<std::string>("/default_macros/unload_filament");
 
-      const char *temp = lv_btnmatrix_get_btn_text(temp_selector.get_selector(),
-                                                   temp_selector.get_selected_idx());
-      ws.gcode_script(fmt::format(unload_filament_macro, temp));
+      ws.gcode_script(fmt::format(unload_filament_macro, selected(load_temp_selector)));
     }
 
     if (btn == load_btn.get_container()) {
@@ -235,9 +302,12 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       }
       const std::string load_filament_macro = conf->get<std::string>("/default_macros/load_filament");
 
-      const char *temp = lv_btnmatrix_get_btn_text(temp_selector.get_selector(),
-                                                   temp_selector.get_selected_idx());
-      ws.gcode_script(fmt::format(load_filament_macro, temp));
+      ws.gcode_script(fmt::format(load_filament_macro, selected(load_temp_selector)));
+    }
+
+    // disable() clears the clickable flag, so a tap cannot arrive while it is off
+    if (btn == spoolman_btn.get_container()) {
+      spoolman_panel.foreground();
     }
 
     if (btn == cooldown_btn.get_container()) {
@@ -246,11 +316,6 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       }
       const std::string cooldown_macro = conf->get<std::string>("/default_macros/cooldown");
       ws.gcode_script(cooldown_macro);
-    }
-
-    // disable() clears the clickable flag, so a tap cannot arrive while it is off
-    if (btn == spoolman_btn.get_container()) {
-      spoolman_panel.foreground();
     }
   }
 }

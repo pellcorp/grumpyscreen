@@ -5,9 +5,9 @@
 #include "notify_consumer.h"
 #include "spoolman_panel.h"
 #include "selector.h"
-#include "button_container.h"
 #include "sensor_container.h"
 #include "numpad.h"
+#include "button_container.h"
 #include "lvgl/lvgl.h"
 #include <string>
 #include <vector>
@@ -35,13 +35,35 @@ class ExtruderPanel : public NotifyConsumer {
   std::vector<std::string> temp_options;
   std::vector<const char*> temp_option_map;
   uint32_t temp_default_idx;
+  std::vector<std::string> length_options;
+  std::vector<const char*> length_option_map;
+  uint32_t length_default_idx;
+  std::vector<std::string> speed_options;
+  std::vector<const char*> speed_option_map;
+  uint32_t speed_default_idx;
+
+  // the readout is the only sign the load / extrude macros are heating and running
   SensorContainer extruder_temp;
-  Selector temp_selector;
+
+  // Load / Unload and Extrude / Retract each get a tab; the tiles that apply
+  // to both keep a column to the right of the tabview.
+  lv_obj_t *tabview;
+  lv_obj_t *load_tab;
+  lv_obj_t *extrude_tab;
+  lv_obj_t *load_cont;
+  lv_obj_t *extrude_cont;
+  lv_obj_t *extrude_col;  // the Extrude / Retract tiles, stacked
+
+  Selector load_temp_selector;
   ButtonContainer load_btn;
   ButtonContainer unload_btn;
-  // the right-hand tiles share a column of their own, spanning every row, so
-  // the header can stay the height of the readout while they still get a full
-  // tile's worth of room each. Declared before them: it is their parent.
+
+  Selector speed_selector;
+  Selector length_selector;
+  Selector extrude_temp_selector;
+  ButtonContainer extrude_btn;
+  ButtonContainer retract_btn;
+
   lv_obj_t *right_col;
   ButtonContainer spoolman_btn;
   ButtonContainer cooldown_btn;
