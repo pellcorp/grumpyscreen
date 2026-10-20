@@ -250,7 +250,6 @@ void MacroPanel::open_popup(size_t macro_index, const std::string &title) {
       lv_textarea_set_text(parameter.control, std::to_string(parameter.minimum).c_str());
       lv_textarea_set_placeholder_text(parameter.control,
           (std::to_string(parameter.minimum) + " - " + std::to_string(parameter.maximum)).c_str());
-      lv_obj_set_height(parameter.control, touch_h());
       lv_obj_set_flex_grow(parameter.control, 1);
       lv_obj_add_event_cb(parameter.control, &MacroPanel::handle_range_input, LV_EVENT_CLICKED, this);
     }
@@ -263,8 +262,10 @@ void MacroPanel::open_popup(size_t macro_index, const std::string &title) {
   lv_obj_set_flex_align(actions, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_t *cancel = create_text_btn(actions, "Cancel", &MacroPanel::handle_popup_action, this);
   lv_obj_set_flex_grow(cancel, 1);
+  lv_obj_set_height(cancel, LV_PCT(100));
   lv_obj_t *run = create_text_btn(actions, "Run", &MacroPanel::handle_popup_action, this);
   lv_obj_set_flex_grow(run, 1);
+  lv_obj_set_height(run, LV_PCT(100));
   lv_obj_set_user_data(cancel, reinterpret_cast<void *>(0));
   lv_obj_set_user_data(run, reinterpret_cast<void *>(1));
 
@@ -278,6 +279,24 @@ void MacroPanel::open_popup(size_t macro_index, const std::string &title) {
       - 2 * gap());
   lv_obj_set_flex_grow(form, 0);
   lv_obj_set_height(form, form_height);
+  const lv_coord_t row_height = macro.parameters.empty() ? 0 :
+      (form_height - gap() * static_cast<lv_coord_t>(macro.parameters.size() - 1))
+      / static_cast<lv_coord_t>(macro.parameters.size());
+  // Dropdowns have a compact natural height while textareas previously used
+  // touch_h(), which made the two control types look mismatched.  Use one
+  // middle ground, reducing it only if a five-field form needs the space.
+  const lv_coord_t field_height = std::max<lv_coord_t>(0, std::min(scale_r(34), row_height));
+  const lv_font_t *field_font = scale_font(16);
+  for (Parameter &parameter : macro.parameters) {
+    lv_obj_set_height(parameter.control, field_height);
+    lv_obj_set_style_text_font(parameter.control, field_font, 0);
+    if (parameter.type == Parameter::Type::IntegerRange) {
+      const lv_coord_t padding = std::max<lv_coord_t>(0,
+          (field_height - lv_font_get_line_height(field_font)) / 2
+          - lv_obj_get_style_border_width(parameter.control, LV_PART_MAIN));
+      lv_obj_set_style_pad_ver(parameter.control, padding, 0);
+    }
+  }
   lv_obj_update_layout(box);
 
   // Reuse the same keypad used by heater targets rather than LVGL's generic
