@@ -4,6 +4,11 @@
 one place its images are. A panel that builds itself from those two follows the
 whole application when a token changes, at every resolution.
 
+The *structure* of the look (sizes, radii, which looks are used) is not
+configurable. The *palette* is: every `Colour` role can be set from `[theme]`
+as `<role>_colour: 0xRRGGBB` (see `grumpyscreen.cfg` for the list), on top of
+the `primary_colour` and `secondary_colour` accents.
+
 `grumpyscreen.cfg` is the one place the palette is spelled out. Every key is
 required and the code carries no colour defaults: a deployment ships a complete
 `grumpyscreen.cfg` and customises through its override file, so a missing or
@@ -26,55 +31,24 @@ text_colour: 0x212121
 
 When adding a `Colour`, add its `[theme]` key to `grumpyscreen.cfg` and to
 `col()`, and never reach for `lv_palette_*` in a panel: a role that is not in
-`Colour` cannot be themed. The modern look (see below) no longer has its own
-palette; it wears these values until it is finished and given its own.
+`Colour` cannot be themed.
 
 Custom icons: replace the `.c` bitmaps in `assets/material` (and
 `assets/material_46` for the small-screen build) and rebuild. The symbol names
 are what `icons.h` declares, so keep them.
 
-## Two looks, one switch
+## The look
 
-`Theme::modern()` picks between them. It returns `false`: **classic ships**,
-and modern is compiled in but not selected. It is deliberately not a config
-key -- there is no `[theme]` setting for it and it is not a user choice. It is
-kept in the tree so the second look can be finished and released later without
-being written again. Flip that one function to see it.
+A panel is a grouping, not a box: it is the page colour with no outline, tiles
+are bare icon-and-label, list rows are separated by a rule, and the only
+outlined things are the controls -- a card, a text entry, a table, the tray
+round a set of keys. (An alternative "modern" look with outlined surfaces once
+lived behind a switch; it was never released and has been removed. It is in the
+git history before the commit that removed it.)
 
-*Classic* is what grumpyscreen has always worn. A panel is a grouping, not a
-box: it is the page colour with no outline, tiles are bare icon-and-label, list
-rows are separated by a rule, and the only outlined things are the controls --
-a card, a text entry, a table, the tray round a set of keys.
-
-*Modern* has surfaces. A panel is an outlined box a shade off the page, a tile
-is a card that darkens under a finger, a list row is a card, a plain button and
-the nav bar's edge get a hairline, and corners are rounder.
-
-Everything that differs lives behind `modern()`, and almost all of it is in
-`theme.cpp` -- the palette, the three radii, and which of `panel` / `btn` /
-`key_tray` / `row_card` / `table` carry a border. Panels should not test
-`modern()` themselves; they ask for `frame_w()`, which is `border_w()` in
-modern and nothing in classic, and let the shared styles do the rest.
-
-Three differences are structural and cannot be a token, so they are the only
-`modern()` tests outside `theme.cpp`:
-
-- `ButtonContainer::use_card()` adds the card styles in modern and is exactly
-  `use_plain()` in classic, so a panel calls it either way.
-- `SensorContainer` draws the sensor's colour as a floating bar in modern and
-  as the row's own left border in classic. An object has one border: classic
-  spends it on the stripe, which is why those rows have no frame in that look.
-- `MmuPanel`'s lane tiles take the card's surface in modern and the button grey
-  in classic.
-
-**Exactly one box round a thing.** This is the rule the two looks are most
-easily broken by. A set of choices is boxed once: in classic that box is
-`key_tray`, in modern the `panel` the selector already sits in, and the tray
-goes invisible there. Restoring a border without checking what already draws
-one gives a box inside a box. The tray's *padding* is the same in both looks
-even so, because it is what holds the keys off the edge of the group and so
-decides how big a key is -- classic spends a pixel of that inset on its
-hairline, modern spends the same pixel on padding.
+**Exactly one box round a thing.** A set of choices is boxed once, by
+`key_tray`. Restoring a border without checking what already draws one gives a
+box inside a box.
 
 ## For panel authors
 
@@ -143,7 +117,7 @@ not STRETCH an item vertically into one of those, because lv_grid measures the
 row from the item's current height and the two chase each other upward.
 
 **Tiles.** An icon-and-label action is a `ButtonContainer` wearing
-`use_card()`. The icon then shrinks to fit whatever cell the tile lands in (a
+`use_plain()`. The icon then shrinks to fit whatever cell the tile lands in (a
 tile is never clipped, and no panel picks icon sizes), so a five-row homing
 grid and a four-row extruder column both work at 272px. Back is a tile like
 any other: put it in the grid where there is a grid, or call

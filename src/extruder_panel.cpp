@@ -151,7 +151,7 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 
   ButtonContainer *all_tiles[] = {&spoolman_btn, &load_btn, &unload_btn, &extrude_btn, &retract_btn,
                                   &cooldown_btn, &back_btn};
-  for (ButtonContainer *b : all_tiles) b->use_card();
+  for (ButtonContainer *b : all_tiles) b->use_plain();
 
   // Spoolman, Cooldown and Back divide the right-hand column evenly.
   lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);

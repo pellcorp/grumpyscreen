@@ -78,7 +78,7 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   }
 
   // the clear tile is a square icon-only tile the height of the entry line
-  delete_btn.use_card();
+  delete_btn.use_plain();
   delete_btn.hide_label();
   lv_obj_set_size(delete_btn.get_container(), scale_r(34), scale_r(34));
 

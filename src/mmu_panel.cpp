@@ -48,12 +48,9 @@ static const size_t CARDS_PER_ROW = 4;
 // drawn in a fixed grey instead of a darkened shade of itself
 static constexpr int DARK_COLOUR = 60;
 
-// What a tappable box on this panel is filled with: the button grey in
-// classic, the panel surface in modern. The header and the lane tiles are the
-// same kind of thing, so they ask the same question -- the header's resting
-// colour used to be written out separately and had drifted to SURFACE, which
-// in classic is the page and left it looking unfilled beside the lanes.
-static lv_color_t tile_bg() { return modern() ? col(SURFACE) : col(RAISED); }
+// What a tappable box on this panel is filled with. The header and the lane
+// tiles are the same kind of thing, so they ask the same question.
+static lv_color_t tile_bg() { return col(RAISED); }
 
 // What a card or tile calls a slot: its physical position, counted from 1 in
 // the order the backend reports the slots, and the tool(s) mapped to it --
@@ -563,9 +560,8 @@ void MmuPanel::create_edit_screen() {
                                           &MmuPanel::_handle_edit_action, this));
   edit_back_btn.reset(new ButtonContainer(action_row, Icons::BACK, "Back",
                                           &MmuPanel::_handle_edit_action, this));
-  // use_plain, not use_card: these sit inside the right-hand panel, and a set
-  // of controls gets one box round it, not a box each. The icon still takes
-  // the accent under a finger -- that comes with the tile, not with the card.
+  // these sit inside the right-hand panel, and a set of controls gets one box
+  // round it, not a box each.
   for (ButtonContainer *b : {edit_backup_btn.get(), edit_save_btn.get(), edit_back_btn.get()}) {
     b->use_plain();
     lv_obj_set_width(b->get_container(), 0);

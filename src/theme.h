@@ -16,41 +16,6 @@
 // first panel is built. Nothing here costs anything until a panel asks for it.
 namespace Theme {
 
-// --- which look ------------------------------------------------------------
-//
-// Two looks are compiled in. "Modern" is the one with surfaces: a panel is an
-// outlined box a shade off the page, a tile is a card, a list row is a card,
-// corners are rounder. "Classic" is what grumpyscreen has always worn: panels
-// and tiles are the page itself, rows are separated by a rule, and the only
-// boxes are the controls.
-//
-// Classic is what ships. Modern is not reachable from grumpyscreen.cfg on
-// purpose -- there is no [theme] key for it and it is not a user setting; it is
-// kept in the build so the look can be finished and released later without
-// having to be written again. Flip this one function to see it.
-//
-// Anything that differs between the two belongs behind modern(), and nearly
-// all of it is a colour, a radius or a border width in theme.cpp. Only three
-// differences are structural enough to need a test elsewhere:
-// ButtonContainer::use_card, SensorContainer's colour stripe and MmuPanel's
-// lane tiles. docs/theming.md says why each one cannot be a token.
-bool modern();
-
-// The hairline round a box that only the modern look draws -- a panel, a
-// button, the rule beside the nav bar. border_w() there, nothing in classic.
-// Ask for this instead of testing modern() at the call site: a widget should
-// say "frame me", not "which theme is this".
-//
-// Not to be confused with border_w(), the width of a hairline, which both
-// looks draw round the things that are outlined in either: cards, entries,
-// tables, key trays.
-int frame_w();
-
-// --- palette --------------------------------------------------------------
-//
-// Roles, not colour names: a panel asks for SURFACE, never "grey 4", so a
-// restyle is an edit to col() and not an inversion of every call site. The
-// values are the greys grumpyscreen has always worn.
 enum Colour {
   BG,          // the page behind everything, and full-screen overlays
   SURFACE,     // cards, panels, popout boxes: the page colour, so they read flat

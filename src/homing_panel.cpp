@@ -42,7 +42,7 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   ButtonContainer *tiles[] = {&home_all_btn, &y_up_btn, &home_xy_btn, &z_up_btn, &emergency_btn,
                               &x_down_btn, &y_down_btn, &x_up_btn, &z_down_btn, &motoroff_btn};
   for (int i = 0; i < 10; i++) {
-    tiles[i]->use_card();
+    tiles[i]->use_plain();
     lv_obj_set_grid_cell(tiles[i]->get_container(), LV_GRID_ALIGN_STRETCH, i % 5, 1, LV_GRID_ALIGN_STRETCH, i / 5, 1);
   }
 
@@ -55,7 +55,7 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   // not it is wearing a card.
   distance_selector.seat_at_row_bottom();
   lv_obj_set_grid_cell(distance_selector.get_container(), LV_GRID_ALIGN_STRETCH, 0, 4, LV_GRID_ALIGN_END, 2, 1);
-  back_btn.use_card();
+  back_btn.use_plain();
   lv_obj_set_grid_cell(back_btn.get_container(), LV_GRID_ALIGN_STRETCH, 4, 1, LV_GRID_ALIGN_END, 2, 1);
   back_btn.match_height(homing_cont, distance_selector.get_container());
 

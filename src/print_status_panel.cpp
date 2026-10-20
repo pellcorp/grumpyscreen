@@ -104,7 +104,7 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   // all seven actions on one row, Back on the far right, sharing the width
   for (ButtonContainer *b : {&finetune_btn, &objects_btn, &pause_btn, &resume_btn,
                              &cancel_btn, &emergency_btn, &back_btn}) {
-    b->use_card();
+    b->use_plain();
     lv_obj_set_height(b->get_container(), LV_PCT(100));
     lv_obj_set_flex_grow(b->get_container(), 1);
   }

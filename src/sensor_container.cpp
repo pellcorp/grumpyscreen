@@ -21,7 +21,6 @@ SensorContainer::SensorContainer(KWebSocketClient &c,
 				 lv_chart_series_t *chart_series)
   : ws(c)
   , sensor_cont(lv_obj_create(parent))
-  , accent(modern() ? lv_obj_create(sensor_cont) : NULL)
   , sensor_img(lv_img_create(sensor_cont))
   , sensor_label(lv_label_create(sensor_cont))
   , value_label(lv_label_create(sensor_cont))
@@ -52,32 +51,11 @@ SensorContainer::SensorContainer(KWebSocketClient &c,
     const lv_coord_t pad_v = gap() / 2;
     lv_obj_set_style_pad_ver(sensor_cont, pad_v, 0);
 
-    // The sensor's colour goes down the row's left edge either way; what
-    // differs is whether it is the row's border or a bar of its own.
-    //
-    // An object has exactly one border. Classic spends it on the stripe, which
-    // is why the row has no frame in that look. Modern wants the frame, so the
-    // stripe becomes a floating child instead: placed at the content's left
-    // minus the padding, stretched by the vertical padding to span the whole
-    // card, and clipped to the card's corners.
-    if (modern()) {
-      const lv_coord_t bar = gap() * 2 / 3;
-      lv_obj_set_style_pad_left(sensor_cont, 2 * bar, 0);
-      lv_obj_set_style_clip_corner(sensor_cont, true, 0);
-      lv_obj_add_style(accent, &styles().row, 0);
-      lv_obj_add_flag(accent, LV_OBJ_FLAG_FLOATING);
-      lv_obj_clear_flag(accent, LV_OBJ_FLAG_CLICKABLE);
-      lv_obj_set_size(accent, bar, LV_PCT(100));
-      lv_obj_set_pos(accent, -2 * bar, 0);
-      lv_obj_set_style_transform_height(accent, 2 * pad_v, 0);
-      lv_obj_set_style_bg_color(accent, color, 0);
-      lv_obj_set_style_bg_opa(accent, LV_OPA_COVER, 0);
-    } else {
-      lv_obj_set_style_border_side(sensor_cont, LV_BORDER_SIDE_LEFT, 0);
-      lv_obj_set_style_border_width(sensor_cont, scale_r(5), 0);
-      lv_obj_set_style_border_color(sensor_cont, color, 0);
-      lv_obj_set_style_pad_left(sensor_cont, gap(), 0);
-    }
+    // The sensor's colour goes down the row's left edge as its border.
+    lv_obj_set_style_border_side(sensor_cont, LV_BORDER_SIDE_LEFT, 0);
+    lv_obj_set_style_border_width(sensor_cont, scale_r(5), 0);
+    lv_obj_set_style_border_color(sensor_cont, color, 0);
+    lv_obj_set_style_pad_left(sensor_cont, gap(), 0);
 
     // The icon is drawn at a shade under three fifths of the bitmap, the size
     // these rows have always shown, and it stays there: fitting it to the row

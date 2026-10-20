@@ -120,7 +120,7 @@ MacroPanel::MacroPanel(lv_obj_t *parent, std::function<void(const std::string &)
 
   for (size_t i = 0; i < buttons.size(); i++) {
     lv_obj_t *tile = buttons[i]->get_container();
-    buttons[i]->use_card();
+    buttons[i]->use_plain();
     lv_obj_set_height(tile, scale_r(92));
     lv_obj_set_grid_cell(tile, LV_GRID_ALIGN_STRETCH, i % cols, 1,
                          LV_GRID_ALIGN_STRETCH, i / cols, 1);

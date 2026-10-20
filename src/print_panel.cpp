@@ -79,7 +79,7 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
 
   ButtonContainer *actions[] = {&status_btn, &print_btn, &back_btn};
   for (int c = 0; c < 3; c++) {
-    actions[c]->use_card();
+    actions[c]->use_plain();
     lv_obj_set_grid_cell(actions[c]->get_container(), LV_GRID_ALIGN_STRETCH, c, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
   }
 

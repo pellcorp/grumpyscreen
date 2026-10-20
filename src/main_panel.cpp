@@ -214,13 +214,6 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
 void MainPanel::create_panel() {
   lv_obj_t *tv_content = lv_tabview_get_content(tabview);
   lv_obj_clear_flag(tv_content, LV_OBJ_FLAG_SCROLLABLE);
-  // Modern fences the nav bar off from the content with a hairline; classic
-  // has never had one. It goes on the content's left edge rather than the
-  // button matrix's right, because the tabview draws over the matrix's own
-  // border.
-  lv_obj_set_style_border_width(tv_content, frame_w(), 0);
-  lv_obj_set_style_border_color(tv_content, col(BORDER), 0);
-  lv_obj_set_style_border_side(tv_content, LV_BORDER_SIDE_LEFT, 0);
   lv_obj_add_event_cb(lv_tabview_get_content(tabview), scroll_begin_event, LV_EVENT_SCROLL_BEGIN, NULL);
   
   lv_obj_t * tab_btns = lv_tabview_get_tab_btns(tabview);
@@ -336,7 +329,7 @@ void MainPanel::create_main(lv_obj_t * parent) {
   // the six actions are tappable tiles, the same look as an MMU slot card
   for (ButtonContainer *b : {&homing_btn, &extrude_btn, &action_btn,
                              &led_btn, &print_btn, &emergency_btn}) {
-    b->use_card();
+    b->use_plain();
   }
 
   lv_obj_set_grid_cell(homing_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 0, 1);

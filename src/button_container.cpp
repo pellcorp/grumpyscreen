@@ -29,7 +29,7 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
   , prompt_buttons(buttons)
 {
   // no local padding here: a local style outranks the shared card/tile styles
-  // use_card() adds, and would flatten their padding to nothing
+  // use_plain() adds, and would flatten their padding to nothing
   lv_obj_add_style(btn_cont, &styles().row, 0);
   lv_obj_set_size(btn_cont, scale_w(90), LV_SIZE_CONTENT);
 
@@ -69,14 +69,6 @@ lv_obj_t *ButtonContainer::get_container() {
   return btn_cont;
 }
 
-void ButtonContainer::use_card() {
-  if (modern()) {
-    lv_obj_add_style(btn_cont, &styles().card, 0);
-    lv_obj_add_style(btn_cont, &styles().card_pressed, LV_STATE_PRESSED);
-  }
-  use_plain();
-}
-
 // An icon-and-label action: no box of its own, the icon turning the accent
 // colour under a finger is the whole feedback, which is how every tile in
 // grumpyscreen has always looked.
@@ -105,7 +97,7 @@ void ButtonContainer::match_height(lv_obj_t *root, lv_obj_t *other) {
 }
 
 void ButtonContainer::float_bottom_right() {
-  use_card();
+  use_plain();
   lv_obj_add_flag(btn_cont, LV_OBJ_FLAG_FLOATING);
   // a fixed square, wide enough for a one-word label on one line, so Back and
   // Refresh are the same shape whatever their text and the caller can place

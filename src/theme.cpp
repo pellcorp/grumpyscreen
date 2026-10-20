@@ -23,11 +23,6 @@ lv_color_t darken_filter_cb(const lv_color_filter_dsc_t *f, lv_color_t c, lv_opa
 
 }  // namespace
 
-// Classic ships; modern is compiled in but not selected. See theme.h.
-bool modern() { return false; }
-
-int frame_w() { return modern() ? border_w() : 0; }
-
 // grumpyscreen.cfg is the one place the palette is spelled out, and every
 // deployment ships a complete one, so a key that is missing or unreadable is a
 // broken config, not something to paper over with a second copy of the colours
@@ -114,13 +109,9 @@ int gap() {
 // 480x272 baseline (dpi 90): a button is rounder than the box around it.
 int border_w() { return 1; }  // a hairline stays a hairline at any size
 
-// Modern rounds the whole UI off one base, two pixels apart, so a button is
-// tighter than the card round it and a panel softer. Classic keeps the radii
-// LVGL's own theme derives from the dpi, where a button is the rounder of the
-// two and a panel no softer than a card.
-int radius_sm() { return scale_r(modern() ? 4 : 7); }  // buttons, keys, tiles, swatches
-int radius_md() { return scale_r(modern() ? 6 : 5); }  // cards, entries, key trays
-int radius_lg() { return modern() ? scale_r(8) : radius_md(); }  // panels, popout boxes
+int radius_sm() { return scale_r(7); }  // buttons, keys, tiles, swatches
+int radius_md() { return scale_r(5); }  // cards, entries, key trays
+int radius_lg() { return radius_md(); }  // panels, popout boxes
 
 // a popout sits one gap in from every screen edge and pads its content by a
 // gap and a half, so the whole thing follows gap()
@@ -146,14 +137,8 @@ Styles &styles() {
   lv_style_set_radius(&s.btn, radius_sm());
   lv_style_set_bg_color(&s.btn, col(RAISED));
   lv_style_set_bg_opa(&s.btn, LV_OPA_COVER);
-  // Modern outlines its boxes, a button included -- Spoolman especially, which
-  // stands in for an icon tile rather than reading as a plain button. Classic
-  // leaves the fill to say where the button is.
-  //
-  // BORDER is tuned to sit against a surface, and in modern it is the same grey
-  // as RAISED, so a button drawn with it frames itself in its own fill and the
-  // hairline vanishes. A button asks for the lighter one instead.
-  lv_style_set_border_width(&s.btn, frame_w());
+  // The fill says where the button is; it has no outline.
+  lv_style_set_border_width(&s.btn, 0);
   lv_style_set_border_color(&s.btn, col(BORDER_DIM));
 
   lv_style_init(&s.card);
@@ -189,12 +174,12 @@ Styles &styles() {
   // A list row (a fan slider, a temperature readout): no box, just a hairline
   // rule under it, which is what has always separated one row from the next.
   lv_style_init(&s.row_card);
-  lv_style_set_radius(&s.row_card, modern() ? radius_md() : 0);
+  lv_style_set_radius(&s.row_card, 0);
   lv_style_set_bg_color(&s.row_card, col(SURFACE));
   lv_style_set_bg_opa(&s.row_card, LV_OPA_COVER);
   lv_style_set_border_width(&s.row_card, border_w());
   lv_style_set_border_color(&s.row_card, col(BORDER));
-  lv_style_set_border_side(&s.row_card, modern() ? LV_BORDER_SIDE_FULL : LV_BORDER_SIDE_BOTTOM);
+  lv_style_set_border_side(&s.row_card, LV_BORDER_SIDE_BOTTOM);
   lv_style_set_pad_all(&s.row_card, gap());
   lv_style_set_pad_row(&s.row_card, 0);
 
@@ -205,7 +190,7 @@ Styles &styles() {
   lv_style_set_radius(&s.panel, radius_lg());
   lv_style_set_bg_color(&s.panel, col(SURFACE));
   lv_style_set_bg_opa(&s.panel, LV_OPA_COVER);
-  lv_style_set_border_width(&s.panel, frame_w());
+  lv_style_set_border_width(&s.panel, 0);
   lv_style_set_border_color(&s.panel, col(BORDER));
   lv_style_set_pad_all(&s.panel, gap());
 
@@ -295,24 +280,16 @@ Styles &styles() {
   lv_style_set_pad_all(&s.key_body, 0);
   lv_style_set_pad_gap(&s.key_body, scale_r(4));
 
-  // A set of choices gets exactly one box. In classic the tray is that box: a
-  // hairline round the set, never round each key. In modern the panel the
-  // selector already sits in carries the border, so the tray goes invisible --
-  // otherwise the group would be outlined twice, once inside the other.
-  //
-  // The tray is also what holds the keys off the edge of the group, so it is
-  // what decides how big a key is, and skinning it must not resize anything.
-  // The arithmetic below says so: whatever the tray does not spend on ink it
-  // spends on padding. A border eats content space and padding does not, so
-  // this is what keeps a key the same size in both looks.
-  const int tray_border = modern() ? 0 : border_w();
+  // A set of choices gets exactly one box: the tray is it, a hairline round the
+  // set, never round each key. The tray also holds the keys off the edge of the
+  // group, so it is what decides how big a key is.
   lv_style_init(&s.key_tray);
-  lv_style_set_bg_opa(&s.key_tray, modern() ? LV_OPA_TRANSP : LV_OPA_COVER);
+  lv_style_set_bg_opa(&s.key_tray, LV_OPA_COVER);
   lv_style_set_bg_color(&s.key_tray, col(SURFACE));
   lv_style_set_radius(&s.key_tray, radius_md());
-  lv_style_set_border_width(&s.key_tray, tray_border);
+  lv_style_set_border_width(&s.key_tray, border_w());
   lv_style_set_border_color(&s.key_tray, col(BORDER));
-  lv_style_set_pad_all(&s.key_tray, scale_r(4) + border_w() - tray_border);
+  lv_style_set_pad_all(&s.key_tray, scale_r(4));
   lv_style_set_pad_gap(&s.key_tray, scale_r(4));
 
   lv_style_init(&s.key);
@@ -348,7 +325,7 @@ Styles &styles() {
 
   // a list is square-cornered and outlined, so its cells meet the edge
   lv_style_init(&s.table);
-  lv_style_set_radius(&s.table, modern() ? radius_lg() : 0);
+  lv_style_set_radius(&s.table, 0);
   lv_style_set_bg_color(&s.table, col(SURFACE));
   lv_style_set_bg_opa(&s.table, LV_OPA_COVER);
   lv_style_set_border_width(&s.table, border_w());

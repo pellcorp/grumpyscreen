@@ -55,7 +55,7 @@ FineTunePanel::FineTunePanel(KWebSocketClient &websocket_client, std::mutex &l)
   for (Selector *s : {&multiplier_selector, &step_selector}) s->seat_at_row_bottom();
   lv_obj_set_grid_cell(multiplier_selector.get_container(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_END, 4, 1);
   lv_obj_set_grid_cell(step_selector.get_container(), LV_GRID_ALIGN_STRETCH, 1, 2, LV_GRID_ALIGN_END, 4, 1);
-  back_btn.use_card();
+  back_btn.use_plain();
   lv_obj_set_grid_cell(back_btn.get_container(), LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_END, 4, 1);
   back_btn.match_height(panel_cont, multiplier_selector.get_container());
 

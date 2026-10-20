@@ -93,7 +93,7 @@ static void layout_tiles(lv_obj_t *cont, const std::vector<ButtonContainer *> &t
   lv_obj_set_grid_dsc_array(cont, grid_col_dsc, grid_row_dsc);
 
   for (size_t i = 0; i < tiles.size(); i++) {
-    tiles[i]->use_card();
+    tiles[i]->use_plain();
     lv_obj_set_height(tiles[i]->get_container(), Theme::scale_r(92));
     lv_obj_set_grid_cell(tiles[i]->get_container(), LV_GRID_ALIGN_STRETCH, i % cols, 1,
                          LV_GRID_ALIGN_STRETCH, i / cols, 1);

@@ -20,10 +20,6 @@ class ButtonContainer {
 
   lv_obj_t *get_container();
   lv_obj_t *get_button();
-  // Lay the tile out and, in the modern look, wear the shared card: a tappable
-  // box a shade off the page that darkens under a finger. In classic there is
-  // no box and this is exactly use_plain(), so a panel can call it either way.
-  void use_card();
   // Stand as tall as another control sharing this tile's row. The row is
   // content-sized in the panels that need this, so stretching into it would be
   // circular -- it is deriving its height from us. Measuring settles it, which

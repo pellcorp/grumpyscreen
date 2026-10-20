@@ -66,7 +66,7 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
 {
   // icon-only square tiles a finger tall: the table gets the rest of the screen
   for (ButtonContainer *b : {&reload_btn, &back_btn}) {
-    b->use_card();
+    b->use_plain();
     b->hide_label();
     lv_obj_set_size(b->get_container(), touch_h(), touch_h());
   }

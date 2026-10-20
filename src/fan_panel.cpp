@@ -26,7 +26,7 @@ FanPanel::FanPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   lv_obj_set_size(side_cont, scale_w(84), lv_pct(100));
   lv_obj_set_flex_flow(side_cont, LV_FLEX_FLOW_COLUMN);
   for (ButtonContainer *b : {&all_on_btn, &all_off_btn, &back_btn}) {
-    b->use_card();
+    b->use_plain();
     lv_obj_set_width(b->get_container(), lv_pct(100));
     lv_obj_set_flex_grow(b->get_container(), 1);  // the three share the column
   }

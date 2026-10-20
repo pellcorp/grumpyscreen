@@ -64,7 +64,7 @@ void ToolMapPanel::create() {
   back_btn = std::make_unique<ButtonContainer>(controls, Icons::BACK, "Back",
                                                &ToolMapPanel::_handle_action, this);
   for (ButtonContainer *b : {back_btn.get(), print_btn.get()}) {
-    b->use_card();
+    b->use_plain();
     b->hide_label();
     lv_obj_set_size(b->get_container(), touch_h(), touch_h());
   }
