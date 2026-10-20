@@ -22,6 +22,9 @@ class Numpad {
   void background();
   // cover the parent from x (parent-content coordinates) to its right edge
   void cover_from(lv_coord_t x);
+  // A square keypad anchored to the parent's right edge.  This leaves the
+  // left side of a popup visible while a value is being entered.
+  void cover_square_right();
   // mark obj checked while the numpad is open for it; NULL clears
   void set_highlight_target(lv_obj_t *obj);
   // forget obj if it is the current target, before it is deleted

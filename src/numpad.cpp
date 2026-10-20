@@ -140,6 +140,20 @@ void Numpad::cover_from(lv_coord_t x) {
                   lv_obj_get_height(parent));
 }
 
+void Numpad::cover_square_right() {
+  lv_obj_t *parent = lv_obj_get_parent(edit_cont);
+  const lv_coord_t left = lv_obj_get_style_pad_left(parent, 0);
+  const lv_coord_t right = lv_obj_get_style_pad_right(parent, 0);
+  const lv_coord_t top = lv_obj_get_style_pad_top(parent, 0);
+  const lv_coord_t bottom = lv_obj_get_style_pad_bottom(parent, 0);
+  const lv_coord_t available_w = lv_obj_get_width(parent) - left - right;
+  const lv_coord_t available_h = lv_obj_get_height(parent) - top - bottom;
+  const lv_coord_t side = std::max<lv_coord_t>(0, std::min(available_w, available_h));
+  lv_obj_set_align(edit_cont, LV_ALIGN_DEFAULT);
+  lv_obj_set_pos(edit_cont, left + available_w - side, top + (available_h - side) / 2);
+  lv_obj_set_size(edit_cont, side, side);
+}
+
 void Numpad::set_highlight_target(lv_obj_t *obj) {
   if (highlight_target != NULL) {
     lv_obj_clear_state(highlight_target, LV_STATE_CHECKED);
