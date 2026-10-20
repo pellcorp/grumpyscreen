@@ -1,8 +1,10 @@
 #include "theme.h"
 #include <fmt/core.h>
 #include "config.h"
+#include "logger.h"
 
 #include <algorithm>
+#include <iterator>
 #include <cstdlib>
 
 namespace Theme {
@@ -26,40 +28,53 @@ bool modern() { return false; }
 
 int frame_w() { return modern() ? border_w() : 0; }
 
-lv_color_t cfg_col(const char *key, lv_color_t def) {
+// grumpyscreen.cfg is the one place the palette is spelled out, and every
+// deployment ships a complete one, so a key that is missing or unreadable is a
+// broken config, not something to paper over with a second copy of the colours
+// here. It is reported once and drawn magenta so it cannot be missed.
+lv_color_t cfg_col(const char *key) {
   const auto s = Config::get_instance()->get<std::string>(std::string("/theme/") + key);
-  if (s.empty()) return def;
   char *end = NULL;
   const unsigned long v = std::strtoul(s.c_str(), &end, 16);
-  return (end == s.c_str() || *end != '\0') ? def : lv_color_hex(v);
+  if (s.empty() || end == s.c_str() || *end != '\0') {
+    LOG_ERROR("[theme] {}: '{}' is not a hex colour like 0x2196F3", key, s);
+    return lv_color_hex(0xFF00FF);
+  }
+  return lv_color_hex(v);
+}
+
+namespace {
+lv_color_t cache[COLOUR_COUNT];
+bool ready = false;
+}  // namespace
+
+void set_palette(const lv_color_t (&palette)[COLOUR_COUNT]) {
+  std::copy(std::begin(palette), std::end(palette), cache);
+  ready = true;
 }
 
 lv_color_t col(Colour c) {
-  static lv_color_t cache[COLOUR_COUNT];
-  static bool ready = false;
   if (!ready) {
     // The greys are LVGL's own dark theme, which is what grumpyscreen has
     // always worn: the page is its card colour (every full-screen panel showed
     // that before it said so explicitly), a button is its DARK_COLOR_GREY, and
     // a hairline is that same grey -- subtle against the page, the way the
     // stock button matrices and text entries have always been outlined.
-    cache[BG]         = lv_color_hex(0x282b30);  // LVGL DARK_COLOR_CARD
-    // Modern lifts a surface off the page and gives it a grey light enough to
-    // see; classic makes them the same colour, so a panel reads flat and its
-    // hairline disappears into the page even where one is still drawn.
-    cache[SURFACE]    = modern() ? lv_palette_darken(LV_PALETTE_GREY, 4) : cache[BG];
-    cache[RAISED]     = modern() ? lv_palette_darken(LV_PALETTE_GREY, 3)
-                                 : lv_color_hex(0x2f3237);  // LVGL DARK_COLOR_GREY
-    cache[SELECTED]   = lv_palette_main(LV_PALETTE_GREY);
-    cache[BORDER]     = modern() ? lv_palette_darken(LV_PALETTE_GREY, 3) : cache[RAISED];
-    cache[BORDER_DIM] = lv_palette_darken(LV_PALETTE_GREY, 2);
-    cache[TEXT]       = modern() ? lv_color_white()
-                                 : lv_palette_lighten(LV_PALETTE_GREY, 5);  // DARK_COLOR_TEXT
-    cache[TEXT_DIM]   = lv_palette_main(LV_PALETTE_GREY);
-    cache[DISABLED]   = lv_palette_darken(LV_PALETTE_GREY, 1);
-    cache[ON_PRIMARY] = lv_color_white();
-    cache[DANGER]     = lv_palette_darken(LV_PALETTE_RED, 2);
-    cache[WARNING]    = lv_palette_darken(LV_PALETTE_AMBER, 2);
+    // Every role is a [theme] key in grumpyscreen.cfg: <name>_colour.
+    cache[BG]         = cfg_col("bg_colour");
+    cache[SURFACE]    = cfg_col("surface_colour");
+    cache[RAISED]     = cfg_col("raised_colour");
+    cache[SELECTED]   = cfg_col("selected_colour");
+    cache[BORDER]     = cfg_col("border_colour");
+    cache[BORDER_DIM] = cfg_col("border_dim_colour");
+    cache[TEXT]       = cfg_col("text_colour");
+    cache[TEXT_DIM]   = cfg_col("text_dim_colour");
+    cache[DISABLED]   = cfg_col("disabled_colour");
+    cache[ON_PRIMARY] = cfg_col("on_primary_colour");
+    cache[DANGER]     = cfg_col("danger_colour");
+    cache[WARNING]    = cfg_col("warning_colour");
+    cache[SUCCESS]    = cfg_col("success_colour");
+    cache[INFO]       = cfg_col("info_colour");
     ready = true;
   }
   return cache[c];

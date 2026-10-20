@@ -4,10 +4,30 @@
 one place its images are. A panel that builds itself from those two follows the
 whole application when a token changes, at every resolution.
 
-The look itself is not configurable: `[theme] primary_colour` and
-`secondary_colour` are the two accents users have always been able to set, and
-everything else is the greys and sizes in `theme.cpp`. Restyling means editing
-those; there is no `[theme]` key to add, on purpose.
+`grumpyscreen.cfg` is the one place the palette is spelled out. Every key is
+required and the code carries no colour defaults: a deployment ships a complete
+`grumpyscreen.cfg` and customises through its override file, so a missing or
+unparseable key is a broken config. It is logged and drawn magenta. `col()`
+reads the keys once, the first time a colour is asked for, so a change needs a
+restart. Nothing is derived: set every role a palette needs, or override only
+the ones you want to change and inherit the rest.
+
+A custom theme is therefore an override block. A light one:
+
+```ini
+[theme]
+primary_colour: 0x1976D2
+bg_colour: 0xF2F2F2
+surface_colour: 0xF2F2F2
+raised_colour: 0xE0E0E0
+border_colour: 0xE0E0E0
+text_colour: 0x212121
+```
+
+When adding a `Colour`, add its `[theme]` key to `grumpyscreen.cfg` and to
+`col()`, and never reach for `lv_palette_*` in a panel: a role that is not in
+`Colour` cannot be themed. The modern look (see below) no longer has its own
+palette; it wears these values until it is finished and given its own.
 
 Custom icons: replace the `.c` bitmaps in `assets/material` (and
 `assets/material_46` for the small-screen build) and rebuild. The symbol names

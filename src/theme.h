@@ -64,14 +64,18 @@ enum Colour {
   ON_PRIMARY,  // text and glyphs drawn on the primary colour
   DANGER,      // faults
   WARNING,     // something the user should notice that is not a fault
+  SUCCESS,     // done, in budget, currently printing
+  INFO,        // neutral status: queued, pending
   COLOUR_COUNT
 };
 
+// Install a palette in code instead of reading [theme]. For the one binary that
+// has no grumpyscreen.cfg (bootstrap); call before the first col().
+void set_palette(const lv_color_t (&palette)[COLOUR_COUNT]);
+
 lv_color_t col(Colour c);
-// [theme] primary_colour / secondary_colour, the two accents a user has always
-// been able to set: "0x2196F3" (or "2196F3") -> colour, def when absent or
-// unparsable. Nothing else in the look is configurable.
-lv_color_t cfg_col(const char *key, lv_color_t def);
+// A colour from the [theme] section of grumpyscreen.cfg, e.g. "primary_colour".
+lv_color_t cfg_col(const char *key);
 
 // the LVGL theme already owns these two (guppyscreen.cpp reads them from
 // [theme] and hands them to hal_init); ask it rather than parsing them again

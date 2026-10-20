@@ -309,7 +309,7 @@ void PromptPanel::show_screws_tilt(json &st) {
       lv_obj_set_style_bg_color(chip, col(RAISED), 0);
     } else {
       int minutes = std::stoi(adjust.substr(0, 2)) * 60 + std::stoi(adjust.substr(3, 2));
-      lv_obj_set_style_bg_color(chip, minutes < 6 ? lv_palette_main(LV_PALETTE_GREEN) : col(DANGER), 0);
+      lv_obj_set_style_bg_color(chip, minutes < 6 ? col(SUCCESS) : col(DANGER), 0);
     }
     lv_obj_t *adj = lv_label_create(chip);
     lv_obj_set_style_text_font(adj, scale_font(16), 0);

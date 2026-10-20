@@ -28,10 +28,29 @@ using json = nlohmann::json;
 
 namespace {
 constexpr double calibration_version = 2.0;
-// bootstrap has no grumpyscreen.cfg to read a [theme] from, so the stock
-// accent pair is fixed here: the one place in the app a colour is spelled out
+// bootstrap has no grumpyscreen.cfg to read a [theme] from, so the whole
+// palette is compiled in here. These are the values grumpyscreen.cfg ships.
 constexpr uint32_t bootstrap_primary_rgb = 0x2196F3;
 constexpr uint32_t bootstrap_secondary_rgb = 0xF44336;
+
+void install_palette() {
+    lv_color_t p[Theme::COLOUR_COUNT];
+    p[Theme::BG]         = lv_color_hex(0x282B30);
+    p[Theme::SURFACE]    = lv_color_hex(0x282B30);
+    p[Theme::RAISED]     = lv_color_hex(0x2F3237);
+    p[Theme::SELECTED]   = lv_color_hex(0x9E9E9E);
+    p[Theme::BORDER]     = lv_color_hex(0x2F3237);
+    p[Theme::BORDER_DIM] = lv_color_hex(0x616161);
+    p[Theme::TEXT]       = lv_color_hex(0xFAFAFA);
+    p[Theme::TEXT_DIM]   = lv_color_hex(0x9E9E9E);
+    p[Theme::DISABLED]   = lv_color_hex(0x757575);
+    p[Theme::ON_PRIMARY] = lv_color_hex(0xFFFFFF);
+    p[Theme::DANGER]     = lv_color_hex(0xD32F2F);
+    p[Theme::WARNING]    = lv_color_hex(0xFFA000);
+    p[Theme::SUCCESS]    = lv_color_hex(0x4CAF50);
+    p[Theme::INFO]       = lv_color_hex(0x2196F3);
+    Theme::set_palette(p);
+}
 
 std::uint32_t get_display_rotate() {
     const char *rotate_env = std::getenv("DISPLAY_ROTATE");
@@ -211,6 +230,7 @@ int main(void) {
     set_log_level(LogLevel::INFO);
 
     lv_init();
+    install_palette();
 
 #ifndef GUPPY_SDL
     fbdev_init();

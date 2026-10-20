@@ -24,9 +24,10 @@ namespace {
   // The object colours this panel has always used, and the legend that names
   // them, in one place: they were two lists of colours, and the legend's had
   // stopped matching what gets drawn.
-  const lv_color_t OBJ_EXCLUDED = lv_palette_darken(LV_PALETTE_RED, 2);
-  const lv_color_t OBJ_PRINTING = lv_palette_main(LV_PALETTE_GREEN);
-  const lv_color_t OBJ_PENDING = lv_palette_main(LV_PALETTE_BLUE);
+  // (functions, not constants: the palette reads [theme] and needs a display)
+  lv_color_t OBJ_EXCLUDED() { return col(DANGER); }
+  lv_color_t OBJ_PRINTING() { return col(SUCCESS); }
+  lv_color_t OBJ_PENDING() { return col(INFO); }
 
   // The numbered marker is what a finger aims at, so it is a target in its own
   // right: on a ring- or C-shaped object the bounding box's centre falls
@@ -366,7 +367,7 @@ void ExcludeObjectPanel::redraw() {
       n_excluded++;
     }
 
-    lv_color_t color = excl ? OBJ_EXCLUDED : (cur ? OBJ_PRINTING : OBJ_PENDING);
+    lv_color_t color = excl ? OBJ_EXCLUDED() : (cur ? OBJ_PRINTING() : OBJ_PENDING());
 
     std::vector<lv_point_t> pts;
     double mx0 = 0.0, my0 = 0.0, mx1 = 0.0, my1 = 0.0;
@@ -464,7 +465,7 @@ void ExcludeObjectPanel::redraw() {
                                 "#{} Hold to exclude#\n"
                                 "#{} Excluded#\n\n"
                                 "{} object(s), {} excluded",
-                                hex(OBJ_PRINTING), hex(OBJ_PENDING), hex(OBJ_EXCLUDED),
+                                hex(OBJ_PRINTING()), hex(OBJ_PENDING()), hex(OBJ_EXCLUDED()),
                                 static_cast<int>(objects.size()), n_excluded).c_str());
 }
 
