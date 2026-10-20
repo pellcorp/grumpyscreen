@@ -35,26 +35,16 @@ class ExtruderPanel : public NotifyConsumer {
   std::vector<std::string> temp_options;
   std::vector<const char*> temp_option_map;
   uint32_t temp_default_idx;
-  std::vector<std::string> length_options;
-  std::vector<const char*> length_option_map;
-  uint32_t length_default_idx;
-  std::vector<std::string> speed_options;
-  std::vector<const char*> speed_option_map;
-  uint32_t speed_default_idx;
   SensorContainer extruder_temp;
   Selector temp_selector;
-  Selector length_selector;
-  Selector speed_selector;
   ButtonContainer load_btn;
   ButtonContainer unload_btn;
-  ButtonContainer cooldown_btn;
   // the right-hand tiles share a column of their own, spanning every row, so
   // the header can stay the height of the readout while they still get a full
   // tile's worth of room each. Declared before them: it is their parent.
   lv_obj_t *right_col;
   ButtonContainer spoolman_btn;
-  ButtonContainer extrude_btn;
-  ButtonContainer retract_btn;
+  ButtonContainer cooldown_btn;
   ButtonContainer back_btn;
 };
 
