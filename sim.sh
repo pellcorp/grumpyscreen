@@ -77,6 +77,9 @@ echo "[sim] moonraker on $PORT (${ARGS[*]}), session $SESSION"
 # reset, shutdown) brings it straight back
 export CONFIG_OVERRIDE_FILE="$SESSION/grumpyscreen-override.cfg"
 rm -f "$CONFIG_OVERRIDE_FILE"
+if [ -n "${SIM_CFG_OVERRIDE:-}" ]; then
+    cp "$SIM_CFG_OVERRIDE" "$CONFIG_OVERRIDE_FILE"
+fi
 while true; do
     rm -f "$SESSION/restart-gui"
     CONFIG_FILE="$SIM_CFG" "$BIN" || true

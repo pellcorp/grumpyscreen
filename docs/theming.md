@@ -29,6 +29,23 @@ border_colour: 0xE0E0E0
 text_colour: 0x212121
 ```
 
+For a deliberately excessive example, use the included `themes/garish.cfg`
+override. Point `CONFIG_OVERRIDE_FILE` at it before starting the screen:
+
+```sh
+CONFIG_OVERRIDE_FILE=themes/garish.cfg ./build/sdl/grumpyscreen
+```
+
+To preview it in the simulator while keeping the generated printer state, use
+the simulator's override hook:
+
+```sh
+SIM_CFG_OVERRIDE=themes/garish.cfg ./sim.sh
+```
+
+It changes only the `[theme]` keys, so all printer and simulator settings
+continue to come from `grumpyscreen.cfg`.
+
 When adding a `Colour`, add its `[theme]` key to `grumpyscreen.cfg` and to
 `col()`, and never reach for `lv_palette_*` in a panel: a role that is not in
 `Colour` cannot be themed.
