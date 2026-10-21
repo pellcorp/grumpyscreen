@@ -266,9 +266,12 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
     lv_obj_add_style(obj, &s.key_body, LV_PART_MAIN);
     lv_obj_add_style(obj, &s.key, LV_PART_ITEMS);
     lv_obj_add_style(obj, &s.key_pressed, LV_PART_ITEMS | LV_STATE_PRESSED);
+    lv_obj_add_style(obj, &s.key_disabled, LV_PART_ITEMS | LV_STATE_DISABLED);
     // a matrix's checked key is the chosen value: accent. A keyboard's checked
     // keys are its control keys: plain.
-    if (!lv_obj_check_type(obj, &lv_keyboard_class)) {
+    if (lv_obj_check_type(obj, &lv_keyboard_class)) {
+      lv_obj_add_style(obj, &s.key_ctrl, LV_PART_ITEMS | LV_STATE_CHECKED);
+    } else {
       lv_obj_add_style(obj, &s.key_checked, LV_PART_ITEMS | LV_STATE_CHECKED);
     }
   }

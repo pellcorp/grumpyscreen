@@ -214,6 +214,7 @@ void MacroPanel::open_popup(size_t macro_index, const std::string &title) {
   lv_obj_set_width(form, LV_PCT(100));
   lv_obj_set_flex_grow(form, 1);
   lv_obj_set_flex_flow(form, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_bg_opa(form, LV_OPA_TRANSP, 0);  // else LVGL's card grey paints over the box
   lv_obj_set_style_pad_all(form, 0, 0);
   lv_obj_set_style_border_width(form, 0, 0);
   lv_obj_set_style_pad_row(form, gap(), 0);

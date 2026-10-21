@@ -119,7 +119,7 @@ struct Styles {
   // entry and table in the UI wears them without the panel doing anything
   lv_style_t key_body;               // keyboard/btnmatrix body: bare, all room to the keys
   lv_style_t key_tray;               // a selector's outlined tray round a set of keys
-  lv_style_t key, key_pressed, key_checked;  // one key; pressed and chosen states
+  lv_style_t key, key_pressed, key_checked, key_disabled, key_ctrl;  // one key; pressed and chosen states
   lv_style_t input;                  // a text entry
   lv_style_t option;                 // a dropdown list's rows: the entry's colours, no outline
   lv_style_t input_placeholder;      // its hint text

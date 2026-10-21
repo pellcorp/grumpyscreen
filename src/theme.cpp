@@ -321,6 +321,19 @@ Styles &styles() {
   lv_style_set_bg_opa(&s.key_pressed, LV_OPA_COVER);
   lv_style_set_text_color(&s.key_pressed, col(ON_PRIMARY));
 
+  // A disabled key (the wifi keyboard's OK until the password is long enough)
+  // takes the themed disabled colour, not LVGL's grey filter over the glyph.
+  lv_style_init(&s.key_disabled);
+  lv_style_set_text_color(&s.key_disabled, col(DISABLED));
+  lv_style_set_color_filter_opa(&s.key_disabled, LV_OPA_TRANSP);
+
+  // A keyboard's checked keys are its control keys (backspace, OK, mode, shift):
+  // the same key as the rest, not LVGL's checked grey.
+  lv_style_init(&s.key_ctrl);
+  lv_style_set_bg_color(&s.key_ctrl, col(RAISED));
+  lv_style_set_bg_opa(&s.key_ctrl, LV_OPA_COVER);
+  lv_style_set_text_color(&s.key_ctrl, col(TEXT));
+
   // the chosen key, and only it, wears the accent
   lv_style_init(&s.key_checked);
   lv_style_set_bg_color(&s.key_checked, theme_primary());
