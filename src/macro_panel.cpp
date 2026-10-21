@@ -229,11 +229,9 @@ void MacroPanel::open_popup(size_t macro_index, const std::string &title) {
     lv_label_set_text(label, parameter.name.c_str());
     lv_obj_set_width(label, LV_PCT(42));
     // Numpad toggles LV_STATE_CHECKED on the active label, making it clear
-    // which range field its value will be applied to.
-    lv_obj_set_style_bg_color(label, col(SELECTED), LV_STATE_CHECKED);
+    // which range field its value will be applied to: the accent colour a
+    // pressed icon takes.
     lv_obj_set_style_text_color(label, theme_primary(), LV_STATE_CHECKED);
-    lv_obj_set_style_radius(label, radius_sm(), LV_STATE_CHECKED);
-    lv_obj_set_style_pad_hor(label, gap() / 2, LV_STATE_CHECKED);
     parameter.label = label;
     if (parameter.type == Parameter::Type::Choices) {
       parameter.control = lv_dropdown_create(row);

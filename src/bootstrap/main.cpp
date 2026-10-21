@@ -47,8 +47,8 @@ void install_palette() {
     p[Theme::ON_PRIMARY] = lv_color_hex(0xFFFFFF);
     p[Theme::DANGER]     = lv_color_hex(0xD32F2F);
     p[Theme::WARNING]    = lv_color_hex(0xFFA000);
-    p[Theme::SUCCESS]    = lv_color_hex(0x4CAF50);
-    p[Theme::INFO]       = lv_color_hex(0x2196F3);
+    p[Theme::SUCCESS]    = lv_color_hex(0x388E3C);
+    p[Theme::INFO]       = lv_color_hex(0x1976D2);
     Theme::set_palette(p);
 }
 
