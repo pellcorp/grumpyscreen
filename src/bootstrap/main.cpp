@@ -43,6 +43,7 @@ void install_palette() {
     p[Theme::BORDER_DIM] = lv_color_hex(0x616161);
     p[Theme::TEXT]       = lv_color_hex(0xFAFAFA);
     p[Theme::TEXT_DIM]   = lv_color_hex(0x9E9E9E);
+    p[Theme::ICON]       = lv_color_hex(0xFFFFFF);
     p[Theme::DISABLED]   = lv_color_hex(0x757575);
     p[Theme::ON_PRIMARY] = lv_color_hex(0xFFFFFF);
     p[Theme::DANGER]     = lv_color_hex(0xD32F2F);

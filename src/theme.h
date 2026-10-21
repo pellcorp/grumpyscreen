@@ -25,6 +25,7 @@ enum Colour {
   BORDER_DIM,  // hairline around a small tile (a swatch, a spool)
   TEXT,        // default label
   TEXT_DIM,    // section titles and secondary text
+  ICON,        // the glyph on a tile, at rest
   DISABLED,    // greyed-out label, or the recolour on a disabled icon
   ON_PRIMARY,  // text and glyphs drawn on the primary colour
   DANGER,      // faults
@@ -107,6 +108,8 @@ struct Styles {
   lv_style_t swatch;                 // small square tile
   lv_style_t dim_disabled;           // tiles fade when not editable
   lv_style_t dim_label;              // section titles and secondary text
+  lv_style_t icon;                   // an icon at rest: the icon colour
+  lv_style_t icon_danger, icon_info; // the few icons that wear a status colour at rest
   lv_style_t icon_pressed;           // an icon under a finger: accent recolour
   lv_style_t icon_disabled;          // a greyed-out icon
   lv_style_t text_btn;               // a text-only action
@@ -141,6 +144,12 @@ std::string recolor(Colour c);
 // still slides under a finger and springs back. These keep the scroll flag in
 // step with the content, so a list that fits sits still. Content changes are
 // not events, so call refresh_scroll() after repopulating the object.
+// Wear the theme's icon styles: the resting colour, the accent under a finger,
+// grey when disabled. Every bitmap is a white glyph the theme recolours; the
+// destructive actions wear DANGER and cooldown wears INFO. Call after
+// lv_img_set_src, because which bitmap it is decides the resting colour.
+void style_icon(lv_obj_t *img);
+
 void manage_scroll(lv_obj_t *scrollee);
 void refresh_scroll(lv_obj_t *scrollee);
 

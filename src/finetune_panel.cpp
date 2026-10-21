@@ -85,6 +85,7 @@ void FineTunePanel::make_row(Row &r, int grid_row, const void *icon, const char 
 
   lv_obj_t *img = lv_img_create(r.card);
   lv_img_set_src(img, icon);
+  style_icon(img);
   lv_obj_add_event_cb(r.card, fit_first_icon, LV_EVENT_SIZE_CHANGED, NULL);
 
   lv_obj_t *label = lv_label_create(r.card);

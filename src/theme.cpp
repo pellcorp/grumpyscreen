@@ -2,6 +2,7 @@
 #include <fmt/core.h>
 #include "config.h"
 #include "logger.h"
+#include "icons.h"
 
 #include <algorithm>
 #include <iterator>
@@ -64,6 +65,7 @@ lv_color_t col(Colour c) {
     cache[BORDER_DIM] = cfg_col("border_dim_colour");
     cache[TEXT]       = cfg_col("text_colour");
     cache[TEXT_DIM]   = cfg_col("text_dim_colour");
+    cache[ICON]       = cfg_col("icon_colour");
     cache[DISABLED]   = cfg_col("disabled_colour");
     cache[ON_PRIMARY] = cfg_col("on_primary_colour");
     cache[DANGER]     = cfg_col("danger_colour");
@@ -250,6 +252,18 @@ Styles &styles() {
   lv_style_set_text_font(&s.dim_label, scale_font(12));
   lv_style_set_text_color(&s.dim_label, col(TEXT_DIM));
 
+  lv_style_init(&s.icon);
+  lv_style_set_img_recolor_opa(&s.icon, LV_OPA_COVER);
+  lv_style_set_img_recolor(&s.icon, col(ICON));
+
+  lv_style_init(&s.icon_danger);
+  lv_style_set_img_recolor_opa(&s.icon_danger, LV_OPA_COVER);
+  lv_style_set_img_recolor(&s.icon_danger, col(DANGER));
+
+  lv_style_init(&s.icon_info);
+  lv_style_set_img_recolor_opa(&s.icon_info, LV_OPA_COVER);
+  lv_style_set_img_recolor(&s.icon_info, col(INFO));
+
   lv_style_init(&s.icon_pressed);
   lv_style_set_img_recolor_opa(&s.icon_pressed, LV_OPA_COVER);
   lv_style_set_img_recolor(&s.icon_pressed, theme_primary());
@@ -424,6 +438,18 @@ lv_obj_t *create_row(lv_obj_t *parent) {
 // A list that fits still slides under a finger and springs back, which reads
 // as a broken tap. Keep the scroll flag in step with the content instead: set
 // on overflow, cleared when everything fits.
+void style_icon(lv_obj_t *img) {
+  const void *src = lv_img_get_src(img);
+  const bool danger = src == Icons::EMERGENCY || src == Icons::FACTORY_RESET_IMG ||
+                      src == Icons::SHUTDOWN_IMG || src == Icons::SWITCH_STOCK_IMG ||
+                      src == Icons::UPDATE_IMG;
+  lv_obj_add_style(img, danger ? &styles().icon_danger
+                               : src == Icons::COOLDOWN_IMG ? &styles().icon_info
+                                                            : &styles().icon, 0);
+  lv_obj_add_style(img, &styles().icon_pressed, LV_STATE_PRESSED);
+  lv_obj_add_style(img, &styles().icon_disabled, LV_STATE_DISABLED);
+}
+
 void manage_scroll(lv_obj_t *scrollee) {
   lv_obj_set_scrollbar_mode(scrollee, LV_SCROLLBAR_MODE_OFF);
   lv_obj_set_scroll_dir(scrollee, LV_DIR_VER);

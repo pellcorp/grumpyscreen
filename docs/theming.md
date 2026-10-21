@@ -33,6 +33,14 @@ When adding a `Colour`, add its `[theme]` key to `grumpyscreen.cfg` and to
 `col()`, and never reach for `lv_palette_*` in a panel: a role that is not in
 `Colour` cannot be themed.
 
+Icons are white glyphs recoloured by the theme: `icon_colour` at rest, the
+accent while pressed, `disabled_colour` when off (`Theme::style_icon()`, which
+every icon wears). Stop, shutdown, factory reset, switch to stock and update rest
+in `danger_colour` and cooldown in `info_colour`; the choice is made in
+`style_icon()`. Every bitmap in `assets/` must be plain white (alpha is the
+shape), because the recolour replaces the colour outright -- a coloured bitmap
+would be flattened.
+
 Custom icons: replace the `.c` bitmaps in `assets/material` (and
 `assets/material_46` for the small-screen build) and rebuild. The symbol names
 are what `icons.h` declares, so keep them.

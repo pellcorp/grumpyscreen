@@ -19,6 +19,7 @@ ImageLabel::ImageLabel(lv_obj_t *parent, const void *img, const char *value)
 
   // the icon is sized to the card's content height once the card knows it
   lv_img_set_src(image, img);
+  style_icon(image);
   lv_obj_add_event_cb(cont, fit_first_icon, LV_EVENT_SIZE_CHANGED, NULL);
 
   lv_label_set_text(label, value);

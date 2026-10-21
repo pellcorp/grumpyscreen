@@ -62,6 +62,7 @@ SensorContainer::SensorContainer(KWebSocketClient &c,
     // instead leaves it at whatever height the row happened to have when it was
     // first laid out, which is the minimum, not the height it ends up with.
     lv_img_set_src(sensor_img, img);
+    style_icon(sensor_img);
     fit_img(sensor_img, 0, 0, 150);
 
     lv_label_set_text(sensor_label, text);

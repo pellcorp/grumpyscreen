@@ -1083,9 +1083,11 @@ void MmuPanel::update_edit_preview() {
   // active icon does anywhere else: the glyph wears the accent.
   if (backend != NULL) edit_backup_btn->set_label(backend->backup_label());
   if (can_toggle) edit_backup_btn->enable(); else edit_backup_btn->disable();
-  lv_obj_set_style_img_recolor(edit_backup_btn->get_button(), theme_primary(), 0);
-  lv_obj_set_style_img_recolor_opa(edit_backup_btn->get_button(),
-                                   backup ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
+  // A local recolour outranks the shared icon style, so the resting colour has
+  // to be asked for here rather than left to it.
+  lv_obj_set_style_img_recolor(edit_backup_btn->get_button(),
+                               backup ? theme_primary() : col(ICON), 0);
+  lv_obj_set_style_img_recolor_opa(edit_backup_btn->get_button(), LV_OPA_COVER, 0);
 
   if (configurable) edit_save_btn->enable(); else edit_save_btn->disable();
 

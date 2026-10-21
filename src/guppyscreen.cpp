@@ -94,6 +94,10 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   lv_style_init(&style_container);
   lv_style_set_border_width(&style_container, 0);
   lv_style_set_radius(&style_container, 0);
+  // LVGL's own card style, which every plain container wears, sets its text
+  // colour, and that beats what a label would inherit from the page. Say it
+  // here so text without a colour of its own follows the theme.
+  lv_style_set_text_color(&style_container, Theme::col(Theme::TEXT));
 
 
   // Initia1ize the new theme from the current theme

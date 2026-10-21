@@ -37,8 +37,7 @@ ButtonContainer::ButtonContainer(lv_obj_t *parent,
   lv_img_set_src(btn, btn_img);
   // the recolours are the same two every icon in the UI wears
   lv_img_set_size_mode(btn, LV_IMG_SIZE_MODE_REAL);
-  lv_obj_add_style(btn, &styles().icon_pressed, LV_STATE_PRESSED);
-  lv_obj_add_style(btn, &styles().icon_disabled, LV_STATE_DISABLED);
+  style_icon(btn);
   lv_obj_align(btn, LV_ALIGN_TOP_MID, 0, 0);
 
   if (cb != NULL) {
