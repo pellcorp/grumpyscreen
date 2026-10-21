@@ -41,13 +41,11 @@ class HhBackend : public MmuBackend {
   void map_tool(int tool, int slot) override;
   bool can_share_slot() const override { return true; }
 
-  // not in pull mode: spoolman owns the gate map there
-  bool can_assign_spool() const override { return enabled && spool_assignable; }
+  // pull mode too, through MMU_SPOOLMAN
+  bool can_assign_spool() const override { return enabled && spoolman; }
   void assign_spool(int slot, int spool_id) override;
   const char *assign_spool_refusal() const override {
-    if (!enabled) return "is disabled";
-    if (spoolman) return "takes its gate spools from Spoolman in pull mode. Set them in Spoolman";
-    return "is not linked to Spoolman";
+    return enabled ? "is not linked to Spoolman" : "is disabled";
   }
 
  private:
@@ -67,7 +65,7 @@ class HhBackend : public MmuBackend {
   bool fetch_failed = false;             // last fetch got nothing back
 
   bool enabled = true;          // MMU ENABLE=0 refuses every command
-  bool spool_assignable = false; // spoolman linked, and not in pull mode
+  bool spoolman_pull = false;   // spoolman owns the gate map
   int num_tools = 0;            // ttg_map length
   bool filament_loaded = false; // in the extruder, from a gate or the bypass
   // from print_state: HH's own job state machine, not klipper's

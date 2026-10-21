@@ -124,7 +124,11 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
       // configured is not reachable: only show the tab while moonraker can
       // talk to spoolman
       ws.send_jsonrpc("server.spoolman.status", [this, generation](json &s) {
-        if (!initialization_active(generation)) return;
+        {
+          // start-up can finish before this answers; only a reconnect makes it stale
+          std::lock_guard<std::mutex> lock(lv_lock);
+          if (lifecycle_generation != generation) return;
+        }
         // a moonraker without the status call goes by the component, as before
         const auto connected_ptr = "/result/spoolman_connected"_json_pointer;
         const bool connected = !s.contains(connected_ptr) || !s[connected_ptr].is_boolean() ||

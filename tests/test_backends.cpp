@@ -677,16 +677,33 @@ static void test_hh_spools(KWebSocketClient &ws) {
     CHECK(sent.empty());
   }
 
-  // pull: spoolman owns the gate map; the ids still show
+  // pull: spoolman owns the gate map, so MMU_SPOOLMAN writes it there
   mmu["spoolman_support"] = "pull";
   load_state(j);
   {
     HhBackend hh(ws);
     hh.refresh();
     CHECK_EQ(hh.slots[0].spool_id, 12);
-    CHECK(!hh.can_assign_spool());
-    CHECK_EQ(std::string(hh.assign_spool_refusal()),
-             std::string("takes its gate spools from Spoolman in pull mode. Set them in Spoolman"));
+    CHECK(hh.can_assign_spool());
+    sent.clear();
+    hh.assign_spool(1, 7);
+    CHECK_EQ(sent.size(), (size_t)1);
+    if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_SPOOLMAN GATE=1 SPOOLID=7"));
+    sent.clear();
+    hh.assign_spool(0, -1);
+    if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_SPOOLMAN GATE=0"));
+  }
+
+  // readonly links spoolman too: the gate map stays HH's own
+  mmu["spoolman_support"] = "readonly";
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(hh.can_assign_spool());
+    sent.clear();
+    hh.assign_spool(2, 9);
+    if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_GATE_MAP GATE=2 SPOOLID=9 TEMP=240"));
   }
 
   // MMU ENABLE=0 refuses it too

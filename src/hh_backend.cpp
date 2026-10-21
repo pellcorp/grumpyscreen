@@ -111,6 +111,7 @@ void HhBackend::refresh() {
   in_print = false;
   paused = false;
   enabled = true;
+  spoolman_pull = false;
   filament_loaded = false;
   num_tools = 0;
 
@@ -153,7 +154,7 @@ void HhBackend::refresh() {
   // In pull mode the spoolman database is the source of truth for the gate map
   // and HH refuses local edits; in push mode the gate map is, so they are fine.
   const bool editable = spoolman_mode != "pull";
-  spool_assignable = spoolman && editable;
+  spoolman_pull = spoolman_mode == "pull";
 
   // endless_spool_enabled is the current name; endless_spool is the
   // deprecated alias HH still publishes for older clients
@@ -376,6 +377,13 @@ void HhBackend::gate_map(int slot, const std::string &args) {
 
 void HhBackend::assign_spool(int slot, int spool_id) {
   if (!valid(slot)) return;
+  if (spoolman_pull) {
+    // pull: MMU_GATE_MAP edits are overwritten, MMU_SPOOLMAN writes spoolman
+    // first. No SPOOLID clears the gate
+    ws.gcode_script(spool_id >= 0 ? fmt::format("MMU_SPOOLMAN GATE={} SPOOLID={}", slot, spool_id)
+                                  : fmt::format("MMU_SPOOLMAN GATE={}", slot));
+    return;
+  }
   gate_map(slot, fmt::format("SPOOLID={}", spool_id >= 0 ? spool_id : -1));  // -1: no spool
 }
 

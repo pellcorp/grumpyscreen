@@ -452,6 +452,15 @@ async def handle_hh(cmd):
         if "TEMP" in p:
             mmu["gate_temperature"][g] = cmd.get_int("TEMP")
         mark("mmu")
+    elif cmd.name == "MMU_SPOOLMAN" and ("GATE" in p or "SPOOLID" in p):
+        # pull mode's gate map edit: a spool sits in one gate at most, and
+        # GATE or SPOOLID alone unsets
+        sid = cmd.get_int("SPOOLID") if "SPOOLID" in p else -1
+        if sid > 0:
+            mmu["gate_spool_id"] = [-1 if x == sid else x for x in mmu["gate_spool_id"]]
+        if "GATE" in p:
+            mmu["gate_spool_id"][cmd.get_int("GATE")] = sid
+        mark("mmu")
     elif cmd.name == "MMU_ENDLESS_SPOOL":
         if "GROUPS" in p:
             mmu["endless_spool_groups"] = [int(x) for x in p["GROUPS"].split(",")]
@@ -495,6 +504,9 @@ def build(a):
         rows = [(sid, "Spool %d" % sid, mat or "PLA",
                  "%02X%02X%02X" % tuple(int(c * 255) for c in hh_rgb(col)), "Polymaker")
                 for sid, mat, col in zip(m["gate_spool_id"], m["gate_material"], m["gate_color"]) if sid > 0]
+        # spares to put in a gate, numbered after the gate spools
+        top = max([r[0] for r in rows] + [0])
+        rows += [(top + i, n, mat, c, v) for i, (n, mat, c, v) in enumerate(spoolman.CATALOGUE, 1)]
     elif BACKEND == "afc":
         rows = [(STATE[lane_key(n)]["spool_id"], "Lane %s spool" % n, STATE[lane_key(n)]["material"] or "PLA",
                  STATE[lane_key(n)]["color"].lstrip("#") or "FFFFFF", "Polymaker")
