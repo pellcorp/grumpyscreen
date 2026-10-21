@@ -123,6 +123,11 @@ class MmuBackend {
   virtual bool can_assign_spool() const { return false; }
   // spool_id -1 takes the spool out of the slot
   virtual void assign_spool(int slot, int spool_id) { (void)slot; (void)spool_id; }
+  // why can_assign_spool() is false, to follow the vendor's name: "AFC is not
+  // linked to Spoolman"
+  virtual const char *assign_spool_refusal() const {
+    return spoolman ? "is not taking spool assignments right now" : "is not linked to Spoolman";
+  }
 
   // Acknowledge the current `message`. Optional: only backends that hold
   // messages in a queue of their own have anything to do here, and for them a

@@ -81,6 +81,15 @@ int mmu_slot_for_tool(const std::vector<MmuSlot> &slots, int tool) {
   return -1;
 }
 
+std::vector<int> mmu_slots_with_spool(const std::vector<MmuSlot> &slots, int spool_id) {
+  std::vector<int> out;
+  if (spool_id < 0) return out;
+  for (size_t i = 0; i < slots.size(); i++) {
+    if (slots[i].spool_id == spool_id) out.push_back((int)i);
+  }
+  return out;
+}
+
 // a slicer list field: an array, a JSON array in a string, or "a;b" (as
 // Mainsail's convertStringToArray reads it)
 static std::vector<std::string> string_list(const json &j) {

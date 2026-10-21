@@ -44,6 +44,8 @@ class MmuPanel : public NotifyConsumer {
   MmuBackend *select_backend();
   // the backend in use, NULL when there is none
   MmuBackend *active_backend() const { return backend; }
+  // called, lv_lock held, whenever which spool sits in which slot changes
+  std::function<void()> spools_changed;
 
   // build the UI into the MMU tab. caller must hold lv_lock.
   void create(lv_obj_t *parent);
@@ -95,6 +97,8 @@ class MmuPanel : public NotifyConsumer {
   };
 
   void refresh();
+  // run spools_changed when a slot's spool differs from last time
+  void note_spools();
   void populate();
   void rebuild_grid(size_t page_count);
   void update_nav(size_t total_pages);
@@ -204,6 +208,7 @@ class MmuPanel : public NotifyConsumer {
   bool error_state;
   bool bypass;
   bool spoolman_active = false; // weights only mean something via spoolman
+  std::vector<int> last_spool_ids; // each slot's spool when spools_changed last ran
 };
 
 #endif // __MMU_PANEL_H__

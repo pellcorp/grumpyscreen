@@ -646,7 +646,10 @@ void MmuPanel::refresh() {
   bypass = false;
   spoolman_active = false;
 
-  if (backend == NULL) return;
+  if (backend == NULL) {
+    note_spools();
+    return;
+  }
 
   backend->refresh();
   slots = backend->slots;
@@ -662,6 +665,15 @@ void MmuPanel::refresh() {
   // clearing on an empty message would swallow a repeat: a queue-backed
   // backend can go A -> B -> A without ever passing through "".
   if (message != dismissed_message) dismissed_message.clear();
+  note_spools();
+}
+
+void MmuPanel::note_spools() {
+  std::vector<int> ids;
+  for (const auto &s : slots) ids.push_back(s.spool_id);
+  if (ids == last_spool_ids) return;
+  last_spool_ids = ids;
+  if (spools_changed) spools_changed();
 }
 
 // The backend reports a neutral activity; the wording is the panel's

@@ -71,6 +71,13 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
   });
     ws.register_notify_update(this);
+    // moonraker losing or finding its spoolman server: the tab follows
+    ws.register_method_callback("notify_spoolman_status_changed", "MainPanel", [this](json &d) {
+      const auto connected_ptr = "/params/0/spoolman_connected"_json_pointer;
+      if (!d.contains(connected_ptr) || !d[connected_ptr].is_boolean()) return;
+      if (d[connected_ptr].template get<bool>()) enable_spoolman();
+      else disable_spoolman();
+    });
 
     lv_obj_add_event_cb(tabview, &MainPanel::_tabview_event_cb,
                             LV_EVENT_VALUE_CHANGED, this);
@@ -212,6 +219,9 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
     } else if (idx == lv_obj_get_index(self->setting_tab)) {
         self->setting_panel.select_first_tab();
         self->setting_panel.foreground();
+    } else if (self->spoolman_tab_shown && idx == lv_obj_get_index(self->spoolman_tab)) {
+        // weights drop as it prints: fetch them fresh on every visit
+        self->spoolman_panel.init();
     }
 }
 

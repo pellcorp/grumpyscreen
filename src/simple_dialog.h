@@ -139,10 +139,16 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
     // the text area grows with the message but never past what the screen can
     // show with the title and buttons still visible: beyond that it scrolls.
     const lv_coord_t button_h = Theme::touch_h();
+    // a "\n" in the button list starts another row of keys
+    int button_rows = 1;
+    for (const char **b = options.buttons; b != nullptr && *b != nullptr && (*b)[0] != '\0'; ++b) {
+        if ((*b)[0] == '\n' && (*b)[1] == '\0') button_rows++;
+    }
+    const lv_coord_t buttons_h = button_rows * button_h;
     lv_obj_set_style_max_height(content,
         Theme::popout_max_h() - Theme::gap()
         - (lv_font_get_line_height(Theme::scale_font(18)) + 2 * Theme::gap())
-        - button_h - 2 * text_pad, 0);
+        - buttons_h - 2 * text_pad, 0);
 
     // The box hugs its message: a short question makes a small box with even
     // air round it, a long one wraps at the box's maximum width. Measured up
@@ -161,11 +167,17 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
     lv_coord_t buttons_w = 0;
     if (options.buttons != nullptr) {
         lv_coord_t widest = 0;
-        int count = 0;
-        for (const char **b = options.buttons; *b != nullptr && (*b)[0] != '\0'; ++b, ++count) {
+        int count = 0;   // keys in the longest row
+        int in_row = 0;
+        for (const char **b = options.buttons; *b != nullptr && (*b)[0] != '\0'; ++b) {
+            if ((*b)[0] == '\n' && (*b)[1] == '\0') {
+                in_row = 0;
+                continue;
+            }
             lv_point_t s;
             lv_txt_get_size(&s, *b, Theme::scale_font(16), 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
             widest = std::max(widest, s.x);
+            count = std::max(count, ++in_row);
         }
         if (count > 0) {
             buttons_w = count * (widest + 4 * Theme::gap()) + (count - 1) * Theme::gap();
@@ -193,7 +205,7 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
             lv_btnmatrix_set_btn_ctrl(btnm, options.highlighted_button_idx, LV_BTNMATRIX_CTRL_CHECKED);
         }
         // the buttons line up with the message above them
-        lv_obj_set_size(btnm, LV_PCT(100), button_h);
+        lv_obj_set_size(btnm, LV_PCT(100), buttons_h);
         lv_obj_set_style_pad_hor(btnm, Theme::popout_pad(), 0);
 
         SimpleDialogContext *ctx = new SimpleDialogContext{

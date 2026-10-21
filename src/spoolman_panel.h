@@ -38,7 +38,7 @@ class SpoolmanPanel {
   // then a printer without spoolman holds none of it. Caller holds lv_lock
   void create(lv_obj_t *parent);
   // the MMU whose lanes a held row can be assigned to; NULL for none
-  void set_mmu(MmuPanel *m) { mmu = m; }
+  void set_mmu(MmuPanel *m);
   void populate_spools(std::vector<SpoolRec> &sorted_spools);
   void handle_active_id_update(json &j);
   
@@ -62,9 +62,10 @@ class SpoolmanPanel {
   // the fixed ones leave, in whole pixels that reach the right edge exactly
   void layout_columns();
   // a held spool row: ask which lane it goes in. caller holds lv_lock
-  void show_assign(int spool_id, const std::string &name);
+  void show_assign(int spool_id);
   static void _assign_result(lv_obj_t *mbox, uint32_t idx, void *user_data);
-  static void _clear_result(lv_obj_t *mbox, uint32_t idx, void *user_data);
+  // "Lane 1, Lane 3": the MMU slots the spool is in, "" for none
+  std::string lanes_of(int spool_id) const;
 
   KWebSocketClient &ws;
   std::mutex &lv_lock;
@@ -87,9 +88,9 @@ class SpoolmanPanel {
   bool long_pressed = false;
   lv_point_t press_point = {0, 0};  // where the press began, to tell a hold from a drag
   int assign_spool_id = -1;
+  std::vector<int> assign_held;          // the lanes that spool is in, for Clear
   std::vector<std::string> lane_labels;  // the dialog's buttons, while it is open
   std::vector<const char *> lane_btns;
-  std::vector<const char *> clear_btns;  // the same lanes, for "clear which lane"
 };
 
 #endif // __SPOOLMAN_PANEL_H__

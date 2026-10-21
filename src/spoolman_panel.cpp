@@ -5,6 +5,7 @@
 #include "logger.h"
 #include "icons.h"
 #include "mmu_backend.h"
+#include "mmu_tools.h"
 #include "simple_dialog.h"
 
 using namespace Theme;
@@ -138,6 +139,12 @@ void SpoolmanPanel::create(lv_obj_t *parent) {
 // the tab page owns and deletes the widgets
 SpoolmanPanel::~SpoolmanPanel() {}
 
+void SpoolmanPanel::set_mmu(MmuPanel *m) {
+  mmu = m;
+  // the rows name the lanes their spools are in
+  if (mmu != NULL) mmu->spools_changed = [this]() { repopulate(); };
+}
+
 void SpoolmanPanel::init() {
   json param = {
     { "request_method", "GET" },
@@ -218,7 +225,10 @@ void SpoolmanPanel::populate_spools(std::vector<SpoolRec> &sorted_spools) {
       const double remaining_len = el.length;
 
       lv_table_set_cell_value(spool_table, row_idx, 0, std::to_string(id).c_str());
-      lv_table_set_cell_value(spool_table, row_idx, 1, el.name.c_str());
+      // a second line for the lanes it is in
+      const std::string lanes = lanes_of((int)id);
+      const std::string name = lanes.empty() ? el.name : el.name + "\n" + lanes;
+      lv_table_set_cell_value(spool_table, row_idx, 1, name.c_str());
       lv_table_set_cell_value(spool_table, row_idx, 2, material.c_str());
       lv_table_set_cell_value(spool_table, row_idx, 3, "");
 
@@ -279,44 +289,64 @@ void SpoolmanPanel::layout_columns() {
   lv_table_set_col_width(spool_table, 5, len_field_width);
 }
 
-// Buttons 1..n are the MMU's lanes in order, then Cancel. Nothing opens when
-// there is no MMU, or it is not linked to spoolman.
-void SpoolmanPanel::show_assign(int spool_id, const std::string &name) {
+std::string SpoolmanPanel::lanes_of(int spool_id) const {
   MmuBackend *b = mmu != NULL ? mmu->active_backend() : NULL;
-  if (b == NULL || !b->can_assign_spool() || b->slots.empty()) {
+  if (b == NULL || !b->spoolman) return "";
+  std::string out;
+  for (int i : mmu_slots_with_spool(b->slots, spool_id)) {
+    if (!out.empty()) out += ", ";
+    out += b->slots[i].name;
+  }
+  return out;
+}
+
+// Buttons are the MMU's lanes by name, four to a row, then Clear when the spool
+// is in a lane, then Cancel. Nothing opens without an MMU; one that cannot take
+// a spool says why.
+void SpoolmanPanel::show_assign(int spool_id) {
+  MmuBackend *b = mmu != NULL ? mmu->active_backend() : NULL;
+  if (b == NULL || b->slots.empty()) {
     long_pressed = false;  // nothing opened, so let the release be a tap
+    return;
+  }
+  if (!b->can_assign_spool()) {
+    const std::string why = fmt::format("{} {}.", b->vendor(), b->assign_spool_refusal());
+    create_simple_dialog(lv_layer_top(), "Assign Spool", why.c_str(), true, false);
     return;
   }
 
   assign_spool_id = spool_id;
+  assign_held = mmu_slots_with_spool(b->slots, spool_id);
   lane_labels.clear();
-  for (size_t i = 0; i < b->slots.size(); i++) lane_labels.push_back(std::to_string(i + 1));
-  lane_labels.push_back("Clear");
+  for (const auto &s : b->slots) lane_labels.push_back(s.name);
+  if (!assign_held.empty()) lane_labels.push_back("Clear");
   lane_labels.push_back("Cancel");
-  // lane_labels is not touched again until the next hold, so both button lists
-  // stay valid while either dialog is open
+  // lane_labels is not touched again until the next hold, so the button list
+  // stays valid while the dialog is open
   lane_btns.clear();
-  for (auto &l : lane_labels) lane_btns.push_back(l.c_str());
+  for (size_t i = 0; i < lane_labels.size(); i++) {
+    // a new row every four lanes, and for Clear/Cancel
+    if (i > 0 && (i == b->slots.size() || (i < b->slots.size() && i % 4 == 0))) lane_btns.push_back("\n");
+    lane_btns.push_back(lane_labels[i].c_str());
+  }
   lane_btns.push_back("");
-  clear_btns.clear();
-  for (size_t i = 0; i < b->slots.size(); i++) clear_btns.push_back(lane_labels[i].c_str());
-  clear_btns.push_back("Cancel");
-  clear_btns.push_back("");
 
   SimpleDialogOptions opts;
   opts.buttons = lane_btns.data();
   opts.result_cb = &SpoolmanPanel::_assign_result;
   opts.user_data = this;
   // "Polymaker PLA": the vendor and material, as on the spool's label
-  std::string label = name;
+  std::string label;
   auto it = spools.find((uint32_t)spool_id);
   if (it != spools.end()) {
     const std::string &vendor = it->second.vendor;
     const std::string &material = it->second.material;
     label = vendor.empty() ? material : material.empty() ? vendor : vendor + " " + material;
-    if (label.empty()) label = name;
+    if (label.empty()) label = it->second.name;
   }
-  const std::string msg = fmt::format("Put spool #{} ({}) in which lane?", spool_id, label);
+  const std::string msg = label.empty()
+    ? fmt::format("Put spool #{} in which lane?", spool_id)
+    : fmt::format("Put spool #{} ({}) in which lane?", spool_id, label);
   create_configurable_dialog(lv_layer_top(), "Assign Spool", msg.c_str(), opts);
 }
 
@@ -326,27 +356,19 @@ void SpoolmanPanel::_assign_result(lv_obj_t *mbox, uint32_t idx, void *user_data
   MmuBackend *b = self->mmu != NULL ? self->mmu->active_backend() : NULL;
   // the unit may have changed under the dialog
   if (b == NULL || !b->can_assign_spool()) return;
-  if (idx == b->slots.size()) {
-    // Clear: then which lane
-    SimpleDialogOptions opts;
-    opts.buttons = self->clear_btns.data();
-    opts.result_cb = &SpoolmanPanel::_clear_result;
-    opts.user_data = self;
-    create_configurable_dialog(lv_layer_top(), "Clear Lane", "Take the spool out of which lane?", opts);
+  if (idx < b->slots.size()) {
+    LOG_DEBUG("assigning spool {} to slot {}", self->assign_spool_id, idx);
+    b->assign_spool((int)idx, self->assign_spool_id);
     return;
   }
-  if (idx > b->slots.size()) return;  // Cancel
-  LOG_DEBUG("assigning spool {} to slot {}", self->assign_spool_id, idx);
-  b->assign_spool((int)idx, self->assign_spool_id);
-}
-
-void SpoolmanPanel::_clear_result(lv_obj_t *mbox, uint32_t idx, void *user_data) {
-  (void)mbox;
-  SpoolmanPanel *self = (SpoolmanPanel *)user_data;
-  MmuBackend *b = self->mmu != NULL ? self->mmu->active_backend() : NULL;
-  if (b == NULL || !b->can_assign_spool() || idx >= b->slots.size()) return;  // Cancel
-  LOG_DEBUG("clearing the spool from slot {}", idx);
-  b->assign_spool((int)idx, -1);
+  if (idx == b->slots.size() && !self->assign_held.empty()) {
+    // Clear: out of every lane it is in
+    for (int s : self->assign_held) {
+      LOG_DEBUG("clearing spool {} from slot {}", self->assign_spool_id, s);
+      b->assign_spool(s, -1);
+    }
+  }
+  // anything else is Cancel
 }
 
 void SpoolmanPanel::handle_active_id_update(json &j) {
@@ -391,10 +413,9 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
     lv_table_get_selected_cell(spool_table, &row, &col);
     if (row == LV_TABLE_CELL_NONE || row == 0 || row >= lv_table_get_row_cnt(spool_table)) return;
     const char *id_txt = lv_table_get_cell_value(spool_table, row, 0);
-    const char *name = lv_table_get_cell_value(spool_table, row, 1);
     if (id_txt == NULL || id_txt[0] == '\0') return;
     long_pressed = true;  // the release that follows is not a tap
-    show_assign(std::atoi(id_txt), name != NULL ? name : "");
+    show_assign(std::atoi(id_txt));
     return;
   }
   if (code == LV_EVENT_VALUE_CHANGED) {

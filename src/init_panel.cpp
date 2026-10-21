@@ -102,7 +102,7 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
     this->main_panel.subscribe();
 
     // spoolman
-    ws.send_jsonrpc("server.info", [this, generation](json &j) {
+    ws.send_jsonrpc("server.info", [this, &ws, generation](json &j) {
       if (!initialization_active(generation)) return;
       if (get_log_level() <= LogLevel::DEBUG) {
         LOG_DEBUG("server_info {}", j.dump());
@@ -117,8 +117,21 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
           if (c.is_string() && c.template get<std::string>() == "spoolman") has_spoolman = true;
         }
       }
-      if (has_spoolman) this->main_panel.enable_spoolman();
-      else this->main_panel.disable_spoolman();
+      if (!has_spoolman) {
+        this->main_panel.disable_spoolman();
+        return;
+      }
+      // configured is not reachable: only show the tab while moonraker can
+      // talk to spoolman
+      ws.send_jsonrpc("server.spoolman.status", [this, generation](json &s) {
+        if (!initialization_active(generation)) return;
+        // a moonraker without the status call goes by the component, as before
+        const auto connected_ptr = "/result/spoolman_connected"_json_pointer;
+        const bool connected = !s.contains(connected_ptr) || !s[connected_ptr].is_boolean() ||
+                               s[connected_ptr].template get<bool>();
+        if (connected) this->main_panel.enable_spoolman();
+        else this->main_panel.disable_spoolman();
+      });
     });
 
     auto display_sensors = state->get_display_sensors();

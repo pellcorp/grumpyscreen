@@ -44,6 +44,11 @@ class HhBackend : public MmuBackend {
   // not in pull mode: spoolman owns the gate map there
   bool can_assign_spool() const override { return enabled && spool_assignable; }
   void assign_spool(int slot, int spool_id) override;
+  const char *assign_spool_refusal() const override {
+    if (!enabled) return "is disabled";
+    if (spoolman) return "takes its gate spools from Spoolman in pull mode. Set them in Spoolman";
+    return "is not linked to Spoolman";
+  }
 
  private:
   void fetch_spoolman_weights();
