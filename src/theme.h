@@ -121,13 +121,15 @@ struct Styles {
   lv_style_t key_tray;               // a selector's outlined tray round a set of keys
   lv_style_t key, key_pressed, key_checked;  // one key; pressed and chosen states
   lv_style_t input;                  // a text entry
+  lv_style_t option;                 // a dropdown list's rows: the entry's colours, no outline
   lv_style_t input_placeholder;      // its hint text
   lv_style_t table;                  // a list/table: outlined, cells padded
   lv_style_t table_cell;
   lv_style_t track;                  // the groove of a switch
   lv_style_t groove;                 // the groove of a slider or bar: a wash of the accent
   lv_style_t fill;                   // the filled part of any of those: the accent
-  lv_style_t knob;                   // a slider knob (a switch keeps LVGL's own)
+  lv_style_t knob;                   // a slider knob
+  lv_style_t switch_knob;            // a switch's knob: the icon colour
   lv_style_t slider;                 // a slider's track, inset so its knob stays inside the widget
   lv_style_t arc_track, arc_fill;    // the same two for arcs and spinners (no box)
 };

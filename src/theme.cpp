@@ -138,6 +138,7 @@ Styles &styles() {
   lv_style_set_shadow_width(&s.btn, 0);
   lv_style_set_radius(&s.btn, radius_sm());
   lv_style_set_bg_color(&s.btn, col(RAISED));
+  lv_style_set_text_color(&s.btn, col(TEXT));  // LVGL's button style sets its own
   lv_style_set_bg_opa(&s.btn, LV_OPA_COVER);
   // The fill says where the button is; it has no outline.
   lv_style_set_border_width(&s.btn, 0);
@@ -334,6 +335,12 @@ Styles &styles() {
   lv_style_set_bg_opa(&s.input, LV_OPA_COVER);
   lv_style_set_text_color(&s.input, col(TEXT));
 
+  lv_style_init(&s.option);
+  lv_style_set_bg_color(&s.option, col(SURFACE));
+  lv_style_set_bg_opa(&s.option, LV_OPA_COVER);
+  lv_style_set_border_width(&s.option, 0);
+  lv_style_set_text_color(&s.option, col(TEXT));
+
   lv_style_init(&s.input_placeholder);
   lv_style_set_text_color(&s.input_placeholder, col(TEXT_DIM));
 
@@ -374,6 +381,10 @@ Styles &styles() {
   lv_style_set_bg_opa(&s.knob, LV_OPA_COVER);
   lv_style_set_border_width(&s.knob, 0);
   lv_style_set_pad_all(&s.knob, knob_pad());
+
+  lv_style_init(&s.switch_knob);
+  lv_style_set_bg_color(&s.switch_knob, col(ICON));
+  lv_style_set_bg_opa(&s.switch_knob, LV_OPA_COVER);
 
   // A slider's knob is drawn centred on the track's end, so half of it hangs
   // past the widget's box, where the parent clips it at full and at zero.

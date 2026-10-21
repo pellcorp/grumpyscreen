@@ -115,6 +115,9 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   lv_obj_set_flex_align(switch_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_t *label = lv_label_create(switch_cont);
   lv_label_set_text(label, "Show Archived");
+  // the same arrangement as a switch in Settings: a dim title, then the switch
+  lv_obj_add_style(label, &styles().dim_label, 0);
+  lv_obj_move_to_index(label, 0);
   lv_obj_clear_state(show_archived, LV_STATE_CHECKED);
   lv_obj_add_event_cb(show_archived, &SpoolmanPanel::_handle_spoolman_action, LV_EVENT_VALUE_CHANGED, this);
 

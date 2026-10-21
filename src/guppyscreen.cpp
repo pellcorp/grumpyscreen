@@ -276,6 +276,17 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
     lv_obj_add_style(obj, &s.input, LV_PART_MAIN);
     lv_obj_add_style(obj, &s.input_placeholder, LV_PART_TEXTAREA_PLACEHOLDER);
   }
+  // a dropdown is an entry that opens a list: the closed box and the list share
+  // the entry's look; its rows take the surface, and the chosen one the accent
+  if (lv_obj_check_type(obj, &lv_dropdown_class)) {
+    lv_obj_add_style(obj, &s.input, LV_PART_MAIN);
+  }
+  if (lv_obj_check_type(obj, &lv_dropdownlist_class)) {
+    lv_obj_add_style(obj, &s.input, LV_PART_MAIN);
+    lv_obj_add_style(obj, &s.option, LV_PART_SELECTED);
+    lv_obj_add_style(obj, &s.key_checked, LV_PART_SELECTED | LV_STATE_CHECKED);
+    lv_obj_add_style(obj, &s.key_pressed, LV_PART_SELECTED | LV_STATE_PRESSED);
+  }
   if (lv_obj_check_type(obj, &lv_table_class)) {
     lv_obj_add_style(obj, &s.table, LV_PART_MAIN);
     lv_obj_add_style(obj, &s.table_cell, LV_PART_ITEMS);
@@ -286,9 +297,10 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
     lv_obj_add_style(obj, &s.arc_track, LV_PART_MAIN);
     lv_obj_add_style(obj, &s.arc_fill, LV_PART_INDICATOR);
   } else if (lv_obj_check_type(obj, &lv_switch_class)) {
-    // a switch is a grey channel that shows the accent only once it is on, and
-    // keeps LVGL's own pale knob
+    // a switch is a grey channel that shows the accent only once it is on, with
+    // a knob in the icon colour
     lv_obj_add_style(obj, &s.track, LV_PART_MAIN);
+    lv_obj_add_style(obj, &s.switch_knob, LV_PART_KNOB);
     lv_obj_add_style(obj, &s.track, LV_PART_INDICATOR);
     lv_obj_add_style(obj, &s.fill, LV_PART_INDICATOR | LV_STATE_CHECKED);
   } else if (lv_obj_check_type(obj, &lv_slider_class) || lv_obj_check_type(obj, &lv_bar_class)) {

@@ -461,6 +461,7 @@ void MmuPanel::create_edit_screen() {
   lv_obj_set_style_bg_color(custom_colour_btn, col(RAISED), 0);
   lv_obj_t *cc_icon = lv_label_create(custom_colour_btn);
   lv_label_set_text(cc_icon, LV_SYMBOL_EDIT);
+  lv_obj_set_style_text_color(cc_icon, col(ICON), 0);  // a glyph, but an icon to the theme
   lv_obj_center(cc_icon);
   lv_obj_add_event_cb(custom_colour_btn, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
 
@@ -540,6 +541,7 @@ void MmuPanel::create_edit_screen() {
   lv_obj_add_style(more_mat_btn, &styles().dim_disabled, LV_STATE_DISABLED);
   lv_obj_t *mm_icon = lv_label_create(more_mat_btn);
   lv_label_set_text(mm_icon, LV_SYMBOL_LIST);
+  lv_obj_set_style_text_color(mm_icon, col(ICON), 0);
   lv_obj_center(mm_icon);
   lv_obj_add_event_cb(more_mat_btn, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
 

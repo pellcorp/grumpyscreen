@@ -137,7 +137,7 @@ columns.
 styles whole widget classes at creation: every `lv_btn` gets `btn`, every
 `lv_btnmatrix` and `lv_keyboard` gets `key_tray`/`key` (a matrix's checked key
 is the chosen value and wears the accent; a keyboard's checked keys are its
-control keys and stay plain), `lv_textarea` gets `input`, `lv_table` gets
+control keys and stay plain), `lv_textarea` and `lv_dropdown` (and its list, whose rows take `option`) get `input`, `lv_table` gets
 `table`, and sliders, bars, switches, arcs and spinners get `track`/`fill`/
 `knob`. A panel never restyles those itself; it adds a style on top only when
 the widget has a different role (the console log is a textarea wearing
