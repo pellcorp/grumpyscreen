@@ -39,6 +39,11 @@ class SpoolmanPanel {
   void create(lv_obj_t *parent);
   // the MMU whose lanes a held row can be assigned to; NULL for none
   void set_mmu(MmuPanel *m);
+  // full screen over the MMU tab, with a Back button, and fetched fresh.
+  // caller holds lv_lock
+  void open_overlay();
+  // back onto its tab page if it is open over the MMU tab. caller holds lv_lock
+  void close_overlay();
   void populate_spools(std::vector<SpoolRec> &sorted_spools);
   void handle_active_id_update(json &j);
   
@@ -70,6 +75,7 @@ class SpoolmanPanel {
   KWebSocketClient &ws;
   std::mutex &lv_lock;
   // all NULL until create(); the tab page owns them
+  lv_obj_t *page = NULL;  // the tab page it lives on
   lv_obj_t *cont = NULL;
   lv_obj_t *table_box = NULL;  // the table and its side scrollbar
   lv_obj_t *spool_table = NULL;
@@ -78,6 +84,8 @@ class SpoolmanPanel {
   lv_obj_t *switch_cont = NULL;
   lv_obj_t *show_archived = NULL;
   std::unique_ptr<ButtonContainer> reload_btn;
+  std::unique_ptr<ButtonContainer> back_btn;  // only while open over the MMU tab
+  bool overlay = false;
   // archived spools are only fetched while "Show Archived" is on
   bool want_archived = false;
   int32_t active_id;

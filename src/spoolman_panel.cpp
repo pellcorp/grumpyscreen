@@ -65,6 +65,7 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
 
 void SpoolmanPanel::create(lv_obj_t *parent) {
   if (cont != NULL) return;
+  page = parent;
   cont = create_screen(parent);
   table_box = create_row(cont);
   spool_table = lv_table_create(table_box);
@@ -79,10 +80,15 @@ void SpoolmanPanel::create(lv_obj_t *parent) {
     ((SpoolmanPanel *)lv_event_get_user_data(e))->cont = NULL;
   }, LV_EVENT_DELETE, this);
 
+  back_btn = std::make_unique<ButtonContainer>(controls, Icons::BACK, "Back",
+                                               &SpoolmanPanel::_handle_callback, this);
   // icon-only square tiles a finger tall: the table gets the rest of the screen
-  reload_btn->use_card();
-  reload_btn->hide_label();
-  lv_obj_set_size(reload_btn->get_container(), touch_h(), touch_h());
+  for (ButtonContainer *b : {reload_btn.get(), back_btn.get()}) {
+    b->use_card();
+    b->hide_label();
+    lv_obj_set_size(b->get_container(), touch_h(), touch_h());
+  }
+  lv_obj_add_flag(back_btn->get_container(), LV_OBJ_FLAG_HIDDEN);
   lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
 
   // the table takes the height above the controls, its scrollbar beside it
@@ -388,7 +394,25 @@ void SpoolmanPanel::handle_callback(lv_event_t *event) {
   if (reload_btn && btn == reload_btn->get_container()) {
     LOG_TRACE("spoolman reload button pressed");
     init();
+  } else if (back_btn && btn == back_btn->get_container()) {
+    close_overlay();
   }
+}
+
+void SpoolmanPanel::open_overlay() {
+  if (cont == NULL || overlay) return;
+  overlay = true;
+  lv_obj_set_parent(cont, lv_scr_act());
+  lv_obj_clear_flag(back_btn->get_container(), LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(cont);
+  init();
+}
+
+void SpoolmanPanel::close_overlay() {
+  if (cont == NULL || !overlay) return;
+  overlay = false;
+  lv_obj_add_flag(back_btn->get_container(), LV_OBJ_FLAG_HIDDEN);
+  lv_obj_set_parent(cont, page);
 }
 
 void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {

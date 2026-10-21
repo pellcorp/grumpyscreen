@@ -274,6 +274,19 @@ void MmuPanel::create(lv_obj_t *parent) {
   lv_obj_set_width(status_label, LV_PCT(100));
   lv_obj_clear_flag(status_label, LV_OBJ_FLAG_CLICKABLE);
 
+  // spoolman's list, beside the status: hidden unless spoolman is there
+  // a square the header's height, with spoolman's icon rather than a word
+  spoolman_btn = create_text_btn(header_row, "", &MmuPanel::_handle_spoolman, this);
+  lv_obj_del(lv_obj_get_child(spoolman_btn, 0));
+  lv_obj_set_size(spoolman_btn, scale_r(HEADER_HEIGHT), scale_r(HEADER_HEIGHT));
+  lv_obj_set_style_pad_all(spoolman_btn, 0, 0);
+  lv_obj_t *spoolman_icon = lv_img_create(spoolman_btn);
+  lv_img_set_src(spoolman_icon, Icons::SPOOLMAN_IMG);
+  fit_img(spoolman_icon, scale_r(HEADER_HEIGHT) - 2 * gap(), scale_r(HEADER_HEIGHT) - 2 * gap());
+  lv_obj_center(spoolman_icon);
+  lv_obj_clear_flag(spoolman_icon, LV_OBJ_FLAG_CLICKABLE);
+  show_spoolman_button(spoolman_btn_shown);
+
   // Row 1: Spools 1 - 4. The card rows flex-grow to split whatever height
   // the header and nav rows leave over
   cards_row1 = create_row(cont);
@@ -666,6 +679,13 @@ void MmuPanel::refresh() {
   // backend can go A -> B -> A without ever passing through "".
   if (message != dismissed_message) dismissed_message.clear();
   note_spools();
+}
+
+void MmuPanel::show_spoolman_button(bool shown) {
+  spoolman_btn_shown = shown;
+  if (spoolman_btn == NULL) return;
+  if (shown) lv_obj_clear_flag(spoolman_btn, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(spoolman_btn, LV_OBJ_FLAG_HIDDEN);
 }
 
 void MmuPanel::note_spools() {

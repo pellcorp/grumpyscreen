@@ -590,6 +590,11 @@ LIBRARY = {
                    (YELLOW, "PLA", "Yellow PLA"), (BLACK, "PETG", "Black PETG"), (RED, "PLA", "Red PLA")],
         temps=(235, 70)),
 
+    # sized to use 10 g of filament, to watch a spool's weight go down
+    "use_10g.gcode": dict(
+        parts=[Part("use_10g.stl_id_0_copy_0", rect(C - 20, C - 20, 40, 40), 21.8)],
+        filaments=[(GREEN, "PLA", "Generic PLA")]),
+
     # two colours swapped every two layers: lots of tool changes quickly
     "stripes_2colour.gcode": dict(
         parts=[Part("stripes.stl_id_0_copy_0", circle(C, C, 14), 2.4, tool=0,

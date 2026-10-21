@@ -71,6 +71,9 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
   });
     ws.register_notify_update(this);
+    if (mmu_panel != NULL) {
+      mmu_panel->open_spoolman = [this]() { spoolman_panel.open_overlay(); };
+    }
     // moonraker losing or finding its spoolman server: the tab follows
     ws.register_method_callback("notify_spoolman_status_changed", "MainPanel", [this](json &d) {
       const auto connected_ptr = "/params/0/spoolman_connected"_json_pointer;
@@ -86,7 +89,8 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
 
 MainPanel::~MainPanel() {
   if (tabview != NULL) {
-    // back in the bar, so the tabview frees its label with the rest
+    // back in the bar and on its page, so the tabview frees them with the rest
+    spoolman_panel.close_overlay();
     set_spoolman_tab_visible(true);
     lv_obj_del(tabview);
     tabview = NULL;
@@ -531,22 +535,33 @@ void MainPanel::create_leds(json &leds) {
 }
 
 void MainPanel::enable_spoolman() {
-  LOG_DEBUG("enabling spoolman tab");
+  LOG_DEBUG("enabling spoolman");
   {
     std::lock_guard<std::mutex> lock(lv_lock);
     // built the first time spoolman appears, like the mmu panel
     spoolman_panel.create(spoolman_tab);
-    set_spoolman_tab_visible(true);
+    spoolman_ready = true;
+    place_spoolman();
   }
   spoolman_panel.init();
 }
 
-// moonraker came back without spoolman: the tab leaves the bar, and anyone on
+// moonraker came back without spoolman: the tab or button goes, and anyone on
 // it lands on home
 void MainPanel::disable_spoolman() {
-  LOG_DEBUG("disabling spoolman tab");
+  LOG_DEBUG("disabling spoolman");
   std::lock_guard<std::mutex> lock(lv_lock);
-  set_spoolman_tab_visible(false);
+  spoolman_ready = false;
+  place_spoolman();
+}
+
+// Spoolman has its own tab without an MMU; with one it opens from a button in
+// the MMU tab instead
+void MainPanel::place_spoolman() {
+  const bool in_mmu = spoolman_ready && mmu_ready;
+  if (!in_mmu) spoolman_panel.close_overlay();
+  set_spoolman_tab_visible(spoolman_ready && !mmu_ready);
+  if (mmu_panel != NULL) mmu_panel->show_spoolman_button(in_mmu);
 }
 
 // LVGL 8's tabview can only append tabs, so this edits its button map in place.
@@ -608,6 +623,7 @@ void MainPanel::enable_mmu() {
   mmu_ready = true;
   lv_btnmatrix_clear_btn_ctrl(lv_tabview_get_tab_btns(tabview),
                               lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
+  place_spoolman();
 }
 
 // Klipper came back without the backend this time. The tab may already be
@@ -625,4 +641,5 @@ void MainPanel::disable_mmu() {
     lv_tabview_set_act(tabview, lv_obj_get_index(main_tab), LV_ANIM_OFF);
   }
   lv_btnmatrix_set_btn_ctrl(lv_tabview_get_tab_btns(tabview), idx, LV_BTNMATRIX_CTRL_DISABLED);
+  place_spoolman();
 }
