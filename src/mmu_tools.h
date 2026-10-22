@@ -24,6 +24,8 @@ static const double MMU_COLOUR_MISMATCH = 30;  // not the same colour: warn
 bool mmu_has_filament(const MmuSlot &slot);
 // the slot whose map holds T<tool>, -1 if none
 int mmu_slot_for_tool(const std::vector<MmuSlot> &slots, int tool);
+// the slots holding spoolman spool <spool_id>, in order; none for a negative id
+std::vector<int> mmu_slots_with_spool(const std::vector<MmuSlot> &slots, int spool_id);
 
 // Tools a file uses (filament weight > 0) from its moonraker metadata response.
 std::vector<MmuFileTool> mmu_file_tools(const json &metadata);

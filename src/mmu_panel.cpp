@@ -6,6 +6,7 @@
 #include "logger.h"
 #include "theme.h"
 #include "utils.h"
+#include "simple_dialog.h"
 
 #include <algorithm>
 #include <cctype>
@@ -747,6 +748,8 @@ void MmuPanel::rebuild_grid(size_t page_count) {
     lv_obj_clear_flag(card.cont, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(card.cont, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(card.cont, &MmuPanel::_handle_card, LV_EVENT_CLICKED, this);
+    lv_obj_add_event_cb(card.cont, &MmuPanel::_handle_card, LV_EVENT_PRESSED, this);
+    lv_obj_add_event_cb(card.cont, &MmuPanel::_handle_card, LV_EVENT_LONG_PRESSED, this);
 
     lv_obj_set_flex_flow(card.cont, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(card.cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -858,11 +861,9 @@ void MmuPanel::populate() {
 
     // Line 2: Material. A configured material shows even when the slot is
     // physically empty (the translucent spool conveys emptiness); bare slots say "Empty"
-    if (has_filament) {
-      lv_label_set_text(card.material, slot.material.empty() ? "-" : slot.material.c_str());
-    } else {
-      lv_label_set_text(card.material, slot.material.empty() ? "Empty" : slot.material.c_str());
-    }
+    std::string mat_line = !slot.material.empty() ? slot.material : has_filament ? "-" : "Empty";
+    if (spoolman_active && slot.spool_id >= 0) mat_line += fmt::format(" #{}", slot.spool_id);
+    lv_label_set_text(card.material, mat_line.c_str());
 
     // the loaded lane outlines itself in the accent, a step heavier than the
     // hairline the others wear
@@ -956,8 +957,36 @@ void MmuPanel::consume(json &j) {
 void MmuPanel::handle_card(lv_event_t *e) {
   lv_obj_t *card = lv_event_get_current_target(e);
   int idx = (int)(intptr_t)lv_obj_get_user_data(card);
+  const lv_event_code_t code = lv_event_get_code(e);
+  if (code == LV_EVENT_PRESSED) {
+    card_long_pressed = false;
+    return;
+  }
+  if (code == LV_EVENT_LONG_PRESSED) {
+    card_long_pressed = true;
+    pick_spool_for(idx);
+    return;
+  }
+  if (card_long_pressed) return;
   LOG_TRACE("mmu card {} clicked -> opening full-screen config", idx);
   open_edit(idx);
+}
+
+void MmuPanel::pick_spool_for(int idx) {
+  if (backend == NULL || idx < 0 || (size_t)idx >= backend->slots.size()) return;
+  if (!backend->can_assign_spool()) {
+    const std::string why = fmt::format("{} {}.", backend->vendor(), backend->assign_spool_refusal());
+    create_simple_dialog(lv_layer_top(), "Spoolman", why.c_str(), true, false);
+    return;
+  }
+  if (!pick_spool) return;
+  const std::string lane = backend->slots[idx].name;
+  pick_spool(lane, backend->slots[idx].spool_id, [this, idx, lane](int spool_id) {
+    // the unit may have changed while the list was open
+    if (backend == NULL || !backend->can_assign_spool() || (size_t)idx >= backend->slots.size() ||
+        backend->slots[idx].name != lane) return;
+    backend->assign_spool(idx, spool_id);
+  });
 }
 
 void MmuPanel::handle_page_prev(lv_event_t *e) {

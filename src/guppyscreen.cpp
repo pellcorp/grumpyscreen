@@ -9,6 +9,7 @@
 #endif
 #include "logger.h"
 #include "state.h"
+#include "mmu_tools.h"
 #ifdef GUPPY_CALIBRATE
 #include <fstream>
 #endif
@@ -56,6 +57,20 @@ GuppyScreen::GuppyScreen()
   if (hh_backend != nullptr) mmu_panel->add_backend("hh", hh_backend.get());
 #endif
   main_panel.create_panel();
+
+  mmu_panel->pick_spool = [this](const std::string &lane, int current, std::function<void(int)> done) {
+    spoolman_panel.pick(lane, current, std::move(done));
+  };
+  spoolman_panel.lanes_of = [this](int spool_id) {
+    std::string out;
+    MmuBackend *b = mmu_panel->active_backend();
+    if (b == NULL || !b->spoolman) return out;
+    for (int i : mmu_slots_with_spool(b->slots, spool_id)) {
+      if (!out.empty()) out += ", ";
+      out += b->slots[i].name;
+    }
+    return out;
+  };
 }
 
 GuppyScreen *GuppyScreen::get() {

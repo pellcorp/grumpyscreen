@@ -129,6 +129,17 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
 			      "SpoolmanPanel",
 			      [this](json& d) { this->handle_active_id_update(d); });
 
+  // shown above the table while picking a spool for an MMU lane
+  pick_bar = create_row(cont);
+  lv_obj_move_to_index(pick_bar, 0);
+  lv_obj_set_size(pick_bar, LV_PCT(100), LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(pick_bar, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(pick_bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  pick_label = lv_label_create(pick_bar);
+  lv_obj_set_flex_grow(pick_label, 1);
+  lv_obj_set_style_pad_left(pick_label, gap(), 0);
+  clear_btn = create_text_btn(pick_bar, "Clear", &SpoolmanPanel::_handle_callback, this);
+  lv_obj_add_flag(pick_bar, LV_OBJ_FLAG_HIDDEN);
 }
 
 SpoolmanPanel::~SpoolmanPanel() {
@@ -166,18 +177,37 @@ void SpoolmanPanel::init() {
       LOG_TRACE("got spool active id {}", d.dump());
     }
     const auto spool_id_ptr = "/result/spool_id"_json_pointer;
-    if (d.contains(spool_id_ptr) && !d[spool_id_ptr].is_null()) {
-      this->active_id = d[spool_id_ptr].template get<int>();
-
+    if (d.contains("/result"_json_pointer)) {
+      // null: no active spool
+      const bool set = d.contains(spool_id_ptr) && d[spool_id_ptr].is_number();
       std::lock_guard<std::mutex> lock(this->lv_lock);
+      this->active_id = set ? d[spool_id_ptr].template get<int>() : -1;
       repopulate();
     }
   });
 }
 
 void SpoolmanPanel::foreground() {
+  end_pick();
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
+  init();
+}
+
+void SpoolmanPanel::pick(const std::string &lane, int current_spool, std::function<void(int)> done) {
+  pick_done = std::move(done);
+  lv_label_set_text(pick_label, fmt::format("Spool for {}", lane).c_str());
+  if (current_spool >= 0) lv_obj_clear_flag(clear_btn, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(clear_btn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(pick_bar, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(cont);
+  init();
+}
+
+void SpoolmanPanel::end_pick() {
+  pick_done = nullptr;
+  lv_obj_add_flag(pick_bar, LV_OBJ_FLAG_HIDDEN);
 }
 
 void SpoolmanPanel::repopulate() {
@@ -217,7 +247,11 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
       auto remaining_len = number_at(el, "/remaining_length"_json_pointer) / 1000; // mm to m
 
       lv_table_set_cell_value(spool_table, row_idx, 0, std::to_string(id).c_str());
-      lv_table_set_cell_value(spool_table, row_idx, 1, spool_name(el).c_str());
+      // a second line for the lanes it is in
+      std::string name = spool_name(el);
+      const std::string lanes = lanes_of ? lanes_of((int)id) : "";
+      if (!lanes.empty()) name += "\n" + lanes;
+      lv_table_set_cell_value(spool_table, row_idx, 1, name.c_str());
       lv_table_set_cell_value(spool_table, row_idx, 2, material.c_str());
       lv_table_set_cell_value(spool_table, row_idx, 3, "");
 
@@ -283,18 +317,24 @@ void SpoolmanPanel::handle_active_id_update(json &j) {
     LOG_TRACE("active spool id update {}", j.dump());
   }
   const auto spool_id_ptr = "/params/0/spool_id"_json_pointer;
-  if (j.contains(spool_id_ptr) && !j[spool_id_ptr].is_null()) {
-    active_id = j[spool_id_ptr].template get<int>();
-
-    std::lock_guard<std::mutex> lock(lv_lock);
-    repopulate();
-  }
+  // null when the active spool was cleared
+  const bool set = j.contains(spool_id_ptr) && j[spool_id_ptr].is_number();
+  std::lock_guard<std::mutex> lock(lv_lock);
+  active_id = set ? j[spool_id_ptr].template get<int>() : -1;
+  repopulate();
 }
 
 void SpoolmanPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
-  if (btn == back_btn.get_container()) {
+  if (btn == clear_btn) {
+    auto done = pick_done;
+    end_pick();
+    lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_background(cont);
+    if (done) done(-1);
+  } else if (btn == back_btn.get_container()) {
     LOG_TRACE("spoolman back button pressed");
+    end_pick();
     lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_background(cont);
   } else if (btn == reload_btn.get_container()) {
@@ -392,6 +432,20 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
     const char *spool_id = lv_table_get_cell_value(spool_table, row, 0);
     LOG_TRACE("selected {}, {}, value {}", row, col, spool_id);
     if (row != 0) {
+      if (pick_done && spool_id != NULL && spool_id[0] != '\0') {
+        auto done = pick_done;
+        end_pick();
+        lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_background(cont);
+        done(std::atoi(spool_id));
+        return;
+      }
+      // "(active)" spans both action columns: a tap on it clears the active spool
+      const char *marker = lv_table_get_cell_value(spool_table, row, 6);
+      if ((col == 6 || col == 7) && marker != NULL && strcmp(marker, "(active)") == 0) {
+        ws.send_jsonrpc("server.spoolman.post_spool_id");
+        return;
+      }
       if (col == 6 && selected != NULL && strlen(selected) != 0 && std::memcmp(LV_SYMBOL_PLAY, selected, 3) == 0) {
         // set active spool
         int id = std::stoi(spool_id);

@@ -42,10 +42,17 @@ class MmuPanel : public NotifyConsumer {
   static bool enabled();
   // detect the configured backend; returns it (NULL when it is not there)
   MmuBackend *select_backend();
+<<<<<<< HEAD
   // the header's Spoolman button, while the MMU tab stands in for spoolman's
   // own; a tap runs open_spoolman. caller holds lv_lock
   void show_spoolman_button(bool shown);
   std::function<void()> open_spoolman;
+=======
+  MmuBackend *active_backend() const { return backend; }
+  // a long-pressed lane asks for a spool: the lane's name, its spool now (-1
+  // for none), and what to call with the chosen spool (-1 clears)
+  std::function<void(const std::string &, int, std::function<void(int)>)> pick_spool;
+>>>>>>> e2ea337 (Add Spoolman assignment for MMU lanes)
 
   // build the UI into the MMU tab. caller must hold lv_lock.
   void create(lv_obj_t *parent);
@@ -212,6 +219,8 @@ class MmuPanel : public NotifyConsumer {
   bool error_state;
   bool bypass;
   bool spoolman_active = false; // weights only mean something via spoolman
+  bool card_long_pressed = false; // its release still clicks
+  void pick_spool_for(int idx);
 };
 
 #endif // __MMU_PANEL_H__

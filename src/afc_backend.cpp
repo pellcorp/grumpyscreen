@@ -170,7 +170,8 @@ void AfcBackend::refresh() {
       // refetched from spoolman at every PREP, so a local edit here would
       // apply and then quietly revert. Spoolman owns it; edit it there.
       if (spoolman && st.contains("spool_id") && st["spool_id"].is_number()) {
-        slot.can_configure = st["spool_id"].template get<int>() < 0;
+        slot.spool_id = st["spool_id"].template get<int>();
+        slot.can_configure = slot.spool_id < 0;
       }
 
       slots.push_back(slot);
@@ -239,6 +240,14 @@ void AfcBackend::eject(int slot) {
 void AfcBackend::set_colour(int slot, const std::string &hex) {
   if (!valid(slot)) return;
   ws.gcode_script(fmt::format("SET_COLOR LANE={} COLOR={}", lane_id(slot), hex));
+}
+
+void AfcBackend::assign_spool(int slot, int spool_id) {
+  if (!valid(slot)) return;
+  // AFC then pulls the lane's colour, material and weight from spoolman
+  // an empty SPOOL_ID clears the lane's spool
+  ws.gcode_script(fmt::format("SET_SPOOL_ID LANE={} SPOOL_ID={}", lane_id(slot),
+                              spool_id >= 0 ? std::to_string(spool_id) : ""));
 }
 
 void AfcBackend::set_material(int slot, const std::string &material) {

@@ -6,8 +6,10 @@
 #include "button_container.h"
 #include "lvgl/lvgl.h"
 
+#include <functional>
 #include <map>
 #include <mutex>
+#include <string>
 
 class SpoolmanPanel {
  public:
@@ -16,6 +18,11 @@ class SpoolmanPanel {
 
   void init();
   void foreground();
+  // the list, to pick a spool for an MMU lane: done gets the spool id, or -1
+  // from Clear. caller holds lv_lock
+  void pick(const std::string &lane, int current_spool, std::function<void(int)> done);
+  // "Lane 1, Lane 3" for a spool id, from the MMU; unset without one
+  std::function<std::string(int)> lanes_of;
   void populate_spools(std::vector<json> &sorted_spools);
   void handle_active_id_update(json &j);
   
@@ -38,6 +45,7 @@ class SpoolmanPanel {
   // share the table's width across the columns: the flexible ones take what
   // the fixed ones leave, in whole pixels that reach the right edge exactly
   void layout_columns();
+  void end_pick();
 
   KWebSocketClient &ws;
   std::mutex &lv_lock;
@@ -50,6 +58,10 @@ class SpoolmanPanel {
   lv_obj_t *show_archived;
   ButtonContainer reload_btn;
   ButtonContainer back_btn;
+  lv_obj_t *pick_bar = NULL;
+  lv_obj_t *pick_label = NULL;
+  lv_obj_t *clear_btn = NULL;
+  std::function<void(int)> pick_done;
   int32_t active_id;
   std::map<uint32_t, json> spools;
   uint32_t sorted_by;
