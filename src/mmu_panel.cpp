@@ -10,6 +10,9 @@
 #include <algorithm>
 #include <cctype>
 
+LV_FONT_DECLARE(materialdesign_font_40);
+#define SPOOLMAN_SYMBOL u8"\U000F01BC"
+
 // every size, colour, shared style and widget factory this panel draws with
 using namespace Theme;
 
@@ -277,9 +280,9 @@ void MmuPanel::create(lv_obj_t *parent) {
   lv_obj_del(lv_obj_get_child(spoolman_btn, 0));
   lv_obj_set_size(spoolman_btn, scale_r(HEADER_HEIGHT), scale_r(HEADER_HEIGHT));
   lv_obj_set_style_pad_all(spoolman_btn, 0, 0);
-  lv_obj_t *spoolman_icon = lv_img_create(spoolman_btn);
-  lv_img_set_src(spoolman_icon, Icons::SPOOLMAN_IMG);
-  fit_img(spoolman_icon, scale_r(HEADER_HEIGHT) - 2 * gap(), scale_r(HEADER_HEIGHT) - 2 * gap());
+  lv_obj_t *spoolman_icon = lv_label_create(spoolman_btn);
+  lv_obj_set_style_text_font(spoolman_icon, &materialdesign_font_40, 0);
+  lv_label_set_text(spoolman_icon, SPOOLMAN_SYMBOL);
   lv_obj_center(spoolman_icon);
   lv_obj_clear_flag(spoolman_icon, LV_OBJ_FLAG_CLICKABLE);
   show_spoolman_button(spoolman_btn_shown);
