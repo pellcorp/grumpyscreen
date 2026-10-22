@@ -219,6 +219,11 @@ void ExtruderPanel::enable_spoolman() {
   spoolman_btn.enable();
 }
 
+void ExtruderPanel::show_spoolman(bool shown) {
+  if (shown) lv_obj_clear_flag(spoolman_btn.get_container(), LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(spoolman_btn.get_container(), LV_OBJ_FLAG_HIDDEN);
+}
+
 void ExtruderPanel::consume(json& j) {
   std::lock_guard<std::mutex> lock(lv_lock);
   auto target_value = j["/params/0/extruder/target"_json_pointer];

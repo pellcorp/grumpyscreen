@@ -69,6 +69,9 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
   });
     ws.register_notify_update(this);
+    if (mmu_panel != NULL) {
+      mmu_panel->open_spoolman = [this]() { spoolman_panel.foreground(); };
+    }
 
     lv_obj_add_event_cb(tabview, &MainPanel::_tabview_event_cb,
                             LV_EVENT_VALUE_CHANGED, this);
@@ -509,6 +512,15 @@ void MainPanel::create_leds(json &leds) {
 void MainPanel::enable_spoolman() {
   spoolman_panel.init();
   extruder_panel.enable_spoolman();
+  std::lock_guard<std::mutex> lock(lv_lock);
+  spoolman_ready = true;
+  place_spoolman();
+}
+
+// with an MMU, spoolman opens from the MMU tab instead of the extruder panel
+void MainPanel::place_spoolman() {
+  extruder_panel.show_spoolman(!mmu_ready);
+  if (mmu_panel != NULL) mmu_panel->show_spoolman_button(mmu_ready && spoolman_ready);
 }
 
 void MainPanel::enable_mmu() {
@@ -519,6 +531,8 @@ void MainPanel::enable_mmu() {
   mmu_panel->create(mmu_tab);
   lv_btnmatrix_clear_btn_ctrl(lv_tabview_get_tab_btns(tabview),
                               lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
+  mmu_ready = true;
+  place_spoolman();
 }
 
 // Klipper came back without the backend this time. The tab may already be
@@ -535,4 +549,6 @@ void MainPanel::disable_mmu() {
     lv_tabview_set_act(tabview, lv_obj_get_index(main_tab), LV_ANIM_OFF);
   }
   lv_btnmatrix_set_btn_ctrl(lv_tabview_get_tab_btns(tabview), idx, LV_BTNMATRIX_CTRL_DISABLED);
+  mmu_ready = false;
+  place_spoolman();
 }
