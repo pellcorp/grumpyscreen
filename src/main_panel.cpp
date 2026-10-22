@@ -519,7 +519,7 @@ void MainPanel::enable_spoolman() {
 
 // with an MMU, spoolman opens from the MMU tab instead of the extruder panel
 void MainPanel::place_spoolman() {
-  extruder_panel.show_spoolman(!mmu_ready);
+  extruder_panel.show_spoolman(spoolman_ready && !mmu_ready);
   if (mmu_panel != NULL) mmu_panel->show_spoolman_button(mmu_ready && spoolman_ready);
 }
 

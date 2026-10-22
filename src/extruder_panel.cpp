@@ -11,6 +11,9 @@ using namespace Theme;
 #include <cctype>
 #include <limits>
 
+LV_FONT_DECLARE(materialdesign_font_40);
+#define SPOOLMAN_SYMBOL u8"\U000F01BC"
+
 namespace {
 
 std::string trim_copy(std::string s) {
@@ -129,7 +132,7 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , extrude_btn(extrude_col, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
   , retract_btn(extrude_col, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
   , right_col(create_row(panel_cont))
-  , spoolman_btn(right_col, Icons::SPOOLMAN_IMG, "Spoolman", &ExtruderPanel::_handle_callback, this)
+  , spoolman_btn(right_col, SPOOLMAN_SYMBOL, "Spoolman", &ExtruderPanel::_handle_callback, this)
   , cooldown_btn(right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
   , back_btn(right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
 {
@@ -194,7 +197,10 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
     lv_obj_set_style_pad_bottom(mid[r]->get_container(), 0, 0);
   }
 
+  lv_obj_set_style_text_font(spoolman_btn.get_button(), &materialdesign_font_40, 0);
+  lv_obj_set_style_text_color(spoolman_btn.get_button(), col(DISABLED), LV_STATE_DISABLED);
   spoolman_btn.disable();  // state, not style: until moonraker says spoolman is there
+  spoolman_btn.hide();
 
   ws.register_notify_update(this);
 }
