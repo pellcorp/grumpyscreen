@@ -138,7 +138,6 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   pick_label = lv_label_create(pick_bar);
   lv_obj_set_flex_grow(pick_label, 1);
   lv_obj_set_style_pad_left(pick_label, gap(), 0);
-  clear_btn = create_text_btn(pick_bar, "Clear", &SpoolmanPanel::_handle_callback, this);
   lv_obj_add_flag(pick_bar, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -157,17 +156,23 @@ void SpoolmanPanel::init() {
 
   ws.send_jsonrpc("server.spoolman.proxy", param, [this](json &d) {
     const auto result_ptr = "/result"_json_pointer;
-    if (d.contains(result_ptr) && !d[result_ptr].is_null() && !d[result_ptr].empty()) {
-      auto &s = d[result_ptr];
-      spools.clear();
-      for (auto &e : s) {
-        if (e.contains("id")) {
-          uint32_t spool_id = e["id"].template get<uint32_t>();
-          spools.insert({spool_id, e});
-        }
+    if (d.contains(result_ptr) && d[result_ptr].is_array()) {
+      std::map<uint32_t, SpoolRec> fresh;
+      for (auto &e : d[result_ptr]) {
+        if (!e.contains("id") || !e["id"].is_number()) continue;
+        SpoolRec r;
+        r.id = uint_at(e, "/id"_json_pointer);
+        r.name = spool_name(e);
+        r.material = string_at(e, "/filament/material"_json_pointer);
+        r.colour = string_at(e, "/filament/color_hex"_json_pointer);
+        r.weight = number_at(e, "/remaining_weight"_json_pointer);
+        r.length = number_at(e, "/remaining_length"_json_pointer) / 1000;  // mm to m
+        r.archived = bool_at(e, "/archived"_json_pointer);
+        fresh.insert({r.id, std::move(r)});
       }
 
       std::lock_guard<std::mutex> lock(this->lv_lock);
+      spools.swap(fresh);
       repopulate();
     }
   });
@@ -196,30 +201,31 @@ void SpoolmanPanel::foreground() {
 
 void SpoolmanPanel::pick(const std::string &lane, int current_spool, std::function<void(int)> done) {
   pick_done = std::move(done);
+  pick_current = current_spool;
   lv_label_set_text(pick_label, fmt::format("Spool for {}", lane).c_str());
-  if (current_spool >= 0) lv_obj_clear_flag(clear_btn, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_add_flag(clear_btn, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(pick_bar, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
+  repopulate();
   init();
 }
 
 void SpoolmanPanel::end_pick() {
   pick_done = nullptr;
+  pick_current = -1;
   lv_obj_add_flag(pick_bar, LV_OBJ_FLAG_HIDDEN);
 }
 
 void SpoolmanPanel::repopulate() {
-  std::vector<json> sorted_spools;
-  KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [](json &a, json &b) {
-    return uint_at(a, "/id"_json_pointer) < uint_at(b, "/id"_json_pointer);
+  std::vector<SpoolRec> sorted_spools;
+  KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [](SpoolRec &a, SpoolRec &b) {
+    return a.id < b.id;
   });
   sorted_by = SORTED_BY_ID;
   populate_spools(sorted_spools);
 }
 
-void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
+void SpoolmanPanel::populate_spools(std::vector<SpoolRec> &sorted_spools) {
   size_t row_idx = 1;
   if (!spools.empty()) {
     lv_table_set_cell_value(spool_table, 0, 0, "ID");
@@ -231,24 +237,21 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
     bool skip_archive = !lv_obj_has_state(show_archived, LV_STATE_CHECKED);
 
     for (auto &el : sorted_spools) {
-      if (get_log_level() <= LogLevel::TRACE) {
-        LOG_TRACE("spool {}", el.dump());
-      }
-      bool is_archived = bool_at(el, "/archived"_json_pointer);
+      bool is_archived = el.archived;
       if (skip_archive && is_archived) {
 	      continue;
       }
-      
-      auto id = uint_at(el, "/id"_json_pointer);
-      bool is_active = id == active_id;
 
-      auto material = string_at(el, "/filament/material"_json_pointer);
-      auto remaining_weight = number_at(el, "/remaining_weight"_json_pointer);
-      auto remaining_len = number_at(el, "/remaining_length"_json_pointer) / 1000; // mm to m
+      auto id = el.id;
+      bool is_active = (int32_t)id == active_id;
+
+      const std::string &material = el.material;
+      const double remaining_weight = el.weight;
+      const double remaining_len = el.length;
 
       lv_table_set_cell_value(spool_table, row_idx, 0, std::to_string(id).c_str());
       // a second line for the lanes it is in
-      std::string name = spool_name(el);
+      std::string name = el.name;
       const std::string lanes = lanes_of ? lanes_of((int)id) : "";
       if (!lanes.empty()) name += "\n" + lanes;
       lv_table_set_cell_value(spool_table, row_idx, 1, name.c_str());
@@ -278,6 +281,10 @@ void SpoolmanPanel::populate_spools(std::vector<json> &sorted_spools) {
         } else {
           lv_table_set_cell_value(spool_table, row_idx, 6, LV_SYMBOL_PLAY);
         }
+      }
+      if (pick_done && (int)id == pick_current) {
+        lv_table_add_cell_ctrl(spool_table, row_idx, 6, LV_TABLE_CELL_CTRL_MERGE_RIGHT);
+        lv_table_set_cell_value(spool_table, row_idx, 6, "Remove");
       }
       row_idx++;
     }
@@ -326,13 +333,7 @@ void SpoolmanPanel::handle_active_id_update(json &j) {
 
 void SpoolmanPanel::handle_callback(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
-  if (btn == clear_btn) {
-    auto done = pick_done;
-    end_pick();
-    lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_background(cont);
-    if (done) done(-1);
-  } else if (btn == back_btn.get_container()) {
+  if (btn == back_btn.get_container()) {
     LOG_TRACE("spoolman back button pressed");
     end_pick();
     lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
@@ -365,10 +366,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       if (col == 0) {
         // sort by id
         bool reversed = sorted_by & SORTED_BY_ID;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = uint_at(a, "/id"_json_pointer);
-          auto y = uint_at(b, "/id"_json_pointer);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.id;
+          auto y = b.id;
 	        return reversed ? x > y : y > x;
 	      });
 
@@ -377,10 +378,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       } else if (col == 1) {
         // sort by name
         bool reversed = sorted_by & SORTED_BY_NAME;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = spool_name(a);
-          auto y = spool_name(b);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.name;
+          auto y = b.name;
           return reversed ? x > y : y > x;
         });
         sorted_by = (sorted_by ^ SORTED_BY_NAME) & SORTED_BY_NAME;
@@ -388,10 +389,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       } else if (col == 2) {
         // sort by material
         bool reversed = sorted_by & SORTED_BY_MAT;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = string_at(a, "/filament/material"_json_pointer);
-          auto y = string_at(b, "/filament/material"_json_pointer);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.material;
+          auto y = b.material;
 
           return reversed ? x > y : y > x;
         });
@@ -404,10 +405,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       } else if (col == 4) {
         // sort by weight
         bool reversed = sorted_by & SORTED_BY_WT;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = number_at(a, "/remaining_weight"_json_pointer);
-          auto y = number_at(b, "/remaining_weight"_json_pointer);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.weight;
+          auto y = b.weight;
 
           return reversed ? x > y : y > x;
         });
@@ -417,10 +418,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       } else if (col == 5) {
         // sort by length
         bool reversed = sorted_by & SORTED_BY_LEN;
-        std::vector<json> sorted_spools;
-        KUtils::sort_map_values<uint32_t, json>(spools, sorted_spools, [reversed](json &a, json &b) {
-          auto x = number_at(a, "/remaining_length"_json_pointer);
-          auto y = number_at(b, "/remaining_length"_json_pointer);
+        std::vector<SpoolRec> sorted_spools;
+        KUtils::sort_map_values<uint32_t, SpoolRec>(spools, sorted_spools, [reversed](SpoolRec &a, SpoolRec &b) {
+          auto x = a.length;
+          auto y = b.length;
           return reversed ? x > y : y > x;
         });
         sorted_by = (sorted_by ^ SORTED_BY_LEN) & SORTED_BY_LEN;
@@ -434,10 +435,12 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
     if (row != 0) {
       if (pick_done && spool_id != NULL && spool_id[0] != '\0') {
         auto done = pick_done;
+        const int id = std::atoi(spool_id);
+        const bool remove = id == pick_current;
         end_pick();
         lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_background(cont);
-        done(std::atoi(spool_id));
+        done(remove ? -1 : id);
         return;
       }
       // "(active)" spans both action columns: a tap on it clears the active spool
@@ -505,7 +508,7 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
         uint32_t id = std::stoi(spool_id);
         const auto &spool = spools.find(id);
         if (spool != spools.end()) {
-          const auto color = string_at(spool->second, "/filament/color_hex"_json_pointer);
+          const auto &color = spool->second.colour;
           lv_color_t colour;
           // a spool without a colour, or with one spoolman spells oddly, keeps the row colour
           if (parse_colour(color, &colour)) {
@@ -517,6 +520,15 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
       if((row != 0 && row % 2) == 0) {
         dsc->rect_dsc->bg_color = lv_color_mix(Theme::col(RAISED), dsc->rect_dsc->bg_color, ZEBRA_TINT);  // `col` is the cell column here
         dsc->rect_dsc->bg_opa = LV_OPA_COVER;
+      }
+
+      // the lane's own spool while picking
+      if (row != 0 && col != 3 && pick_done && pick_current >= 0) {
+        const char *id_txt = lv_table_get_cell_value(spool_table, row, 0);
+        if (id_txt != NULL && std::atoi(id_txt) == pick_current) {
+          dsc->rect_dsc->bg_color = lv_color_mix(theme_primary(), dsc->rect_dsc->bg_color, LV_OPA_50);
+          dsc->rect_dsc->bg_opa = LV_OPA_COVER;
+        }
       }
     }
   }

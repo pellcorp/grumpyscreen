@@ -10,6 +10,19 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <vector>
+
+// just what the list shows and acts on; spoolman's full record is dropped once
+// these are read from it
+struct SpoolRec {
+  uint32_t id = 0;
+  std::string name;      // "Vendor - Filament"
+  std::string material;
+  std::string colour;    // spoolman's color_hex, "" when unset
+  double weight = 0;     // grams remaining
+  double length = 0;     // metres remaining
+  bool archived = false;
+};
 
 class SpoolmanPanel {
  public:
@@ -19,11 +32,11 @@ class SpoolmanPanel {
   void init();
   void foreground();
   // the list, to pick a spool for an MMU lane: done gets the spool id, or -1
-  // from Clear. caller holds lv_lock
+  // from the lane's own spool's Remove. caller holds lv_lock
   void pick(const std::string &lane, int current_spool, std::function<void(int)> done);
   // "Lane 1, Lane 3" for a spool id, from the MMU; unset without one
   std::function<std::string(int)> lanes_of;
-  void populate_spools(std::vector<json> &sorted_spools);
+  void populate_spools(std::vector<SpoolRec> &sorted_spools);
   void handle_active_id_update(json &j);
   
   void handle_callback(lv_event_t *event);
@@ -60,10 +73,10 @@ class SpoolmanPanel {
   ButtonContainer back_btn;
   lv_obj_t *pick_bar = NULL;
   lv_obj_t *pick_label = NULL;
-  lv_obj_t *clear_btn = NULL;
   std::function<void(int)> pick_done;
+  int pick_current = -1;  // the spool already in the lane being picked for
   int32_t active_id;
-  std::map<uint32_t, json> spools;
+  std::map<uint32_t, SpoolRec> spools;
   uint32_t sorted_by;
 };
 
