@@ -342,8 +342,11 @@ void HhBackend::load(int slot) {
   ws.gcode_script(fmt::format("MMU_UNLOAD\nMMU_SELECT GATE={}\nMMU_LOAD", slot));
 }
 
+// Not while printing from a loaded bypass: MMU_CHANGE_TOOL refuses then, so
+// the print-start mapping screen is skipped rather than blocking Print.
 bool HhBackend::can_map_tool(int tool) const {
-  return enabled && !in_print && tool >= 0 && tool < num_tools && !slots.empty();
+  return enabled && !in_print && !(bypass && filament_loaded) &&
+         tool >= 0 && tool < num_tools && !slots.empty();
 }
 
 void HhBackend::map_tool(int tool, int slot) {

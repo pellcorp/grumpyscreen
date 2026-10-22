@@ -256,9 +256,11 @@ void AfcBackend::set_backup(int slot, int backup) {
   }
 }
 
-// not mid-print: it would re-point a toolchange AFC may be running
+// not mid-print: it would re-point a toolchange AFC may be running. Not in
+// bypass either: AFC skips tool loads then, so the print-start mapping screen
+// is skipped rather than blocking Print on empty lanes.
 bool AfcBackend::can_map_tool(int tool) const {
-  return !printing && mmu_slot_for_tool(slots, tool) >= 0;
+  return !printing && !bypass && mmu_slot_for_tool(slots, tool) >= 0;
 }
 
 void AfcBackend::map_tool(int tool, int slot) {

@@ -957,6 +957,13 @@ static void test_tool_map_verbs(KWebSocketClient &ws) {
   afc.refresh();
   CHECK(afc.can_share_slot());
 
+  // bypass: AFC skips tool loads, so no print-start mapping
+  j["printer_state"]["AFC"]["bypass_state"] = true;
+  load_state(j);
+  afc.refresh();
+  CHECK(!afc.can_map_tool(0));
+  j["printer_state"]["AFC"]["bypass_state"] = false;
+
   j["printer_state"]["print_stats"]["state"] = "printing";
   load_state(j);
   afc.refresh();
@@ -973,6 +980,19 @@ static void test_tool_map_verbs(KWebSocketClient &ws) {
   hh.map_tool(2, 0);
   CHECK_EQ(sent.size(), (size_t)1);
   if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_TTG_MAP TOOL=2 GATE=0 QUIET=1"));
+
+  // bypass: no mapping while it is loaded, mapping again once it is empty
+  json hj = hh_status();
+  hj["printer_state"]["mmu"]["tool"] = -2;
+  hj["printer_state"]["mmu"]["gate"] = -2;
+  hj["printer_state"]["mmu"]["filament"] = "Loaded";
+  load_state(hj);
+  hh.refresh();
+  CHECK(!hh.can_map_tool(0));
+  hj["printer_state"]["mmu"]["filament"] = "Unloaded";
+  load_state(hj);
+  hh.refresh();
+  CHECK(hh.can_map_tool(0));
 #endif
 }
 
