@@ -62,14 +62,8 @@ GuppyScreen::GuppyScreen()
     spoolman_panel.pick(lane, current, std::move(done));
   };
   spoolman_panel.lanes_of = [this](int spool_id) {
-    std::string out;
     MmuBackend *b = mmu_panel->active_backend();
-    if (b == NULL || !b->spoolman) return out;
-    for (int i : mmu_slots_with_spool(b->slots, spool_id)) {
-      if (!out.empty()) out += ", ";
-      out += b->slots[i].name;
-    }
-    return out;
+    return b == NULL ? std::string() : b->lanes_with_spool(spool_id);
   };
 }
 
