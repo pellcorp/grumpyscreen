@@ -981,10 +981,12 @@ void MmuPanel::pick_spool_for(int idx) {
   }
   if (!pick_spool) return;
   const std::string lane = backend->slots[idx].name;
-  pick_spool(lane, backend->slots[idx].spool_id, [this, idx, lane](int spool_id) {
+  const int current = backend->slots[idx].spool_id;
+  pick_spool(lane, current, [this, idx, lane, current](int spool_id) {
     // the unit may have changed while the list was open
     if (backend == NULL || !backend->can_assign_spool() || (size_t)idx >= backend->slots.size() ||
         backend->slots[idx].name != lane) return;
+    if (spool_id < 0 && backend->slots[idx].spool_id != current) return;
     backend->assign_spool(idx, spool_id);
   });
 }
