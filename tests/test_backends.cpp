@@ -282,6 +282,21 @@ static void test_spoolman(KWebSocketClient &ws) {
   CHECK(!afc.slots[0].can_configure);
   CHECK(afc.slots[1].can_configure);
 
+  // the lane's spool, and putting one in or taking it out
+  CHECK_EQ(afc.slots[0].spool_id, 42);
+  CHECK_EQ(afc.slots[1].spool_id, -1);
+  CHECK(afc.can_assign_spool());
+  sent.clear();
+  afc.assign_spool(1, 7);
+  CHECK_EQ(sent.size(), (size_t)1);
+  if (!sent.empty()) CHECK_EQ(sent[0], std::string("SET_SPOOL_ID LANE=lane2 SPOOL_ID=7"));
+  sent.clear();
+  afc.assign_spool(0, -1);
+  if (!sent.empty()) CHECK_EQ(sent[0], std::string("SET_SPOOL_ID LANE=lane1 SPOOL_ID="));
+  sent.clear();
+  afc.assign_spool(9, 7);
+  CHECK(sent.empty());
+
   // no spoolman server, no ownership and no meaningful weights
   j["printer_state"]["AFC"]["spoolman"] = nullptr;
   load_state(j);
@@ -289,6 +304,10 @@ static void test_spoolman(KWebSocketClient &ws) {
   off.refresh();
   CHECK(!off.spoolman);
   CHECK(off.slots[0].can_configure);
+  // nor a spool to show or assign
+  CHECK_EQ(off.slots[0].spool_id, -1);
+  CHECK(!off.can_assign_spool());
+  CHECK_EQ(std::string(off.assign_spool_refusal()), std::string("is not linked to Spoolman"));
 }
 
 static void test_permissions(KWebSocketClient &ws) {
@@ -620,6 +639,85 @@ static void test_hh_gate_mapping(KWebSocketClient &ws) {
   CHECK(hh.spoolman && hh.slots[0].can_configure);
 }
 
+static void test_hh_spools(KWebSocketClient &ws) {
+  json j = hh_status();
+  json &mmu = j["printer_state"]["mmu"];
+  mmu["gate_spool_id"] = {12, -1, 0, 5};
+
+  // spoolman off: spool ids are not shown, and none can be assigned
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK_EQ(hh.slots[0].spool_id, -1);
+    CHECK(!hh.can_assign_spool());
+    CHECK_EQ(std::string(hh.assign_spool_refusal()), std::string("is not linked to Spoolman"));
+  }
+
+  // push: the gate map is HH's own, so a spool can be put in a gate
+  mmu["spoolman_support"] = "push";
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK_EQ(hh.slots[0].spool_id, 12);
+    CHECK_EQ(hh.slots[1].spool_id, -1);
+    CHECK_EQ(hh.slots[2].spool_id, -1);   // 0 is no spool to HH
+    CHECK_EQ(hh.slots[3].spool_id, 5);
+    CHECK(hh.can_assign_spool());
+    sent.clear();
+    hh.assign_spool(1, 7);
+    CHECK_EQ(sent.size(), (size_t)1);
+    if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_GATE_MAP GATE=1 SPOOLID=7 TEMP=200"));
+    sent.clear();
+    hh.assign_spool(0, -1);
+    if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_GATE_MAP GATE=0 SPOOLID=-1 TEMP=210"));
+    sent.clear();
+    hh.assign_spool(4, 7);
+    CHECK(sent.empty());
+  }
+
+  // pull: spoolman owns the gate map, so MMU_SPOOLMAN writes it there
+  mmu["spoolman_support"] = "pull";
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK_EQ(hh.slots[0].spool_id, 12);
+    CHECK(hh.can_assign_spool());
+    sent.clear();
+    hh.assign_spool(1, 7);
+    CHECK_EQ(sent.size(), (size_t)1);
+    if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_SPOOLMAN GATE=1 SPOOLID=7"));
+    sent.clear();
+    hh.assign_spool(0, -1);
+    if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_SPOOLMAN GATE=0"));
+  }
+
+  // readonly links spoolman too: the gate map stays HH's own
+  mmu["spoolman_support"] = "readonly";
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(hh.can_assign_spool());
+    sent.clear();
+    hh.assign_spool(2, 9);
+    if (!sent.empty()) CHECK_EQ(sent[0], std::string("MMU_GATE_MAP GATE=2 SPOOLID=9 TEMP=240"));
+  }
+
+  // MMU ENABLE=0 refuses it too
+  mmu["spoolman_support"] = "push";
+  mmu["enabled"] = false;
+  load_state(j);
+  {
+    HhBackend hh(ws);
+    hh.refresh();
+    CHECK(!hh.can_assign_spool());
+    CHECK_EQ(std::string(hh.assign_spool_refusal()), std::string("is disabled"));
+  }
+}
+
 static void test_hh_activity(KWebSocketClient &ws) {
   struct Case { const char *action; MmuActivity activity; };
   const Case cases[] = {
@@ -912,6 +1010,13 @@ static void test_tool_helpers() {
   CHECK(mmu_colour_distance("", "FF0000") < 0);
   CHECK(mmu_colour_distance("F44336", "E53935") <= MMU_COLOUR_MISMATCH);  // two reds
   CHECK(mmu_colour_distance("F44336", "212121") > MMU_COLOUR_MISMATCH);   // red, near-black
+
+  // the lanes a spool is in
+  slots[0].spool_id = 3;
+  slots[1].spool_id = 3;
+  CHECK(mmu_slots_with_spool(slots, 3) == std::vector<int>({0, 1}));
+  CHECK(mmu_slots_with_spool(slots, 4).empty());
+  CHECK(mmu_slots_with_spool(slots, -1).empty());   // -1 is "no spool", never a match
 }
 
 static void test_file_tools() {
@@ -1011,6 +1116,7 @@ int main() {
   test_tool_map_verbs(ws);
 #ifdef MMU_BACKEND_HH
   test_hh_gate_mapping(ws);
+  test_hh_spools(ws);
   test_hh_activity(ws);
   test_hh_faults(ws);
   test_hh_verbs(ws);
