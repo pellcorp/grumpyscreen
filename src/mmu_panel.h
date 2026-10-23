@@ -46,7 +46,10 @@ class MmuPanel : public NotifyConsumer {
   // own; a tap runs open_spoolman. caller holds lv_lock
   void show_spoolman_button(bool shown);
   std::function<void()> open_spoolman;
-  MmuBackend *active_backend() const { return backend; }
+  // names of the lanes holding spool_id, ", " separated
+  std::string spool_lanes(int spool_id) const {
+    return backend == NULL ? std::string() : backend->lanes_with_spool(spool_id);
+  }
   // a long-pressed lane asks for a spool: the lane's name, its spool now (-1
   // for none), and what to call with the chosen spool (-1 clears)
   std::function<void(const std::string &, int, std::function<void(int)>)> pick_spool;
