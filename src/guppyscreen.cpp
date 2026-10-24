@@ -56,11 +56,6 @@ GuppyScreen::GuppyScreen()
   if (hh_backend != nullptr) mmu_panel->add_backend("hh", hh_backend.get());
 #endif
   main_panel.create_panel();
-
-  mmu_panel->pick_spool = [this](const std::string &lane, int current, std::function<void(int)> done) {
-    spoolman_panel.pick(lane, current, std::move(done));
-  };
-  spoolman_panel.lanes_of = [this](int id) { return mmu_panel->spool_lanes(id); };
 }
 
 GuppyScreen *GuppyScreen::get() {

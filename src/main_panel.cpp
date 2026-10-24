@@ -71,6 +71,10 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
     ws.register_notify_update(this);
     if (mmu_panel != NULL) {
       mmu_panel->open_spoolman = [this]() { spoolman_panel.foreground(); };
+      mmu_panel->pick_spool = [this](const std::string &lane, int current, std::function<void(int)> done) {
+        spoolman_panel.pick(lane, current, std::move(done));
+      };
+      spoolman_panel.lanes_of = [this](int id) { return mmu_panel->spool_lanes(id); };
     }
 
     lv_obj_add_event_cb(tabview, &MainPanel::_tabview_event_cb,
