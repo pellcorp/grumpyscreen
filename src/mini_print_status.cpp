@@ -1,4 +1,5 @@
 #include "mini_print_status.h"
+#include "i18n.h"
 #include "logger.h"
 #include "theme.h"
 
@@ -29,7 +30,7 @@ MiniPrintStatus::MiniPrintStatus(lv_obj_t *parent,
   lv_obj_add_flag(cont, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(cont, cb, LV_EVENT_CLICKED, user_data);
 
-  lv_label_set_text(status_label, fmt::format("ETA: {}\nStatus: {}", eta, status).c_str());
+  lv_label_set_text(status_label, fmt::format(fmt::runtime(::tr("ETA: {}\nStatus: {}")), eta, status).c_str());
   // the label takes the slack; dots rather than a third line if it ever overflows
   lv_obj_set_flex_grow(status_label, 1);
   lv_label_set_long_mode(status_label, LV_LABEL_LONG_DOT);
@@ -67,12 +68,12 @@ lv_obj_t *MiniPrintStatus::get_container() {
 
 void MiniPrintStatus::update_eta(std::string &eta_str) {
   eta = eta_str;
-  lv_label_set_text(status_label, fmt::format("ETA: {}\nStatus: {}", eta, status).c_str());
+  lv_label_set_text(status_label, fmt::format(fmt::runtime(::tr("ETA: {}\nStatus: {}")), eta, status).c_str());
 }
 
 void MiniPrintStatus::update_status(std::string &status_str) {
   status = status_str;
-  lv_label_set_text(status_label, fmt::format("ETA: {}\nStatus: {}", eta, status).c_str());
+  lv_label_set_text(status_label, fmt::format(fmt::runtime(::tr("ETA: {}\nStatus: {}")), eta, status).c_str());
 }
 
 void MiniPrintStatus::update_progress(int p) {

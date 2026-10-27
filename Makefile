@@ -247,3 +247,28 @@ test: libhv.a
 	$(BUILD_DIR)/test_backends
 
 -include			$(DEPS)
+# Create a deployable release for the printer
+RELEASE_DIR ?= $(BUILD_DIR)/release
+
+RELEASE_FILES := VERSION calibration.json grumpy.sh grumpyscreen.cfg
+RELEASE_DIRS := language
+
+.PHONY: release release-zip
+
+release: default
+	@mkdir -p "$(RELEASE_DIR)"
+	@cp "$(BUILD_BIN_DIR)/$(BIN)" "$(RELEASE_DIR)/"
+	@for f in $(RELEASE_FILES); do \
+		if [ -f "$$f" ]; then cp -p "$$f" "$(RELEASE_DIR)/"; \
+		else echo "WARNING: missing file $$f"; fi; \
+	done
+	@for d in $(RELEASE_DIRS); do \
+		if [ -d "$$d" ]; then cp -R "$$d" "$(RELEASE_DIR)/"; \
+		else echo "WARNING: missing directory $$d"; fi; \
+	done
+	@echo "Release ready: $(RELEASE_DIR)"
+	@find "$(RELEASE_DIR)" -maxdepth 3 -print | sort
+
+release-zip: release
+	cd "$(RELEASE_DIR)" && zip -r ../grumpyscreen-release.zip .
+	@echo "ZIP ready: $(BUILD_DIR)/grumpyscreen-release.zip"

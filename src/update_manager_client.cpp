@@ -1,4 +1,5 @@
 #include "update_manager_client.h"
+#include "i18n.h"
 #include "logger.h"
 #include "simple_dialog.h"
 #include "theme.h"
@@ -25,7 +26,7 @@ void UpdateManagerClient::start() {
   if (console != nullptr || checking != nullptr) {
     return;
   }
-  checking = create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE, "Checking for updates...", false, false);
+  checking = create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE, ::tr("Checking for updates..."), false, false);
 
   // A refresh asks GitHub now; Moonraker refuses it while printing or busy,
   // and then the status it already has will do.
@@ -61,7 +62,7 @@ void UpdateManagerClient::handle_status(json &j) {
   }
 
   if (j.contains("error")) {
-    const std::string msg = j.value("/error/message"_json_pointer, std::string("Moonraker did not answer"));
+    const std::string msg = j.value("/error/message"_json_pointer, std::string(::tr("Moonraker did not answer")));
     create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Failed", msg.c_str(), true, true);
     return;
   }
@@ -69,7 +70,7 @@ void UpdateManagerClient::handle_status(json &j) {
   const auto info_ptr = json::json_pointer(std::string("/result/version_info/") + UPDATE_APP);
   if (!j.contains(info_ptr) || !j[info_ptr].is_object()) {
     create_simple_dialog(lv_scr_act(), UPDATE_BUTTON_TITLE " Failed",
-                         "Moonraker has no COSMOS updater configured.", true, true);
+                         ::tr("Moonraker has no COSMOS updater configured."), true, true);
     return;
   }
   const json &info = j[info_ptr];
@@ -82,7 +83,7 @@ void UpdateManagerClient::handle_status(json &j) {
 
   const std::string version = info.value("version", std::string("?"));
   if (!info.value("is_valid", true)) {
-    std::string msg = "COSMOS cannot be updated from here:";
+    std::string msg = ::tr("COSMOS cannot be updated from here:");
     for (const auto &w : info.value("warnings", json::array())) {
       if (w.is_string()) {
         msg += "\n" + w.template get<std::string>();
@@ -99,14 +100,14 @@ void UpdateManagerClient::handle_status(json &j) {
   }
 
   const std::string remote = info.value("remote_version", std::string("?"));
-  std::string msg = "Update COSMOS from " + version + " to " + remote + "?";
+  std::string msg = ::tr("Update COSMOS from ") + version + " to " + remote + "?";
   const int behind = info.value("commits_behind_count", 0);
   if (behind > 0) {
     msg += "\n\n" + std::to_string(behind) + (behind == 1 ? " new commit" : " new commits") + " on the nightly channel.";
   }
   msg += "\n\nThe printer restarts when the update is installed.";
 
-  static const char *buttons[] = {"Back", "Update", ""};
+  static const char *buttons[] = {::tr("Back"), ::tr("Update"), ""};
   SimpleDialogOptions options{};
   options.buttons = buttons;
   options.error = true;
@@ -125,7 +126,7 @@ void UpdateManagerClient::confirm_cb(lv_obj_t *mbox, uint32_t button_idx, void *
 
 void UpdateManagerClient::run_update() {
   open_console();
-  append("Starting update...");
+  append(::tr("Starting update..."));
 
   json params = {{"name", UPDATE_APP}};
   ws.send_jsonrpc("machine.update.client", params, [this](json &j) {
@@ -137,10 +138,10 @@ void UpdateManagerClient::run_update() {
     }
     if (j.contains("error")) {
       // refused outright, for example because a print started meanwhile
-      append(j.value("/error/message"_json_pointer, std::string("Moonraker refused the update")));
+      append(j.value("/error/message"_json_pointer, std::string(::tr("Moonraker refused the update"))));
       finish(true);
     } else {
-      append("Nothing to install: COSMOS is already up to date.");
+      append(::tr("Nothing to install: COSMOS is already up to date."));
       finish(false);
     }
   });

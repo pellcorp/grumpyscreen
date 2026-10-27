@@ -1,4 +1,5 @@
 #include "tool_map_panel.h"
+#include "i18n.h"
 #include "mmu_panel.h"
 #include "mmu_tools.h"
 #include "theme.h"
@@ -59,9 +60,9 @@ void ToolMapPanel::create() {
   lv_obj_set_flex_grow(title, 1);
   lv_obj_set_style_pad_left(title, gap(), 0);
 
-  print_btn = std::make_unique<ButtonContainer>(controls, Icons::PRINT, "Print",
+  print_btn = std::make_unique<ButtonContainer>(controls, Icons::PRINT, ::tr("Print"),
                                                 &ToolMapPanel::_handle_action, this);
-  back_btn = std::make_unique<ButtonContainer>(controls, Icons::BACK, "Back",
+  back_btn = std::make_unique<ButtonContainer>(controls, Icons::BACK, ::tr("Back"),
                                                &ToolMapPanel::_handle_action, this);
   for (ButtonContainer *b : {back_btn.get(), print_btn.get()}) {
     b->use_plain();
@@ -71,7 +72,7 @@ void ToolMapPanel::create() {
 
   lv_table_set_col_cnt(table, COLS);
   lv_table_set_row_cnt(table, 1);
-  const char *headers[COLS] = {"", "Tool", "File", "Req.", "", "", "", "Lane", "Printer", "Avail."};
+  const char *headers[COLS] = {"", "Tool", "File", ::tr("Req."), "", "", "", ::tr("Lane"), ::tr("Printer"), ::tr("Avail.")};
   for (uint16_t c = 0; c < COLS; c++) {
     lv_table_set_cell_value(table, 0, c, headers[c]);
     lv_table_add_cell_ctrl(table, 0, c, LV_TABLE_CELL_CTRL_TEXT_CROP);
@@ -104,7 +105,7 @@ void ToolMapPanel::open(MmuBackend *b, const std::vector<MmuFileTool> &t,
   print = p;
   want.clear();
   for (const MmuFileTool &tool : tools) want.push_back(mmu_slot_for_tool(backend->slots, tool.tool));
-  lv_label_set_text(title, fmt::format("Preparing {}", filename).c_str());
+  lv_label_set_text(title, fmt::format(fmt::runtime(::tr("Preparing {}")), filename).c_str());
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
   lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
@@ -167,7 +168,7 @@ void ToolMapPanel::update() {
     const std::string cells[COLS] = {
       p.status == Status::Blocked ? LV_SYMBOL_CLOSE : p.status == Status::Warn ? LV_SYMBOL_WARNING : LV_SYMBOL_OK,
       fmt::format("T{}", tool.tool), tool.material, weight_text(tool.grams), "", "to", "",
-      slot != NULL ? slot->name : "None", p.unconfigured ? "Empty" : slot->material,
+      slot != NULL ? slot->name : "None", p.unconfigured ? ::tr("Empty") : slot->material,
       weighed ? weight_text(slot->weight) : "n/a",
     };
     for (uint16_t c = 0; c < COLS; c++) {
@@ -274,9 +275,9 @@ void ToolMapPanel::show_picker(size_t t) {
   const bool mappable = backend->can_map_tool(tool.tool);
   if (!mappable) {
     lv_label_set_long_mode(head, LV_LABEL_LONG_WRAP);
-    lv_label_set_text(head, fmt::format("T{} can't be mapped on this printer", tool.tool).c_str());
+    lv_label_set_text(head, fmt::format(fmt::runtime(::tr("T{} can't be mapped on this printer")), tool.tool).c_str());
   } else {
-    lv_label_set_text(head, fmt::format("T{} {} from:", tool.tool, tool.material).c_str());
+    lv_label_set_text(head, fmt::format(fmt::runtime(::tr("T{} {} from:")), tool.tool, tool.material).c_str());
     // four across, as in the backup picker; more slots scroll the popout
     const int cols = std::max(1, std::min((int)slots.size(), 4));
     const int tile_w = (popout_row_w() - (cols - 1) * gap()) / cols;
@@ -290,7 +291,7 @@ void ToolMapPanel::show_picker(size_t t) {
     }
   }
 
-  lv_obj_t *cancel = create_text_btn(picker_box, mappable ? "Cancel" : "Close",
+  lv_obj_t *cancel = create_text_btn(picker_box, mappable ? ::tr("Cancel") : ::tr("Close"),
                                      &ToolMapPanel::_handle_close_picker, this);
   lv_obj_set_size(cancel, LV_PCT(100), scale_r(40));
   lv_obj_scroll_to_y(picker_box, 0, LV_ANIM_OFF);

@@ -1,4 +1,5 @@
 #include "wifi_panel.h"
+#include "i18n.h"
 #include "config.h"
 #include "utils.h"
 #include "logger.h"
@@ -41,7 +42,7 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
         &WifiPanel::_handle_password_visibility, this))
 #ifdef GUPPY_BOOTSTRAP
   , footer_label(options.footer_text != nullptr ? lv_label_create(cont) : nullptr)
-  , refresh_btn(cont, Icons::REFRESH_IMG, "Refresh", &WifiPanel::_handle_refresh_btn, this)
+  , refresh_btn(cont, Icons::REFRESH_IMG, ::tr("Refresh"), &WifiPanel::_handle_refresh_btn, this)
 #endif
   , kb(lv_keyboard_create(credential_box))
 {
@@ -232,7 +233,7 @@ void WifiPanel::remove_network(uint32_t btn_idx) {
     const bool removing_current_network = selected_network == cur_network;
     const auto response = wpa_event.send_command(fmt::format("REMOVE_NETWORK {}", network->second));
     if (response.rfind("OK", 0) != 0) {
-      set_network_status(selected_network, "Could not forget", LV_SYMBOL_WIFI);
+      set_network_status(selected_network, ::tr("Could not forget"), LV_SYMBOL_WIFI);
       return;
     }
 
@@ -274,7 +275,7 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       return;
     }
     selected_network = lv_table_get_cell_value(wifi_table, row, 0);
-    if ((has_ethernet && row == ETHERNET_ROW) || selected_network == "No networks found") return;
+    if ((has_ethernet && row == ETHERNET_ROW) || selected_network == ::tr("No networks found")) return;
   }
 
   if (code == LV_EVENT_VALUE_CHANGED) {
@@ -313,7 +314,7 @@ void WifiPanel::handle_callback(lv_event_t *e) {
         }
         restart_wifi_after_connect = false;
         restart_wifi_from_network.clear();
-        set_network_status(selected_network, "Could not connect", LV_SYMBOL_WIFI);
+        set_network_status(selected_network, ::tr("Could not connect"), LV_SYMBOL_WIFI);
         return;
       }
       wpa_event.send_command("SAVE_CONFIG");
@@ -328,13 +329,13 @@ void WifiPanel::handle_callback(lv_event_t *e) {
   } else if (code == LV_EVENT_LONG_PRESSED) {
     suppress_next_table_selection = true;
     if (list_networks.count(selected_network)) {
-      static const char *btns[] = {"OK", "Cancel", ""};
+      static const char *btns[] = {"OK", ::tr("Cancel"), ""};
       SimpleDialogOptions opts;
       opts.buttons = btns;
       opts.highlighted_button_idx = 0;  // deleting is the destructive choice
       opts.result_cb = _remove_network;
       opts.user_data = this;
-      create_configurable_dialog(lv_layer_top(), "Forget network", fmt::format("Delete {}?", selected_network).c_str(), opts);
+      create_configurable_dialog(lv_layer_top(), ::tr("Forget network"), fmt::format(fmt::runtime(::tr("Delete {}?")), selected_network).c_str(), opts);
     }
   }
 }
@@ -379,7 +380,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
       }
     } // while
     if (index == 0) {
-      lv_table_set_cell_value(wifi_table, 0, 0, "No networks found");
+      lv_table_set_cell_value(wifi_table, 0, 0, ::tr("No networks found"));
       lv_table_set_cell_value(wifi_table, 0, STATUS_COL, "");
       lv_table_set_cell_value(wifi_table, 0, ICON_COL, "");
       index = 1;
@@ -430,26 +431,26 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
              event.find("WRONG_KEY") != std::string::npos) {
     std::lock_guard<std::mutex> lock(lv_lock);
     if (credential_connecting) {
-      show_connection_error("Incorrect password. Please try again.");
+      show_connection_error(::tr("Incorrect password. Please try again."));
     } else {
       connection_in_progress = false;
-      set_network_status(selected_network, "Connection failed", LV_SYMBOL_WIFI);
+      set_network_status(selected_network, ::tr("Connection failed"), LV_SYMBOL_WIFI);
     }
   } else if (event.find("CTRL-EVENT-ASSOC-REJECT") != std::string::npos) {
     std::lock_guard<std::mutex> lock(lv_lock);
     if (credential_connecting) {
-      show_connection_error("The access point rejected the connection. Try again.");
+      show_connection_error(::tr("The access point rejected the connection. Try again."));
     } else {
       connection_in_progress = false;
-      set_network_status(selected_network, "Connection rejected", LV_SYMBOL_WIFI);
+      set_network_status(selected_network, ::tr("Connection rejected"), LV_SYMBOL_WIFI);
     }
   } else if (event.find("CTRL-EVENT-NETWORK-NOT-FOUND") != std::string::npos) {
     std::lock_guard<std::mutex> lock(lv_lock);
     if (credential_connecting) {
-      show_connection_error("Network not found. Check that it is still available.");
+      show_connection_error(::tr("Network not found. Check that it is still available."));
     } else {
       connection_in_progress = false;
-      set_network_status(selected_network, "Not found", LV_SYMBOL_WIFI);
+      set_network_status(selected_network, ::tr("Not found"), LV_SYMBOL_WIFI);
     }
   } else if (event.rfind("<3>CTRL-EVENT-DISCONNECTED", 0) == 0) {
     stop_ip_poll();
@@ -519,7 +520,7 @@ void WifiPanel::update_ethernet_status() {
   }
   lv_table_set_cell_value(wifi_table, ETHERNET_ROW, 0, "Ethernet");
   lv_table_set_cell_value(wifi_table, ETHERNET_ROW, STATUS_COL,
-                          ip.empty() ? "Not connected" : ip.c_str());
+                          ip.empty() ? ::tr("Not connected") : ip.c_str());
   lv_table_set_cell_value(wifi_table, ETHERNET_ROW, ICON_COL, "");
 }
 
@@ -707,8 +708,8 @@ void WifiPanel::show_password_dialog() {
   entering_password = true;
   credential_connecting = false;
   connection_in_progress = false;
-  lv_label_set_text(credential_title, fmt::format("Connect to {}", selected_network).c_str());
-  lv_label_set_text(credential_status, "Enter the network password");
+  lv_label_set_text(credential_title, fmt::format(fmt::runtime(::tr("Connect to {}")), selected_network).c_str());
+  lv_label_set_text(credential_status, ::tr("Enter the network password"));
   lv_obj_set_style_text_color(credential_status, Theme::col(Theme::TEXT_DIM), 0);
   lv_textarea_set_text(password_input, "");
   lv_textarea_set_password_mode(password_input, true);
@@ -737,14 +738,14 @@ void WifiPanel::submit_password() {
     return;
   }
   if (password_length < 8) {
-    lv_label_set_text(credential_status, "Password must be at least 8 characters");
+    lv_label_set_text(credential_status, ::tr("Password must be at least 8 characters"));
     lv_obj_set_style_text_color(credential_status, Theme::col(Theme::DANGER), 0);
     return;
   }
 
   credential_connecting = true;
   connection_in_progress = true;
-  lv_label_set_text(credential_status, "Connecting...");
+  lv_label_set_text(credential_status, ::tr("Connecting..."));
   lv_obj_set_style_text_color(credential_status, Theme::col(Theme::TEXT_DIM), 0);
   if (!restart_wifi_from_network.empty()) {
     set_network_status(restart_wifi_from_network, "", LV_SYMBOL_WIFI);
@@ -754,7 +755,7 @@ void WifiPanel::submit_password() {
   lv_obj_add_state(kb, LV_STATE_DISABLED);
 
   if (!connect(password)) {
-    show_connection_error("Could not start the connection. Try again.");
+    show_connection_error(::tr("Could not start the connection. Try again."));
     return;
   }
 
@@ -773,7 +774,7 @@ void WifiPanel::show_connection_error(const char *message) {
     connection_timeout_timer = nullptr;
   }
   stop_connection_spinner();
-  set_network_status(selected_network, "Connection failed", LV_SYMBOL_WIFI);
+  set_network_status(selected_network, ::tr("Connection failed"), LV_SYMBOL_WIFI);
   lv_label_set_text(credential_status, message);
   lv_obj_set_style_text_color(credential_status, Theme::col(Theme::DANGER), 0);
   lv_textarea_set_text(password_input, "");
@@ -784,7 +785,7 @@ void WifiPanel::show_connection_error(const char *message) {
 void WifiPanel::handle_connection_timeout() {
   connection_timeout_timer = nullptr;
   if (credential_connecting) {
-    show_connection_error("Connection timed out. Check the password and try again.");
+    show_connection_error(::tr("Connection timed out. Check the password and try again."));
   }
 }
 

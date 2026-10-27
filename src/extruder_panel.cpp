@@ -1,4 +1,5 @@
 #include "extruder_panel.h"
+#include "i18n.h"
 #include "state.h"
 #include "config.h"
 #include "logger.h"
@@ -108,7 +109,7 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , speed_options(load_selector_options("/ui/extruder_speed_presets", 8))
   , speed_option_map(build_selector_map(speed_options))
   , speed_default_idx(resolve_default_idx("/ui/extruder_speed_default", speed_options))
-  , extruder_temp(ws, panel_cont, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
+  , extruder_temp(ws, panel_cont, Icons::EXTRUDER, ::tr("Extruder"), theme_secondary(), false, true, numpad,
                   "extruder", NULL, NULL)
   , tabview(lv_tabview_create(panel_cont, LV_DIR_TOP, scale_r(36)))
   , load_tab(lv_tabview_add_tab(tabview, "Load / Unload"))
@@ -116,22 +117,22 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , load_cont(create_screen(load_tab))
   , extrude_cont(create_screen(extrude_tab))
   , extrude_col(create_row(extrude_cont))
-  , load_temp_selector(load_cont, "Extruder Temperature (C)",
+  , load_temp_selector(load_cont, ::tr("Extruder Temperature (C)"),
 		       temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
-  , load_btn(load_cont, Icons::LOAD_FILAMENT_IMG, "Load", &ExtruderPanel::_handle_callback, this)
-  , unload_btn(load_cont, Icons::UNLOAD_FILAMENT_IMG, "Unload", &ExtruderPanel::_handle_callback, this)
-  , speed_selector(extrude_cont, "Extrude Speed (mm/s)",
+  , load_btn(load_cont, Icons::LOAD_FILAMENT_IMG, ::tr("Load"), &ExtruderPanel::_handle_callback, this)
+  , unload_btn(load_cont, Icons::UNLOAD_FILAMENT_IMG, ::tr("Unload"), &ExtruderPanel::_handle_callback, this)
+  , speed_selector(extrude_cont, ::tr("Extrude Speed (mm/s)"),
 		   speed_option_map, speed_default_idx, &ExtruderPanel::_handle_callback, this)
-  , length_selector(extrude_cont, "Extrude Length (mm)",
+  , length_selector(extrude_cont, ::tr("Extrude Length (mm)"),
 		    length_option_map, length_default_idx, &ExtruderPanel::_handle_callback, this)
-  , extrude_temp_selector(extrude_cont, "Extruder Temperature (C)",
+  , extrude_temp_selector(extrude_cont, ::tr("Extruder Temperature (C)"),
 			  temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
-  , extrude_btn(extrude_col, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
-  , retract_btn(extrude_col, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
+  , extrude_btn(extrude_col, Icons::EXTRUDE_IMG, ::tr("Extrude"), &ExtruderPanel::_handle_callback, this)
+  , retract_btn(extrude_col, Icons::RETRACT_IMG, ::tr("Retract"), &ExtruderPanel::_handle_callback, this)
   , right_col(create_row(panel_cont))
   , spoolman_btn(right_col, Icons::SPOOLMAN_IMG, "Spoolman", &ExtruderPanel::_handle_callback, this)
-  , cooldown_btn(right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
-  , back_btn(right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
+  , cooldown_btn(right_col, Icons::COOLDOWN_IMG, ::tr("Cooldown"), &ExtruderPanel::_handle_callback, this)
+  , back_btn(right_col, Icons::BACK, ::tr("Back"), &ExtruderPanel::_handle_callback, this)
 {
   lv_obj_move_background(panel_cont);
 

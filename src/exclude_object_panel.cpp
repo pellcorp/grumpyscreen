@@ -1,4 +1,5 @@
 #include "exclude_object_panel.h"
+#include "i18n.h"
 
 #include "logger.h"
 #include "theme.h"
@@ -139,7 +140,7 @@ ExcludeObjectPanel::ExcludeObjectPanel(KWebSocketClient &websocket_client, std::
   , zoom_row(create_row(info_cont))
   , zoom_out_btn(create_text_btn(zoom_row, LV_SYMBOL_MINUS, &ExcludeObjectPanel::_handle_zoom, this))
   , zoom_in_btn(create_text_btn(zoom_row, LV_SYMBOL_PLUS, &ExcludeObjectPanel::_handle_zoom, this))
-  , back_btn(panel_cont, Icons::BACK, "Back", &ExcludeObjectPanel::_handle_callback, this)
+  , back_btn(panel_cont, Icons::BACK, ::tr("Back"), &ExcludeObjectPanel::_handle_callback, this)
 {
   lv_obj_move_background(panel_cont);
   // canvas on the left, the legend column filling the rest, one gap apart
@@ -349,7 +350,7 @@ void ExcludeObjectPanel::redraw() {
   };
 
   if (!objects.is_array() || objects.empty()) {
-    lv_label_set_text(status_label, "No excludable objects.\n\nThe gcode must be sliced\nwith object labels.");
+    lv_label_set_text(status_label, ::tr("No excludable objects.\n\nThe gcode must be sliced\nwith object labels."));
     return;
   }
 
@@ -594,10 +595,10 @@ void ExcludeObjectPanel::confirm_exclude(const ObjBox &obj) {
   auto cur = State::get_instance()->get_data("/printer_state/exclude_object/current_object"_json_pointer);
   bool printing_now = cur.is_string() && cur.template get<std::string>() == obj.name;
   std::string msg = printing_now
-    ? fmt::format("Stop printing object {}?\nThis cannot be undone.", obj.number)
-    : fmt::format("Exclude object {}?\nThis cannot be undone.", obj.number);
+    ? fmt::format(fmt::runtime(::tr("Stop printing object {}?\nThis cannot be undone.")), obj.number)
+    : fmt::format(fmt::runtime(::tr("Exclude object {}?\nThis cannot be undone.")), obj.number);
 
-  static const char *btns[] = {"Cancel", "Exclude", ""};
+  static const char *btns[] = {::tr("Cancel"), ::tr("Exclude"), ""};
   SimpleDialogOptions options{};
   options.buttons = btns;
   options.error = true;
@@ -605,7 +606,7 @@ void ExcludeObjectPanel::confirm_exclude(const ObjBox &obj) {
   options.highlighted_button_idx = 1;
   options.result_cb = handle_exclude_dialog_result;
   options.user_data = this;
-  confirm_mbox = create_configurable_dialog(lv_scr_act(), "Exclude Object", msg.c_str(), options);
+  confirm_mbox = create_configurable_dialog(lv_scr_act(), ::tr("Exclude Object"), msg.c_str(), options);
 }
 
 void ExcludeObjectPanel::do_exclude() {

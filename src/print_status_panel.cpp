@@ -1,4 +1,5 @@
 #include "print_status_panel.h"
+#include "i18n.h"
 #include "config.h"
 #include "exclude_object_panel.h"
 #include "finetune_panel.h"
@@ -25,16 +26,16 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , mini_print_status(mini_parent, &PrintStatusPanel::_handle_callback, this)
   , status_cont(lv_obj_create(lv_scr_act()))
   , buttons_cont(lv_obj_create(status_cont))
-  , finetune_btn(buttons_cont, Icons::FINE_TUNE_IMG, "Fine Tune", &PrintStatusPanel::_handle_callback, this)
-  , objects_btn(buttons_cont, Icons::DELETE_IMG, "Objects", &PrintStatusPanel::_handle_callback, this)
-  , pause_btn(buttons_cont, Icons::PAUSE_IMG, "Pause", &PrintStatusPanel::_handle_callback, this)
-  , resume_btn(buttons_cont, Icons::RESUME, "Resume", &PrintStatusPanel::_handle_callback, this)
-  , cancel_btn(buttons_cont, Icons::CANCEL, "Cancel", &PrintStatusPanel::_handle_callback, this,
-	       "Cancel Print", "Do you want to cancel the print?", {"Back", "Cancel Print"})
+  , finetune_btn(buttons_cont, Icons::FINE_TUNE_IMG, ::tr("Fine Tune"), &PrintStatusPanel::_handle_callback, this)
+  , objects_btn(buttons_cont, Icons::DELETE_IMG, ::tr("Objects"), &PrintStatusPanel::_handle_callback, this)
+  , pause_btn(buttons_cont, Icons::PAUSE_IMG, ::tr("Pause"), &PrintStatusPanel::_handle_callback, this)
+  , resume_btn(buttons_cont, Icons::RESUME, ::tr("Resume"), &PrintStatusPanel::_handle_callback, this)
+  , cancel_btn(buttons_cont, Icons::CANCEL, ::tr("Cancel"), &PrintStatusPanel::_handle_callback, this,
+	       ::tr("Cancel Print"), ::tr("Do you want to cancel the print?"), {::tr("Back"), ::tr("Cancel Print")})
   , emergency_btn(buttons_cont, Icons::EMERGENCY, "Stop", &PrintStatusPanel::_handle_callback, this,
-		  "Emergency Stop", "Do you want to emergency stop?",
-                  {"Back", "Emergency Stop"})
-  , back_btn(buttons_cont, Icons::BACK, "Back", &PrintStatusPanel::_handle_callback, this)
+		  ::tr("Emergency Stop"), ::tr("Do you want to emergency stop?"),
+                  {::tr("Back"), ::tr("Emergency Stop")})
+  , back_btn(buttons_cont, Icons::BACK, ::tr("Back"), &PrintStatusPanel::_handle_callback, this)
   , thumbnail_cont(lv_obj_create(status_cont))
   , thumbnail(lv_img_create(thumbnail_cont))
   , pbar_cont(lv_obj_create(thumbnail_cont))

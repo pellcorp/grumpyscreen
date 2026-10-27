@@ -1,4 +1,5 @@
 #include "finetune_panel.h"
+#include "i18n.h"
 #include "state.h"
 #include "logger.h"
 #include "config.h"
@@ -28,11 +29,11 @@ FineTunePanel::FineTunePanel(KWebSocketClient &websocket_client, std::mutex &l)
   : NotifyConsumer(l)
   , ws(websocket_client)
   , panel_cont(create_screen(NULL))
-  , step_selector(panel_cont, "Z / PA step (mm)", {"0.01", "0.05", "0.10", ""}, 0,
+  , step_selector(panel_cont, ::tr("Z / PA step (mm)"), {"0.01", "0.05", "0.10", ""}, 0,
                   &FineTunePanel::_handle_selector, this)
-  , multiplier_selector(panel_cont, "Speed / Flow step (%)", {"1", "5", "10", "25", ""}, 0,
+  , multiplier_selector(panel_cont, ::tr("Speed / Flow step (%)"), {"1", "5", "10", "25", ""}, 0,
                         &FineTunePanel::_handle_selector, this)
-  , back_btn(panel_cont, Icons::BACK, "Back", &FineTunePanel::_handle_back, this)
+  , back_btn(panel_cont, Icons::BACK, ::tr("Back"), &FineTunePanel::_handle_back, this)
 {
   lv_obj_move_background(panel_cont);
 
@@ -44,10 +45,10 @@ FineTunePanel::FineTunePanel(KWebSocketClient &websocket_client, std::mutex &l)
                                  LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
   lv_obj_set_grid_dsc_array(panel_cont, col_dsc, row_dsc);
 
-  make_row(z,     0, Icons::HOME_Z,       "Z offset",         "0.0 mm");
-  make_row(pa,    1, Icons::PA_PLUS_IMG,  "Pressure adv.",    "0.0 mm/s");
-  make_row(speed, 2, Icons::SPEED_UP_IMG, "Speed",            "100%");
-  make_row(flow,  3, Icons::FLOW_UP_IMG,  "Flow",             "100%");
+  make_row(z,     0, Icons::HOME_Z,       ::tr("Z offset"),         "0.0 mm");
+  make_row(pa,    1, Icons::PA_PLUS_IMG,  ::tr("Pressure adv."),    "0.0 mm/s");
+  make_row(speed, 2, Icons::SPEED_UP_IMG, ::tr("Speed"),            "100%");
+  make_row(flow,  3, Icons::FLOW_UP_IMG,  ::tr("Flow"),             "100%");
 
   // the selectors and Back share the content-sized bottom row: it takes the
   // height a row of keys needs, the four parameter rows above get the rest,
@@ -102,7 +103,7 @@ void FineTunePanel::make_row(Row &r, int grid_row, const void *icon, const char 
 
   r.down  = create_text_btn(panel_cont, "-", &FineTunePanel::_handle_btn, this);
   r.up    = create_text_btn(panel_cont, "+", &FineTunePanel::_handle_btn, this);
-  r.reset = create_text_btn(panel_cont, "Reset", &FineTunePanel::_handle_btn, this);
+  r.reset = create_text_btn(panel_cont, ::tr("Reset"), &FineTunePanel::_handle_btn, this);
   int col = 1;
   for (lv_obj_t *btn : {r.down, r.up, r.reset}) {
     lv_obj_set_grid_cell(btn, LV_GRID_ALIGN_STRETCH, col++, 1, LV_GRID_ALIGN_STRETCH, grid_row, 1);
