@@ -1,4 +1,5 @@
 #include "lvgl/lvgl.h"
+#include "i18n.h"
 #include "theme.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
@@ -92,6 +93,13 @@ int main(void) {
         }
     }
 
+    {
+        fs::path base = fs::canonical("/proc/self/exe").parent_path();
+        std::string lang = conf->get<std::string>("/ui/language");
+        const char *lf = std::getenv("LANGUAGE_FILE");
+        if (lf && lf[0]) i18n_load(lf);
+        else if (!lang.empty() && lang != "en") i18n_load((base / "language" / (lang + ".json")).string());
+    }
     GuppyScreen::init(hal_init);
     GuppyScreen::loop();
     return 0;

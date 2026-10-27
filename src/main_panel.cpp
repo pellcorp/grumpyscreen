@@ -1,4 +1,5 @@
 #include "main_panel.h"
+#include "i18n.h"
 #include "config.h"
 #include "state.h"
 #include "lvgl/lvgl.h"
@@ -57,13 +58,13 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , temp_chart_box(lv_obj_create(main_cont))
   , temp_chart(lv_chart_create(temp_chart_box))
   , homing_btn(main_cont, Icons::MOVE, "Homing", &MainPanel::_handle_homing_cb, this)
-  , extrude_btn(main_cont, Icons::EXTRUDE_IMG, "Extruder", &MainPanel::_handle_extrude_cb, this)
-  , action_btn(main_cont, Icons::FAN, "Fans", &MainPanel::_handle_fanpanel_cb, this)
+  , extrude_btn(main_cont, Icons::EXTRUDE_IMG, ::tr("Extruder"), &MainPanel::_handle_extrude_cb, this)
+  , action_btn(main_cont, Icons::FAN, ::tr("Fans"), &MainPanel::_handle_fanpanel_cb, this)
   , led_btn(main_cont, Icons::LIGHT_IMG, "LED", &MainPanel::_handle_ledpanel_cb, this)
-  , print_btn(main_cont, Icons::PRINT, "Print", &MainPanel::_handle_print_cb, this)
+  , print_btn(main_cont, Icons::PRINT, ::tr("Print"), &MainPanel::_handle_print_cb, this)
   , emergency_btn(main_cont, Icons::EMERGENCY, "Stop", &MainPanel::_handle_emergency_cb, this,
-                  "Emergency Stop", "Do you want to emergency stop?",
-                  {"Back", "Emergency Stop"})
+                  ::tr("Emergency Stop"), ::tr("Do you want to emergency stop?"),
+                  {::tr("Back"), ::tr("Emergency Stop")})
 {
   emergency_btn.set_prompt_condition([] {
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");

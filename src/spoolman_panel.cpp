@@ -1,4 +1,5 @@
 #include "spoolman_panel.h"
+#include "i18n.h"
 #include "mmu_panel.h"  // parse_colour
 #include "theme.h"
 #include "utils.h"
@@ -59,8 +60,8 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   , controls(create_row(cont))
   , switch_cont(create_row(controls))
   , show_archived(lv_switch_create(switch_cont))
-  , reload_btn(controls, Icons::REFRESH_IMG, "Reload", &SpoolmanPanel::_handle_callback, this)
-  , back_btn(controls, Icons::BACK, "Back", &SpoolmanPanel::_handle_callback, this)
+  , reload_btn(controls, Icons::REFRESH_IMG, ::tr("Reload"), &SpoolmanPanel::_handle_callback, this)
+  , back_btn(controls, Icons::BACK, ::tr("Back"), &SpoolmanPanel::_handle_callback, this)
   , active_id(-1)
   , sorted_by(SORTED_BY_ID)
 {
@@ -98,7 +99,7 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   lv_obj_set_flex_grow(empty_box, 1);
   lv_obj_add_flag(empty_box, LV_OBJ_FLAG_HIDDEN);
   lv_obj_t *empty_lbl = lv_label_create(empty_box);
-  lv_label_set_text(empty_lbl, "No spools");
+  lv_label_set_text(empty_lbl, ::tr("No spools"));
   lv_obj_add_style(empty_lbl, &styles().dim_label, 0);
   lv_obj_set_style_text_font(empty_lbl, scale_font(16), 0);
   lv_obj_center(empty_lbl);
@@ -114,7 +115,7 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   lv_obj_set_flex_flow(switch_cont, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(switch_cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_t *label = lv_label_create(switch_cont);
-  lv_label_set_text(label, "Show Archived");
+  lv_label_set_text(label, ::tr("Show Archived"));
   // the same arrangement as a switch in Settings: a dim title, then the switch
   lv_obj_add_style(label, &styles().dim_label, 0);
   lv_obj_move_to_index(label, 0);
@@ -229,10 +230,10 @@ void SpoolmanPanel::populate_spools(std::vector<SpoolRec> &sorted_spools) {
   size_t row_idx = 1;
   if (!spools.empty()) {
     lv_table_set_cell_value(spool_table, 0, 0, "ID");
-    lv_table_set_cell_value(spool_table, 0, 1, "Name");
+    lv_table_set_cell_value(spool_table, 0, 1, ::tr("Name"));
     lv_table_set_cell_value(spool_table, 0, 2, "MAT");
-    lv_table_set_cell_value(spool_table, 0, 4, "Weight");
-    lv_table_set_cell_value(spool_table, 0, 5, "Length");
+    lv_table_set_cell_value(spool_table, 0, 4, ::tr("Weight"));
+    lv_table_set_cell_value(spool_table, 0, 5, ::tr("Length"));
 
     bool skip_archive = !lv_obj_has_state(show_archived, LV_STATE_CHECKED);
 

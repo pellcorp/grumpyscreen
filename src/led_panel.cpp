@@ -1,4 +1,5 @@
 #include "led_panel.h"
+#include "i18n.h"
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
@@ -31,9 +32,9 @@ LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , ledpanel_cont(create_screen(NULL))
   , leds_cont(create_row(ledpanel_cont))
   , side_cont(create_row(ledpanel_cont))
-  , all_on_btn(side_cont, Icons::LIGHT_IMG, "All On", &LedPanel::_handle_callback, this)
-  , all_off_btn(side_cont, Icons::LIGHT_OFF, "All Off", &LedPanel::_handle_callback, this)
-  , back_btn(side_cont, Icons::BACK, "Back", &LedPanel::_handle_callback, this)
+  , all_on_btn(side_cont, Icons::LIGHT_IMG, ::tr("All On"), &LedPanel::_handle_callback, this)
+  , all_off_btn(side_cont, Icons::LIGHT_OFF, ::tr("All Off"), &LedPanel::_handle_callback, this)
+  , back_btn(side_cont, Icons::BACK, ::tr("Back"), &LedPanel::_handle_callback, this)
 {
   // the list takes the width, the action tiles their own column
   lv_obj_set_flex_flow(ledpanel_cont, LV_FLEX_FLOW_ROW);

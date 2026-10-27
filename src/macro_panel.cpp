@@ -1,4 +1,5 @@
 #include "macro_panel.h"
+#include "i18n.h"
 #include "config.h"
 #include "icons.h"
 #include "logger.h"
@@ -109,7 +110,7 @@ MacroPanel::MacroPanel(lv_obj_t *parent, std::function<void(const std::string &)
   if (buttons.empty()) {
     lv_obj_set_flex_flow(grid, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(grid, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_label_set_text(lv_label_create(grid), "No macros configured");
+    lv_label_set_text(lv_label_create(grid), ::tr("No macros configured"));
     return;
   }
 
@@ -259,7 +260,7 @@ void MacroPanel::open_popup(size_t macro_index, const std::string &title) {
   lv_obj_set_height(actions, touch_h());
   lv_obj_set_flex_flow(actions, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(actions, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_t *cancel = create_text_btn(actions, "Cancel", &MacroPanel::handle_popup_action, this);
+  lv_obj_t *cancel = create_text_btn(actions, ::tr("Cancel"), &MacroPanel::handle_popup_action, this);
   lv_obj_set_flex_grow(cancel, 1);
   lv_obj_set_height(cancel, LV_PCT(100));
   lv_obj_t *run = create_text_btn(actions, "Run", &MacroPanel::handle_popup_action, this);

@@ -1,16 +1,48 @@
 #include "setting_panel.h"
+#include "i18n.h"
 #include "config.h"
 #include "logger.h"
 #include "subprocess.hpp"
 #include "simple_dialog.h"
 #include "icons.h"
 #include "theme.h"
+#include <unistd.h>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 
 #include <experimental/filesystem>
 #include <vector>
 
 namespace fs = std::experimental::filesystem;
 namespace sp = subprocess;
+
+static std::pair<std::string, std::string> read_version_file() {
+    char exe_path[4096];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+
+    if (len <= 0)
+        return {"unknown", "unknown"};
+
+    exe_path[len] = '\0';
+    fs::path version_path = fs::path(exe_path).parent_path() / "VERSION";
+
+    std::ifstream file(version_path);
+    std::string version, commit;
+
+    if (!(file >> version))
+        return {"unknown", "unknown"};
+
+    std::getline(file, commit);
+    const auto start = commit.find_first_not_of(" \t\r\n");
+    commit = (start == std::string::npos) ? "" : commit.substr(start);
+
+    if (commit.empty())
+        commit = "unknown";
+
+    return {version, commit};
+}
+
 
 struct deferred_cmd_ctx {
     lv_obj_t * mbox;
@@ -25,7 +57,10 @@ static constexpr uint32_t DEFERRED_COMMAND_DELAY_MS = 500;
 static constexpr uint32_t FACTORY_RESET_DELAY_MS = 5000;
 
 static constexpr int32_t DISPLAY_SLEEP_VALUES[] = {-1, 60, 300, 600, 1800};
-static const char *DISPLAY_SLEEP_MAP[] = {"Never", "1 min", "5 min", "10 min", "30 min", ""};
+static lv_obj_t *language_selector = nullptr;
+static std::vector<std::string> g_lang_codes;
+static std::vector<const char *> g_lang_map;
+static const char *DISPLAY_SLEEP_MAP[] = {::tr("Never"), "1 min", "5 min", "10 min", "30 min", ""};
 
 static int display_sleep_index(int32_t seconds) {
   for (size_t i = 0; i < sizeof(DISPLAY_SLEEP_VALUES) / sizeof(DISPLAY_SLEEP_VALUES[0]); ++i) {
@@ -115,10 +150,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , owns_cont(parent == nullptr)
   , cont(Theme::create_screen(parent))  // fills the tab: it is the page
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
-  , actions_tab(lv_tabview_add_tab(tabview, "Tools"))
-  , wifi_tab(lv_tabview_add_tab(tabview, "Network"))
-  , settings_tab(lv_tabview_add_tab(tabview, "Settings"))
-  , about_tab(lv_tabview_add_tab(tabview, "About"))
+  , actions_tab(lv_tabview_add_tab(tabview, ::tr("Tools")))
+  , wifi_tab(lv_tabview_add_tab(tabview, ::tr("Network")))
+  , settings_tab(lv_tabview_add_tab(tabview, ::tr("Settings")))
+  , about_tab(lv_tabview_add_tab(tabview, ::tr("About")))
   , actions_cont(Theme::create_screen(actions_tab))
   , settings_cont(Theme::create_screen(settings_tab))
   , about_cont(Theme::create_screen(about_tab))
@@ -129,23 +164,23 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , update_manager(c, l)
 #endif
   , wifi_panel(l, embedded_wifi_options(wifi_tab))
-  , restart_klipper_btn(actions_cont, Icons::RESTART_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
-        "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
-  , restart_firmware_btn(actions_cont, Icons::FIRMWARE_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
-        "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
-  , guppy_restart_btn(actions_cont, Icons::GUI_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
-  , support_zip_btn(actions_cont, Icons::SUPPORT_ZIP_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
+  , restart_klipper_btn(actions_cont, Icons::RESTART_IMG, ::tr("Restart\nKlipper"), &SettingPanel::_handle_callback, this,
+        ::tr("Restart Klipper"), ::tr("Do you want to restart klipper?"), {::tr("Back"), ::tr("Restart Klipper")})
+  , restart_firmware_btn(actions_cont, Icons::FIRMWARE_IMG, ::tr("Firmware\nRestart"), &SettingPanel::_handle_callback, this,
+        ::tr("Firmware Restart"), ::tr("Do you want to perform a firmware restart?"), {::tr("Back"), ::tr("Firmware Restart")})
+  , guppy_restart_btn(actions_cont, Icons::GUI_IMG, ::tr("Restart GUI"), &SettingPanel::_handle_callback, this)
+  , support_zip_btn(actions_cont, Icons::SUPPORT_ZIP_IMG, ::tr("Create\nSupport ZIP"), &SettingPanel::_handle_callback, this)
   , switch_to_stock_btn(actions_cont, Icons::SWITCH_STOCK_IMG, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-          SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"})
+          SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {::tr("Back"), ::tr("Switch to Stock")})
   , factory_reset_btn(actions_cont, Icons::FACTORY_RESET_IMG, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
-		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"})
+		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {::tr("Back"), ::tr("Factory Reset")})
 #ifdef COSMOS
   // no prompt of its own: the update manager client checks for an update
   // first and asks only when there is one to install
   , update_btn(actions_cont, Icons::UPDATE_IMG, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this)
 #endif
-  , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
-          "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
+  , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, ::tr("Shutdown\nHost"), &SettingPanel::_handle_callback, this,
+          ::tr("Shutdown host?"), ::tr("Do you want to shutdown the host?"), {::tr("Back"), ::tr("Shutdown Host")})
 {
   // Restart Klipper is a local service command and remains useful even when
   // Moonraker or Klipper is unavailable. Firmware restart, on the other hand,
@@ -175,8 +210,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #else
   add_about_line(about_panel, "Grumpyscreen", true);
 #endif
-  add_about_line(about_panel, std::string("Branch: ") + GUPPYSCREEN_BRANCH);
-  add_about_line(about_panel, std::string("Version: ") + GUPPYSCREEN_VERSION);
+  const auto version_info = read_version_file();
+  add_about_line(about_panel, std::string(::tr("Version: ")) + version_info.first);
+  add_about_line(about_panel, std::string("Commit: ") + version_info.second);
 
   lv_obj_t *settings_panel = lv_obj_create(settings_cont);
   lv_obj_clear_flag(settings_panel, LV_OBJ_FLAG_SCROLLABLE);
@@ -206,7 +242,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
                         LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
   lv_obj_t *emergency_label = lv_label_create(emergency_text);
-  lv_label_set_text(emergency_label, "Confirm emergency stop");
+  lv_label_set_text(emergency_label, ::tr("Confirm emergency stop"));
   lv_obj_add_style(emergency_label, &Theme::styles().dim_label, 0);
   emergency_prompt_switch = lv_switch_create(emergency_row);
   if (conf->get<bool>("/ui/prompt_emergency_stop")) {
@@ -217,13 +253,13 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 
   emergency_stop_warning = lv_label_create(emergency_text);
   lv_label_set_text(emergency_stop_warning,
-                    "Long press of E-stop will be required to activate!");
+                    ::tr("Long press of E-stop will be required to activate!"));
   lv_obj_set_width(emergency_stop_warning, LV_PCT(100));
   lv_label_set_long_mode(emergency_stop_warning, LV_LABEL_LONG_WRAP);
   lv_obj_set_style_text_color(emergency_stop_warning, Theme::col(Theme::DANGER), 0);
   refresh_emergency_stop_warning();
 
-  add_about_line(settings_panel, "Screen timeout", true);
+  add_about_line(settings_panel, ::tr("Screen timeout"), true);
   sleep_timeout_selector = lv_btnmatrix_create(settings_panel);
   lv_obj_set_size(sleep_timeout_selector, LV_PCT(100), Theme::touch_h());
   lv_obj_add_style(sleep_timeout_selector, &Theme::styles().key_tray, 0);
@@ -235,6 +271,32 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
     lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, sleep_idx, LV_BTNMATRIX_CTRL_CHECKED);
   }
   lv_obj_add_event_cb(sleep_timeout_selector, &SettingPanel::_setting_changed_cb,
+                      LV_EVENT_VALUE_CHANGED, this);
+
+  add_about_line(settings_panel, ::tr("Language"), true);
+  if (g_lang_codes.empty()) {
+    g_lang_codes.push_back("en");
+    std::string dir = (std::filesystem::canonical("/proc/self/exe").parent_path() / "language").string();
+    for (auto &c : i18n_list(dir)) if (c != "en") g_lang_codes.push_back(c);
+    for (size_t i = 0; i < g_lang_codes.size(); i++) {
+      if (i && i % 4 == 0) g_lang_map.push_back("\n");
+      g_lang_map.push_back(g_lang_codes[i].c_str());
+    }
+    g_lang_map.push_back("");
+  }
+  language_selector = lv_btnmatrix_create(settings_panel);
+  lv_obj_set_size(language_selector, LV_PCT(100), Theme::touch_h());
+  lv_obj_add_style(language_selector, &Theme::styles().key_tray, 0);
+  lv_btnmatrix_set_map(language_selector, g_lang_map.data());
+  lv_btnmatrix_set_btn_ctrl_all(language_selector, LV_BTNMATRIX_CTRL_CHECKABLE);
+  lv_btnmatrix_set_one_checked(language_selector, true);
+  {
+    std::string cur = conf->get<std::string>("/ui/language");
+    size_t idx = 0;
+    for (size_t i = 0; i < g_lang_codes.size(); i++) if (g_lang_codes[i] == cur) idx = i;
+    lv_btnmatrix_set_btn_ctrl(language_selector, idx, LV_BTNMATRIX_CTRL_CHECKED);
+  }
+  lv_obj_add_event_cb(language_selector, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
 
   // Optional tiles only appear with a command behind them; the grid is built
@@ -322,11 +384,19 @@ void SettingPanel::setting_changed(lv_event_t *event) {
         lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, old_idx, LV_BTNMATRIX_CTRL_CHECKED);
       }
     }
+  } else if (target == language_selector) {
+    const uint32_t sel = lv_btnmatrix_get_selected_btn(language_selector);
+    if (sel < g_lang_codes.size()) {
+      saved = conf->set_language(g_lang_codes[sel]);
+      if (saved)
+        create_simple_dialog(lv_scr_act(), ::tr("Language"),
+                             ::tr("Restart GUI to apply the language."), true, false);
+    }
   }
 
   if (!saved) {
-    create_simple_dialog(lv_scr_act(), "Unable to Save Setting",
-                         "The config file could not be updated.", true, true);
+    create_simple_dialog(lv_scr_act(), ::tr("Unable to Save Setting"),
+                         ::tr("The config file could not be updated."), true, true);
   }
 
   if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
@@ -355,7 +425,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       auto restart_command = conf->get<std::string>("/commands/restart_klipper_cmd");
       auto ret = call_command(restart_command);
       if (ret != 0) {
-        create_simple_dialog(lv_scr_act(), "Restart Klipper Failed", "Failed to restart Klipper!", true, true);
+        create_simple_dialog(lv_scr_act(), ::tr("Restart Klipper Failed"), ::tr("Failed to restart Klipper!"), true, true);
       }
     } else if (btn == restart_firmware_btn.get_container()) {
       ws.send_jsonrpc("printer.firmware_restart");
@@ -364,7 +434,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       auto restart_command = conf->get<std::string>("/commands/gui_restart_cmd");
       auto ret = call_command(restart_command);
       if (ret != 0) {
-        create_simple_dialog(lv_scr_act(), "Restart GUI Failed", "Failed to restart GUI!", true, true);
+        create_simple_dialog(lv_scr_act(), ::tr("Restart GUI Failed"), ::tr("Failed to restart GUI!"), true, true);
       }
 #ifdef COSMOS
     } else if (btn == update_btn.get_container()) {
@@ -374,9 +444,9 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     } else if (btn == shutdown_host_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto shutdown_host_cmd = conf->get<std::string>("/commands/shutdown_host_cmd");
-      lv_obj_t *mbox = create_simple_dialog(lv_scr_act(), "Shutdown Host Initiated", "Shutdown of host has been initiated", false, false);
+      lv_obj_t *mbox = create_simple_dialog(lv_scr_act(), ::tr("Shutdown Host Initiated"), ::tr("Shutdown of host has been initiated"), false, false);
       run_command_deferred(mbox, shutdown_host_cmd,
-                           "Shutdown Host Failed", "Failed to shutdown host!",
+                           ::tr("Shutdown Host Failed"), ::tr("Failed to shutdown host!"),
                            DEFERRED_COMMAND_DELAY_MS);
     } else if (btn == support_zip_btn.get_container()) {
       Config *conf = Config::get_instance();
@@ -387,9 +457,9 @@ void SettingPanel::handle_callback(lv_event_t *event) {
         auto ret = call_command(support_zip_cmd);
         lv_obj_clear_state(support_zip_btn.get_button(), LV_STATE_PRESSED);
         if (ret == 0) {
-          create_simple_dialog(lv_scr_act(), "Support ZIP Success", "The support.zip can be found in the config directory!", true, false);
+          create_simple_dialog(lv_scr_act(), ::tr("Support ZIP Success"), ::tr("The support.zip can be found in the config directory!"), true, false);
         } else {
-          create_simple_dialog(lv_scr_act(), "Support ZIP Failed", "Failed to generate a support zip!", true, true);
+          create_simple_dialog(lv_scr_act(), ::tr("Support ZIP Failed"), ::tr("Failed to generate a support zip!"), true, true);
         }
       }
     } else if (btn == switch_to_stock_btn.get_container()) {

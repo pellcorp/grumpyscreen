@@ -1,4 +1,5 @@
 #include "console_panel.h"
+#include "i18n.h"
 #include "config.h"
 #include "state.h"
 #include "logger.h"
@@ -60,7 +61,7 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   lv_obj_set_style_pad_ver(input, text_pad, 0);
   lv_obj_set_flex_grow(input, 1);
   lv_textarea_set_one_line(input, true);
-  lv_textarea_set_placeholder_text(input, "Send gcode...");
+  lv_textarea_set_placeholder_text(input, ::tr("Send gcode..."));
   lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);
   lv_obj_set_width(kb, LV_PCT(100));
   lv_obj_set_flex_grow(kb, 1);
@@ -82,7 +83,7 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   delete_btn.hide_label();
   lv_obj_set_size(delete_btn.get_container(), scale_r(34), scale_r(34));
 
-  macro_tab = lv_tabview_add_tab(tabview, "Macros");
+  macro_tab = lv_tabview_add_tab(tabview, ::tr("Macros"));
   lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_pad_all(lv_obj_get_parent(console_cont), 0, 0);
   lv_obj_set_style_pad_all(macro_tab, 0, 0);

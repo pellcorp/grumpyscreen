@@ -1,4 +1,5 @@
 #include "print_panel.h"
+#include "i18n.h"
 #include "file_panel.h"
 #include "state.h"
 #include "utils.h"
@@ -23,9 +24,9 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
   , left_cont(create_row(files_cont))
   , file_table(lv_table_create(left_cont))
   , file_view(create_row(files_cont))
-  , status_btn(file_view, Icons::INFO_IMG, "Status", &PrintPanel::_handle_status_btn, this)
-  , print_btn(file_view, Icons::PRINT, "Print", &PrintPanel::_handle_print_callback, this)
-  , back_btn(file_view, Icons::BACK, "Back", &PrintPanel::_handle_back_btn, this)
+  , status_btn(file_view, Icons::INFO_IMG, ::tr("Status"), &PrintPanel::_handle_status_btn, this)
+  , print_btn(file_view, Icons::PRINT, ::tr("Print"), &PrintPanel::_handle_print_callback, this)
+  , back_btn(file_view, Icons::BACK, ::tr("Back"), &PrintPanel::_handle_back_btn, this)
   , root("", "", 0)
   , cur_dir(&root)
   , cur_file(NULL)
@@ -237,14 +238,14 @@ void PrintPanel::handle_callback(lv_event_t *e) {
       }
 
       pending_delete_path = file->full_path;
-      static const char *btns[] = {"OK", "Cancel", ""};
+      static const char *btns[] = {"OK", ::tr("Cancel"), ""};
       SimpleDialogOptions opts;
       opts.buttons = btns;
       opts.highlighted_button_idx = 0;
       opts.result_cb = _delete_file;
       opts.user_data = this;
-      create_configurable_dialog(lv_layer_top(), "Delete file",
-          fmt::format("Delete {}?", filename).c_str(), opts);
+      create_configurable_dialog(lv_layer_top(), ::tr("Delete file"),
+          fmt::format(fmt::runtime(::tr("Delete {}?")), filename).c_str(), opts);
       return;
     }
 
@@ -290,9 +291,9 @@ void PrintPanel::delete_file(uint32_t btn_idx) {
         std::lock_guard<std::mutex> lock(lv_lock);
         if (d.contains("error")) {
           const std::string msg = d.value("/error/message"_json_pointer,
-              std::string("Moonraker could not delete the file"));
+              std::string(::tr("Moonraker could not delete the file")));
           LOG_ERROR("Failed to delete gcode file {}: {}", path, msg);
-          create_simple_dialog(lv_layer_top(), "Delete file failed", msg.c_str(), true, true);
+          create_simple_dialog(lv_layer_top(), ::tr("Delete file failed"), msg.c_str(), true, true);
           return;
         }
 

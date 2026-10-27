@@ -1,4 +1,5 @@
 #include "homing_panel.h"
+#include "i18n.h"
 #include "state.h"
 #include "logger.h"
 #include "config.h"
@@ -11,7 +12,7 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   : NotifyConsumer(lock)
   , ws(websocket_client)
   , homing_cont(Theme::create_screen(NULL))
-  , home_all_btn(homing_cont, Icons::HOME, "Home All", &HomingPanel::_handle_callback, this)
+  , home_all_btn(homing_cont, Icons::HOME, ::tr("Home All"), &HomingPanel::_handle_callback, this)
   , home_xy_btn(homing_cont, Icons::HOME, "Home XY", &HomingPanel::_handle_callback, this)
   , y_up_btn(homing_cont, Icons::ARROW_UP, "Y+", &HomingPanel::_handle_callback, this)
   , y_down_btn(homing_cont, Icons::ARROW_DOWN, "Y-", &HomingPanel::_handle_callback, this)
@@ -20,13 +21,13 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , z_up_btn(homing_cont, Icons::Z_CLOSER, "Z+", &HomingPanel::_handle_callback, this)
   , z_down_btn(homing_cont, Icons::Z_FARTHER, "Z-", &HomingPanel::_handle_callback, this)
   , emergency_btn(homing_cont, Icons::EMERGENCY, "Stop", &HomingPanel::_handle_callback, this,
-		  "Emergency Stop", "Do you want to emergency stop?",
-                  {"Back", "Emergency Stop"})
-  , motoroff_btn(homing_cont, Icons::MOTOR_OFF_IMG, "Motors Off", &HomingPanel::_handle_callback, this)
-  , back_btn(homing_cont, Icons::BACK, "Back", &HomingPanel::_handle_callback, this)
+		  ::tr("Emergency Stop"), ::tr("Do you want to emergency stop?"),
+                  {::tr("Back"), ::tr("Emergency Stop")})
+  , motoroff_btn(homing_cont, Icons::MOTOR_OFF_IMG, ::tr("Motors Off"), &HomingPanel::_handle_callback, this)
+  , back_btn(homing_cont, Icons::BACK, ::tr("Back"), &HomingPanel::_handle_callback, this)
   // the keys fill whatever the row leaves below the title; the trailing "" is
   // the btnmatrix map terminator
-  , distance_selector(homing_cont, "Move Distance (mm)",
+  , distance_selector(homing_cont, ::tr("Move Distance (mm)"),
 		     {".1", ".5", "1", "5", "10", "25", "50", ""}, 2, &HomingPanel::_handle_selector_cb, this)
 {
   emergency_btn.set_prompt_condition([] {

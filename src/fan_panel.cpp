@@ -1,4 +1,5 @@
 #include "fan_panel.h"
+#include "i18n.h"
 #include "state.h"
 #include "utils.h"
 #include "logger.h"
@@ -13,9 +14,9 @@ FanPanel::FanPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , fanpanel_cont(create_screen(NULL))
   , fans_cont(create_row(fanpanel_cont))
   , side_cont(create_row(fanpanel_cont))
-  , all_on_btn(side_cont, Icons::FAN_ON, "All On", &FanPanel::_handle_callback, this)
-  , all_off_btn(side_cont, Icons::FAN_OFF_IMG, "All Off", &FanPanel::_handle_callback, this)
-  , back_btn(side_cont, Icons::BACK, "Back", &FanPanel::_handle_callback, this)
+  , all_on_btn(side_cont, Icons::FAN_ON, ::tr("All On"), &FanPanel::_handle_callback, this)
+  , all_off_btn(side_cont, Icons::FAN_OFF_IMG, ::tr("All Off"), &FanPanel::_handle_callback, this)
+  , back_btn(side_cont, Icons::BACK, ::tr("Back"), &FanPanel::_handle_callback, this)
 {
   // the list takes the width, the action tiles their own column
   lv_obj_set_flex_flow(fanpanel_cont, LV_FLEX_FLOW_ROW);
