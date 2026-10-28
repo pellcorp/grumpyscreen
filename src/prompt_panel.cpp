@@ -1,4 +1,5 @@
 #include "prompt_panel.h"
+#include "config.h"
 #include "print_status_panel.h"
 #include "state.h"
 #include "utils.h"
@@ -252,6 +253,10 @@ void PromptPanel::update_manual_probe(json &mp) {
 }
 
 void PromptPanel::show_screws_tilt(json &st) {
+  if (!Config::get_instance()->get<bool>("/ui/show_screws_tilt", true)) {
+    return;
+  }
+
   // MAX_DEVIATION makes it a check (a print start), not something to read off
   json max_deviation = State::get_instance()->get_data("/printer_state/screws_tilt_adjust/max_deviation"_json_pointer);
   auto &results = st["results"];
