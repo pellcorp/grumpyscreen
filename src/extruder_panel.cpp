@@ -109,10 +109,14 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , tabview(lv_tabview_create(panel_cont, LV_DIR_TOP, scale_r(36)))
   , load_tab(lv_tabview_add_tab(tabview, "Load / Unload"))
   , extrude_tab(lv_tabview_add_tab(tabview, "Extrude / Retract"))
-  , load_extruder_temp(ws, load_tab, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
+  , load_header(create_row(load_tab))
+  , extrude_header(create_row(extrude_tab))
+  , load_extruder_temp(ws, load_header, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
                        "extruder", NULL, NULL)
-  , extrude_extruder_temp(ws, extrude_tab, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
+  , extrude_extruder_temp(ws, extrude_header, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
                           "extruder", NULL, NULL)
+  , load_extruder_dd(lv_dropdown_create(load_header))
+  , extrude_extruder_dd(lv_dropdown_create(extrude_header))
   , load_cont(create_row(load_tab))
   , extrude_cont(create_row(extrude_tab))
   , extrude_col(create_row(extrude_cont))
@@ -147,8 +151,21 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
     lv_obj_set_grid_dsc_array(tab, grid_panel_col_dsc, grid_panel_row_dsc);
     lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
   }
+  for (lv_obj_t *header : {load_header, extrude_header}) {
+    lv_obj_set_grid_cell(header, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START, 0, 1);
+    lv_obj_set_height(header, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(header, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(header, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(header, gap(), 0);
+  }
   for (SensorContainer *sensor : {&load_extruder_temp, &extrude_extruder_temp}) {
-    lv_obj_set_grid_cell(sensor->get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START, 0, 1);
+    lv_obj_set_width(sensor->get_sensor(), 0);
+    lv_obj_set_flex_grow(sensor->get_sensor(), 1);
+  }
+  for (lv_obj_t *dd : {load_extruder_dd, extrude_extruder_dd}) {
+    lv_obj_set_width(dd, scale_w(150));
+    lv_obj_add_event_cb(dd, &ExtruderPanel::_handle_extruder_select, LV_EVENT_VALUE_CHANGED, this);
+    lv_obj_add_flag(dd, LV_OBJ_FLAG_HIDDEN);
   }
   for (lv_obj_t *content : {load_cont, extrude_cont}) {
     lv_obj_set_grid_cell(content, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
@@ -216,6 +233,7 @@ ExtruderPanel::~ExtruderPanel() {
 }
 
 void ExtruderPanel::foreground() {
+  refresh_extruders();
   lv_tabview_set_act(tabview, lv_obj_get_index(load_tab), LV_ANIM_OFF);
   lv_obj_move_foreground(panel_cont);
 }
@@ -224,16 +242,92 @@ void ExtruderPanel::background() {
   lv_obj_move_background(panel_cont);
 }
 
+// "extruder" is T0, "extruderN" is TN
+static int extruder_tool(const std::string &name) {
+  const std::string digits = name.substr(std::string("extruder").size());
+  if (digits.empty()) return 0;
+  if (!std::all_of(digits.begin(), digits.end(), [](unsigned char c) { return std::isdigit(c) != 0; })) return -1;
+  return std::stoi(digits);
+}
+
+void ExtruderPanel::refresh_extruders() {
+  std::vector<std::string> found = State::get_instance()->get_extruders();
+  std::sort(found.begin(), found.end(), [](const std::string &a, const std::string &b) {
+    return extruder_tool(a) < extruder_tool(b);
+  });
+  if (found != extruders) {
+    extruders = found;
+    std::string options;
+    for (const std::string &name : extruders) {
+      if (!options.empty()) options += '\n';
+      options += fmt::format("T{}", extruder_tool(name));
+    }
+    for (lv_obj_t *dd : {load_extruder_dd, extrude_extruder_dd}) {
+      lv_dropdown_set_options(dd, options.c_str());
+    }
+    active_extruder.clear();  // relabel the readouts for the new count
+  }
+  for (lv_obj_t *dd : {load_extruder_dd, extrude_extruder_dd}) {
+    if (extruders.size() > 1) lv_obj_clear_flag(dd, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(dd, LV_OBJ_FLAG_HIDDEN);
+  }
+
+  json &active = State::get_instance()->get_data("/printer_state/toolhead/extruder"_json_pointer);
+  set_active_extruder(active.is_string() ? active.template get<std::string>() : "extruder");
+}
+
+// toolhead.extruder decides, so the pickers and readouts follow a tool change
+// made anywhere, not only from here
+void ExtruderPanel::set_active_extruder(const std::string &name) {
+  auto it = std::find(extruders.begin(), extruders.end(), name);
+  if (it != extruders.end()) {
+    for (lv_obj_t *dd : {load_extruder_dd, extrude_extruder_dd}) {
+      lv_dropdown_set_selected(dd, std::distance(extruders.begin(), it));
+    }
+  }
+  if (name.empty() || name == active_extruder) return;
+  active_extruder = name;
+  const std::string label = extruders.size() > 1
+      ? fmt::format("Extruder T{}", extruder_tool(name)) : "Extruder";
+  json &state = State::get_instance()->get_data(json::json_pointer("/printer_state/" + name));
+  for (SensorContainer *sensor : {&load_extruder_temp, &extrude_extruder_temp}) {
+    sensor->set_id(name, label.c_str());
+    if (state.is_object()) {
+      if (state["target"].is_number()) sensor->update_target(state["target"].template get<int>());
+      if (state["temperature"].is_number()) sensor->update_value(state["temperature"].template get<int>());
+    }
+  }
+}
+
+void ExtruderPanel::handle_extruder_select(lv_event_t *e) {
+  uint32_t idx = lv_dropdown_get_selected(lv_event_get_target(e));
+  if (idx >= extruders.size()) return;
+  const std::string &name = extruders[idx];
+  const int tool = extruder_tool(name);
+  // a multi toolhead picks the head up with its T macro; otherwise only the
+  // extruder Klipper drives changes
+  if (Config::get_instance()->get<bool>("/ui/extruder_select_tool_change") && tool >= 0) {
+    ws.gcode_script(fmt::format("T{}", tool));
+  } else {
+    ws.gcode_script(fmt::format("ACTIVATE_EXTRUDER EXTRUDER={}", name));
+  }
+}
+
 void ExtruderPanel::consume(json& j) {
   std::lock_guard<std::mutex> lock(lv_lock);
-  auto target_value = j["/params/0/extruder/target"_json_pointer];
+  json &toolhead_extruder = j["/params/0/toolhead/extruder"_json_pointer];
+  if (toolhead_extruder.is_string()) {
+    set_active_extruder(toolhead_extruder.template get<std::string>());
+  }
+
+  auto target_value = j[json::json_pointer("/params/0/" + active_extruder + "/target")];
   if (!target_value.is_null()) {
     int target = target_value.template get<int>();
     load_extruder_temp.update_target(target);
     extrude_extruder_temp.update_target(target);
   }
 
-  auto temp_value = j["/params/0/extruder/temperature"_json_pointer];
+  auto temp_value = j[json::json_pointer("/params/0/" + active_extruder + "/temperature")];
   if (!temp_value.is_null()) {
     int value = temp_value.template get<int>();
     load_extruder_temp.update_value(value);

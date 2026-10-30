@@ -28,6 +28,8 @@ class SensorContainer {
   void update_target(int new_target);
   void update_value(int new_value);
   void update_series(int value);
+  // follow another object, e.g. the extruder panel switching extruder
+  void set_id(const std::string &name, const char *text);
   void handle_edit(lv_event_t *event);
 
   static void _handle_edit(lv_event_t *event) {

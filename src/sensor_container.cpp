@@ -138,6 +138,14 @@ void SensorContainer::update_value(int new_value) {
   }
 }
 
+void SensorContainer::set_id(const std::string &name, const char *text) {
+  id = name;
+  lv_label_set_text(sensor_label, text);
+  // the next readings belong to the new object, show them whatever they are
+  value = -1;
+  target = -1;
+}
+
 void SensorContainer::update_series(int v) {
   if (series != NULL && chart != NULL) {
     auto delta = std::time(nullptr) - last_updated_ts;
