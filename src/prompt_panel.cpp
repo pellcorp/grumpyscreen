@@ -105,6 +105,12 @@ void PromptPanel::consume(json &j) {
     return;
   }
 
+  if (status.contains("display_status") && status["display_status"].contains("message")) {
+    auto &message = status["display_status"]["message"];
+    std::lock_guard<std::mutex> lock(lv_lock);
+    update_display_message(message.is_string() ? message.template get<std::string>() : "");
+  }
+
   bool manual_probe = status.contains("manual_probe");
   bool screws_tilt = status.contains("screws_tilt_adjust") && status["screws_tilt_adjust"].contains("results");
   if (!manual_probe && !screws_tilt) {
@@ -120,6 +126,45 @@ void PromptPanel::consume(json &j) {
   }
   if (screws_tilt) {
     show_screws_tilt(status["screws_tilt_adjust"]);
+  }
+}
+
+void PromptPanel::show_banner(const std::string &text, bool error) {
+  if (error_banner == NULL) {
+    error_banner = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(error_banner, lv_pct(96), LV_SIZE_CONTENT);
+    lv_obj_align(error_banner, LV_ALIGN_TOP_MID, 0, scale_r(4));
+    lv_obj_set_style_border_width(error_banner, 0, 0);
+    lv_obj_set_style_radius(error_banner, scale_r(8), 0);
+    lv_obj_set_style_pad_hor(error_banner, scale_r(12), 0);
+    lv_obj_set_style_pad_ver(error_banner, scale_r(8), 0);
+    lv_obj_clear_flag(error_banner, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(error_banner, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(error_banner, [](lv_event_t *e) {
+      PromptPanel *panel = (PromptPanel*)e->user_data;
+      lv_obj_del_async(panel->error_banner);
+      panel->error_banner = NULL;
+    }, LV_EVENT_CLICKED, this);
+
+    lv_obj_t *label = lv_label_create(error_banner);
+    lv_obj_set_width(label, lv_pct(100));
+    lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+  }
+  banner_is_error = error;
+  lv_obj_set_style_bg_color(error_banner, error ? col(DANGER) : lv_color_white(), 0);
+  lv_obj_t *label = lv_obj_get_child(error_banner, 0);
+  lv_obj_set_style_text_color(label, error ? lv_color_white() : lv_color_black(), 0);
+  lv_label_set_text(label, fmt::format("{} - Tap to dismiss", text).c_str());
+}
+
+// M117: an empty message clears it, and an error on screen is not replaced
+void PromptPanel::update_display_message(const std::string &message) {
+  if (error_banner != NULL && banner_is_error) return;
+  if (!message.empty()) {
+    show_banner(message, false);
+  } else if (error_banner != NULL) {
+    lv_obj_del_async(error_banner);
+    error_banner = NULL;
   }
 }
 
@@ -529,6 +574,14 @@ void PromptPanel::handle_macro_response(json &j) {
       }
       lv_label_set_text(error_label, resp.substr(3).c_str());
       fit_box();
+      return;
+    }
+
+    // any other klipper error (a door opened during a print, a failed
+    // command) shows in a banner over the top of the screen, a newer one
+    // replacing the one showing. The screen below stays usable.
+    if (resp.find("!! ", 0) == 0) {
+      show_banner(resp.substr(3), true);
       return;
     }
 
