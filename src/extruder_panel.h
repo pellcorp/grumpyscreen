@@ -23,10 +23,16 @@ class ExtruderPanel : public NotifyConsumer {
   void show_spoolman(bool shown);
   void consume(json &j);
   void handle_callback(lv_event_t *e);
+  void handle_extruder_select(lv_event_t *e);
 
   static void _handle_callback(lv_event_t *event) {
     ExtruderPanel *panel = (ExtruderPanel*)event->user_data;
     panel->handle_callback(event);
+  };
+
+  static void _handle_extruder_select(lv_event_t *event) {
+    ExtruderPanel *panel = (ExtruderPanel*)event->user_data;
+    panel->handle_extruder_select(event);
   };
 
  private:
@@ -44,7 +50,15 @@ class ExtruderPanel : public NotifyConsumer {
   uint32_t speed_default_idx;
 
   // the readout is the only sign the load / extrude macros are heating and running
+  lv_obj_t *header;
   SensorContainer extruder_temp;
+  // picks the active extruder, shown only when there is more than one
+  lv_obj_t *extruder_dd;
+  std::vector<std::string> extruders;
+  std::string active_extruder = "extruder";
+
+  void refresh_extruders();
+  void set_active_extruder(const std::string &name);
 
   // Load / Unload and Extrude / Retract each get a tab; the tiles that apply
   // to both keep a column to the right of the tabview.
