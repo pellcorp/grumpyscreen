@@ -107,6 +107,7 @@ than leaving stale values.
 | `colour` | `string` | `RRGGBB` no `#`. `""` = unset, draws the checkerboard |
 | `backup` | `int` | slot **index** taking over on runout, `-1` = none |
 | `weight` | `int` | grams remaining, `0` = unknown |
+| `full_weight` | `int` | grams on a full spool, `0` = unknown. With `weight`, the spool is drawn as a pie chart of what is left, and the cards show the percentage |
 | `prepped` | `bool` | filament physically present at the slot |
 | `ready` | `bool` | fed into the unit, loadable |
 | `tool_loaded` | `bool` | in the toolhead |
@@ -128,6 +129,7 @@ load actually needs.
 | `error` | `bool` | unit stopped; tapping the banner calls `reset_failure()` |
 | `bypass` | `bool` | unit bypassed, single spool |
 | `spoolman` | `bool` | `weight` is meaningful |
+| `weight_tracked` | `bool` | `weight` is meaningful: the backend counts it down as it prints (AFC's `track_filament_weight`) |
 
 ---
 

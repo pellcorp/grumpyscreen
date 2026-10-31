@@ -103,6 +103,7 @@ class MmuPanel : public NotifyConsumer {
     lv_obj_t *cont;
     lv_obj_t *spool;
     lv_obj_t *hole;
+    lv_obj_t *used;
     lv_obj_t *title;
     lv_obj_t *material;
   };
@@ -150,6 +151,7 @@ class MmuPanel : public NotifyConsumer {
   lv_obj_t *edit_panel_cont;
   lv_obj_t *edit_preview_spool;
   lv_obj_t *edit_preview_hole;
+  lv_obj_t *edit_preview_used;
   lv_obj_t *edit_name_lbl;
   lv_obj_t *edit_tool_lbl;
   lv_obj_t *edit_mat_lbl;
@@ -219,6 +221,9 @@ class MmuPanel : public NotifyConsumer {
   bool error_state;
   bool bypass;
   bool spoolman_active = false; // weights only mean something via spoolman
+  bool weight_active = false;   // ... or when the backend counts them down
+  // percent of the spool left, -1 when no weight is known
+  int remaining_pct(const MmuSlot &slot) const;
   bool card_long_pressed = false; // its release still clicks
   void pick_spool_for(int idx);
 };
