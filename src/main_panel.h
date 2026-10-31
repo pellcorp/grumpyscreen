@@ -19,6 +19,7 @@
 #include "mmu_panel.h"
 #include "lvgl/lvgl.h"
 
+#include <ctime>
 #include <mutex>
 #include <map>
 #include <memory>
@@ -47,6 +48,7 @@ class MainPanel : public NotifyConsumer {
   
   void create_panel();
   void create_sensors(json &temp_sensors);
+  void fit_chart_range();
   void create_fans(json &temp_fans);
   void create_leds(json &leds);
   void handle_homing_cb(lv_event_t *event);
@@ -130,6 +132,8 @@ class MainPanel : public NotifyConsumer {
   // chart lives inside this box and the labels land in the box's padding
   lv_obj_t *temp_chart_box;
   lv_obj_t *temp_chart;
+  int chart_top = 300;
+  std::time_t chart_range_ts = 0;
 
   std::map<std::string, std::shared_ptr<SensorContainer>> sensors;
   

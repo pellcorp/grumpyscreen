@@ -142,6 +142,34 @@ void MainPanel::remove_tab_change_cb(lv_event_cb_t cb, void *user_data) {
   lv_obj_remove_event_cb_with_user_data(tabview, cb, user_data);
 }
 
+// The graph tops out just above the hottest reading in its history. A multiple
+// of 20 keeps the four tick steps whole numbers.
+void MainPanel::fit_chart_range() {
+  auto now = std::time(nullptr);
+  if (now - chart_range_ts < 2) {
+    return;
+  }
+  chart_range_ts = now;
+
+  lv_coord_t highest = 0;
+  const uint16_t points = lv_chart_get_point_count(temp_chart);
+  lv_chart_series_t *series = lv_chart_get_series_next(temp_chart, NULL);
+  for (; series != NULL; series = lv_chart_get_series_next(temp_chart, series)) {
+    const lv_coord_t *values = lv_chart_get_y_array(temp_chart, series);
+    for (uint16_t i = 0; i < points; i++) {
+      if (values[i] != LV_CHART_POINT_NONE && values[i] > highest) {
+        highest = values[i];
+      }
+    }
+  }
+
+  const int top = (highest / 20 + 1) * 20;
+  if (top != chart_top) {
+    chart_top = top;
+    lv_chart_set_range(temp_chart, LV_CHART_AXIS_PRIMARY_Y, 0, top);
+  }
+}
+
 void MainPanel::init(json &j) {
   std::lock_guard<std::mutex> lock(lv_lock);
   for (const auto &el : sensors) {
@@ -158,6 +186,7 @@ void MainPanel::init(json &j) {
       el.second->update_value(value);
     }
   }
+  fit_chart_range();
   auto fans = State::get_instance()->get_display_fans();
   print_status_panel.init(fans);
   if (mmu_panel != NULL) mmu_panel->init_state();
@@ -179,6 +208,7 @@ void MainPanel::consume(json &j) {
       el.second->update_value(value);
     }
   }
+  fit_chart_range();
 
   json &pstat_state = j["/params/0/print_stats/state"_json_pointer];
   if (!pstat_state.is_null()) {
@@ -388,7 +418,7 @@ void MainPanel::create_main(lv_obj_t * parent) {
   const lv_coord_t tick_gutter = scale_w(30);
   lv_obj_set_style_pad_left(temp_chart_box, tick_gutter, 0);
   lv_obj_set_style_pad_right(temp_chart_box, gap(), 0);
-  // the tick labels centre on the 0 and 300 lines, so leave half a line of
+  // the tick labels centre on the top and bottom lines, so leave half a line of
   // room above and below the plot for them
   lv_obj_set_style_pad_ver(temp_chart_box, gap() + scale_font(12)->line_height / 2, 0);
 
@@ -406,12 +436,12 @@ void MainPanel::create_main(lv_obj_t * parent) {
   lv_obj_set_style_line_color(temp_chart, col(RAISED), LV_PART_MAIN);
   lv_obj_set_style_line_width(temp_chart, 2, LV_PART_ITEMS);
 
-  lv_chart_set_range(temp_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 300);
+  lv_chart_set_range(temp_chart, LV_CHART_AXIS_PRIMARY_Y, 0, chart_top);
   // minor_cnt must stay non-zero: lv_chart derives its tick count as
   // (major_cnt - 1) * minor_cnt and draws nothing at all when that is 0
   lv_chart_set_axis_tick(temp_chart, LV_CHART_AXIS_PRIMARY_Y, 0, 0, 5, 1, true, tick_gutter);
 
-  // one guide per labelled value: 0, 75, 150, 225, 300
+  // one guide per labelled value
   lv_chart_set_div_line_count(temp_chart, 5, 0);
   lv_chart_set_point_count(temp_chart, 5000);
   lv_chart_set_zoom_x(temp_chart, 5000);
