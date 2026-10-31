@@ -334,7 +334,7 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       opts.highlighted_button_idx = 0;  // deleting is the destructive choice
       opts.result_cb = _remove_network;
       opts.user_data = this;
-      create_configurable_dialog(lv_layer_top(), "Forget network", fmt::format("Delete {}?", selected_network).c_str(), opts);
+      create_configurable_dialog(lv_layer_top(), "Forget network", fmt::format(I18n::tr("Delete {}?"), selected_network).c_str(), opts);
     }
   }
 }
@@ -707,7 +707,7 @@ void WifiPanel::show_password_dialog() {
   entering_password = true;
   credential_connecting = false;
   connection_in_progress = false;
-  lv_label_set_text(credential_title, fmt::format("Connect to {}", selected_network).c_str());
+  lv_label_set_text(credential_title, fmt::format(I18n::tr("Connect to {}"), selected_network).c_str());
   lv_label_set_text(credential_status, "Enter the network password");
   lv_obj_set_style_text_color(credential_status, Theme::col(Theme::TEXT_DIM), 0);
   lv_textarea_set_text(password_input, "");

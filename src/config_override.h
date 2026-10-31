@@ -24,6 +24,10 @@ public:
         return patch_ui_value("display_sleep_sec", std::to_string(seconds));
     }
 
+    bool set_language(const std::string& code) const {
+        return patch_ui_value("language", code);
+    }
+
 private:
     static std::string trimmed(const std::string& value) {
         const size_t first = value.find_first_not_of(" \t\r");

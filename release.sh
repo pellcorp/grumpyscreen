@@ -11,6 +11,7 @@ TIMESTAMP=$(date +%s)
 
 cp "$BUILD_DIR/bin/grumpyscreen" $RELEASES_DIR/
 cp grumpyscreen.cfg $RELEASES_DIR/
+cp -r languages $RELEASES_DIR/
 
 echo "Timestamp was $TIMESTAMP"
 

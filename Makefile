@@ -184,7 +184,7 @@ endif
 endif
 
 COMPILE_CC				= $(CC) $(CFLAGS) $(INC) $(DEFINES)
-COMPILE_CXX				= $(CC) $(CFLAGS) $(INC) $(DEFINES)
+COMPILE_CXX				= $(CC) $(CFLAGS) $(INC) $(DEFINES) -include $(LVGL_DIR)/src/i18n_hooks.h
 
 ## MAINOBJ -> OBJFILES
 
@@ -207,7 +207,7 @@ $(WPA_CLIENT_A): $(WPA_CLIENT_INPUTS)
 	@mkdir -p $(DEPS_LIB_DIR)
 	@cp wpa_supplicant/wpa_supplicant/libwpa_client.a $(WPA_CLIENT_A)
 
-$(BUILD_OBJ_DIR)/%.o: %.cpp | $(LIBHV_A)
+$(BUILD_OBJ_DIR)/%.o: %.cpp src/i18n_hooks.h | $(LIBHV_A)
 	@mkdir -p $(dir $@)
 	@$(COMPILE_CXX) -std=c++17 $(CFLAGS) -c $< -o $@
 	@echo "CXX $<"
@@ -245,5 +245,8 @@ test: libhv.a
 		tests/test_backends.cpp src/mmu_tools.cpp src/notify_consumer.cpp -o $(BUILD_DIR)/test_backends \
 		-L$(DEPS_LIB_DIR) -l:libhv.a -lpthread
 	$(BUILD_DIR)/test_backends
+	g++ -std=gnu++17 -O2 -I./src -I$(DEPS_DIR)/include/ tests/test_i18n.cpp src/i18n.cpp -o $(BUILD_DIR)/test_i18n -lstdc++fs
+	$(BUILD_DIR)/test_i18n
+	python3 tools/check_languages.py
 
 -include			$(DEPS)

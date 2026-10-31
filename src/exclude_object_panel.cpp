@@ -461,10 +461,10 @@ void ExcludeObjectPanel::redraw() {
 
   auto hex = [](lv_color_t c) { return fmt::format("{:06x}", lv_color_to32(c) & 0xffffff); };
   lv_label_set_text(status_label,
-                    fmt::format("#{} Printing now#\n"
-                                "#{} Hold to exclude#\n"
-                                "#{} Excluded#\n\n"
-                                "{} object(s), {} excluded",
+                    fmt::format(I18n::tr("#{} Printing now#\n"
+                                         "#{} Hold to exclude#\n"
+                                         "#{} Excluded#\n\n"
+                                         "{} object(s), {} excluded"),
                                 hex(OBJ_PRINTING()), hex(OBJ_PENDING()), hex(OBJ_EXCLUDED()),
                                 static_cast<int>(objects.size()), n_excluded).c_str());
 }
@@ -594,8 +594,8 @@ void ExcludeObjectPanel::confirm_exclude(const ObjBox &obj) {
   auto cur = State::get_instance()->get_data("/printer_state/exclude_object/current_object"_json_pointer);
   bool printing_now = cur.is_string() && cur.template get<std::string>() == obj.name;
   std::string msg = printing_now
-    ? fmt::format("Stop printing object {}?\nThis cannot be undone.", obj.number)
-    : fmt::format("Exclude object {}?\nThis cannot be undone.", obj.number);
+    ? fmt::format(I18n::tr("Stop printing object {}?\nThis cannot be undone."), obj.number)
+    : fmt::format(I18n::tr("Exclude object {}?\nThis cannot be undone."), obj.number);
 
   static const char *btns[] = {"Cancel", "Exclude", ""};
   SimpleDialogOptions options{};

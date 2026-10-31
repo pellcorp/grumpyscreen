@@ -180,6 +180,8 @@ display_name: Vendor Fan
     assert(conf->set_display_sleep_sec(1800));
     assert(!conf->get<bool>("/ui/prompt_emergency_stop"));
     assert(conf->get<int32_t>("/ui/display_sleep_sec") == 1800);
+    assert(conf->set_language("it"));
+    assert(conf->get<std::string>("/ui/language") == "it");
 
     std::ifstream patched_input(writable_override_path);
     const std::string patched((std::istreambuf_iterator<char>(patched_input)),
@@ -191,6 +193,7 @@ display_name: Vendor Fan
         "; another comment\n"
         "\n"
         "display_sleep_sec: 1800\n"
+        "language: it\n"
         "[moonraker]\n"
         "host: moonraker.local\n");
 

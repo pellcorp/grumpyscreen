@@ -125,6 +125,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , emergency_prompt_switch(nullptr)
   , emergency_stop_warning(nullptr)
   , sleep_timeout_selector(nullptr)
+  , language_selector(nullptr)
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
@@ -175,8 +176,8 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #else
   add_about_line(about_panel, "Grumpyscreen", true);
 #endif
-  add_about_line(about_panel, std::string("Branch: ") + GUPPYSCREEN_BRANCH);
-  add_about_line(about_panel, std::string("Version: ") + GUPPYSCREEN_VERSION);
+  add_about_line(about_panel, std::string(I18n::tr("Branch: ")) + GUPPYSCREEN_BRANCH);
+  add_about_line(about_panel, std::string(I18n::tr("Version: ")) + GUPPYSCREEN_VERSION);
 
   lv_obj_t *settings_panel = lv_obj_create(settings_cont);
   lv_obj_clear_flag(settings_panel, LV_OBJ_FLAG_SCROLLABLE);
@@ -235,6 +236,20 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
     lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, sleep_idx, LV_BTNMATRIX_CTRL_CHECKED);
   }
   lv_obj_add_event_cb(sleep_timeout_selector, &SettingPanel::_setting_changed_cb,
+                      LV_EVENT_VALUE_CHANGED, this);
+
+  add_about_line(settings_panel, "Language", true);
+  language_selector = lv_dropdown_create(settings_panel);
+  lv_obj_set_width(language_selector, LV_PCT(100));
+  languages = I18n::available(I18n::default_dir());
+  std::string language_options;
+  for (size_t i = 0; i < languages.size(); i++) {
+    if (i > 0) language_options += "\n";
+    language_options += languages[i].name;
+  }
+  lv_dropdown_set_options(language_selector, language_options.c_str());
+  select_current_language();
+  lv_obj_add_event_cb(language_selector, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
 
   // Optional tiles only appear with a command behind them; the grid is built
@@ -322,6 +337,20 @@ void SettingPanel::setting_changed(lv_event_t *event) {
         lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, old_idx, LV_BTNMATRIX_CTRL_CHECKED);
       }
     }
+  } else if (target == language_selector) {
+    const std::string previous = I18n::current();
+    const std::string &code = languages[lv_dropdown_get_selected(language_selector)].code;
+    if (!I18n::switch_to(code)) {
+      select_current_language();
+      create_simple_dialog(lv_scr_act(), "Unable to Save Setting",
+                           "The language file could not be loaded.", true, true);
+      return;
+    }
+    saved = conf->set_language(code);
+    if (!saved) {
+      I18n::switch_to(previous);
+      select_current_language();
+    }
   }
 
   if (!saved) {
@@ -330,6 +359,12 @@ void SettingPanel::setting_changed(lv_event_t *event) {
   }
 
   if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
+}
+
+void SettingPanel::select_current_language() {
+  for (size_t i = 0; i < languages.size(); i++) {
+    if (languages[i].code == I18n::current()) lv_dropdown_set_selected(language_selector, i);
+  }
 }
 
 void SettingPanel::refresh_emergency_stop_warning() {

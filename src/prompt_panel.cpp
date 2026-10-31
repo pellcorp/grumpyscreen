@@ -128,7 +128,7 @@ void PromptPanel::consume(json &j) {
 static std::string screw_name(json &settings, int n) {
   auto &name = settings[fmt::format("screw{}_name", n)];
   if (!name.is_string() || name.template get<std::string>().empty()) {
-    return fmt::format("Screw {}", n);
+    return fmt::format(I18n::tr("Screw {}"), n);
   }
   std::string pretty;
   bool word_start = true;
@@ -436,7 +436,7 @@ lv_obj_t *PromptPanel::add_button(lv_obj_t *parent, const std::string &text, con
   lv_obj_set_size(command, 1, 1);
   lv_obj_add_flag(command, LV_OBJ_FLAG_HIDDEN);
   lv_label_set_text(label, text.c_str());
-  lv_label_set_text(command, cmd.c_str());
+  (lv_label_set_text)(command, cmd.c_str());
   if (cmd.find("=NUMPAD") != std::string::npos) {
     numpad_cmd = cmd;
   }

@@ -244,7 +244,7 @@ void PrintPanel::handle_callback(lv_event_t *e) {
       opts.result_cb = _delete_file;
       opts.user_data = this;
       create_configurable_dialog(lv_layer_top(), "Delete file",
-          fmt::format("Delete {}?", filename).c_str(), opts);
+          fmt::format(I18n::tr("Delete {}?"), filename).c_str(), opts);
       return;
     }
 

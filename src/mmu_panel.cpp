@@ -811,7 +811,7 @@ void MmuPanel::update_nav(size_t total_pages) {
     return;
   }
   lv_obj_clear_flag(nav_row, LV_OBJ_FLAG_HIDDEN);
-  lv_label_set_text(nav_label, fmt::format("Page {} / {}", current_page + 1, total_pages).c_str());
+  lv_label_set_text(nav_label, fmt::format(I18n::tr("Page {} / {}"), current_page + 1, total_pages).c_str());
   if (current_page == 0) lv_obj_add_flag(nav_prev_btn, LV_OBJ_FLAG_HIDDEN);
   else lv_obj_clear_flag(nav_prev_btn, LV_OBJ_FLAG_HIDDEN);
   if (current_page + 1 >= total_pages) lv_obj_add_flag(nav_next_btn, LV_OBJ_FLAG_HIDDEN);
@@ -877,9 +877,9 @@ void MmuPanel::populate() {
   // cleared by the backend, so that tap asks it to recover instead.
   if (error_state || (!message.empty() && message != dismissed_message)) {
     lv_obj_set_style_bg_color(status_bar, col(message_error || error_state ? DANGER : WARNING), 0);
-    lv_label_set_text(status_label, fmt::format("{}{}", message.empty() ? "MMU error" : message,
-                                                error_state ? " - Tap to reset"
-                                                            : " - Tap to dismiss").c_str());
+    lv_label_set_text(status_label, fmt::format("{}{}", message.empty() ? I18n::tr("MMU error") : message.c_str(),
+                                                error_state ? I18n::tr(" - Tap to reset")
+                                                            : I18n::tr(" - Tap to dismiss")).c_str());
   } else if (bypass) {
     lv_obj_set_style_bg_color(status_bar, col(WARNING), 0);
     lv_label_set_text(status_label, "Bypass Active - Single Spool");
@@ -892,8 +892,8 @@ void MmuPanel::populate() {
     } else if (loaded_idx >= 0 && (size_t)loaded_idx < slots.size()) {
       const MmuSlot &slot = slots[loaded_idx];
       const std::string label = slot_label(slot, loaded_idx);
-      text = slot.material.empty() ? fmt::format("Loaded: {}", label)
-                                   : fmt::format("Loaded: {} - {}", label, slot.material);
+      text = slot.material.empty() ? fmt::format(I18n::tr("Loaded: {}"), label)
+                                   : fmt::format(I18n::tr("Loaded: {} - {}"), label, slot.material);
     } else if (slots.empty()) {
       text = "No slots reported";
     } else {
@@ -1083,7 +1083,7 @@ void MmuPanel::update_edit_preview() {
   }
   // a slot whose metadata something else owns says so, so a greyed-out Save
   // does not look like a bug
-  if (!slot.can_configure) mat_str += " (locked)";
+  if (!slot.can_configure) mat_str += I18n::tr(" (locked)");
   lv_label_set_text(edit_mat_lbl, mat_str.c_str());
 
   // Tool assignment is read-only info; it comes from the MMU config. So is the
@@ -1094,7 +1094,7 @@ void MmuPanel::update_edit_preview() {
   std::string tool_str = slot_label(slot, edit_slot_idx);
   const bool backed_up = slot.backup >= 0 && (size_t)slot.backup < slots.size();
   if (backed_up) {
-    tool_str += fmt::format(" backed up by {}", slot_label(slots[slot.backup], slot.backup));
+    tool_str += fmt::format(I18n::tr(" backed up by {}"), slot_label(slots[slot.backup], slot.backup));
   }
   std::string covers;
   for (size_t i = 0; i < slots.size(); i++) {
@@ -1104,7 +1104,7 @@ void MmuPanel::update_edit_preview() {
   }
   // "S12 (T2) backs up S16 (T11)"; a comma when it is backed up as well
   if (!covers.empty()) {
-    tool_str += fmt::format("{} backs up {}", backed_up ? "," : "", covers);
+    tool_str += fmt::format(I18n::tr("{} backs up {}"), backed_up ? "," : "", covers);
   }
   lv_label_set_text(edit_tool_lbl, tool_str.c_str());
 
@@ -1429,7 +1429,7 @@ void MmuPanel::open_backup_picker() {
   int tile_w = (popout_row_w() - (cols - 1) * gap()) / cols;
 
   lv_obj_t *title = lv_label_create(backup_picker_list);
-  lv_label_set_text(title, fmt::format("{} backs up:", slot_label(editing, edit_slot_idx)).c_str());
+  lv_label_set_text(title, fmt::format(I18n::tr("{} backs up:"), slot_label(editing, edit_slot_idx)).c_str());
   lv_obj_set_width(title, LV_PCT(100));
   lv_obj_set_style_text_font(title, scale_font(14), 0);
 

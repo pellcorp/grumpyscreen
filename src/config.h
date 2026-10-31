@@ -53,6 +53,12 @@ public:
         return true;
     }
 
+    bool set_language(const std::string& code) {
+        if (!ConfigOverride(writable_path()).set_language(code)) return false;
+        j_["ui"]["language"] = code;
+        return true;
+    }
+
     template <typename T>
     T get(const std::string& json_ptr, T def = T{}) const {
         const auto jp = json::json_pointer(json_ptr);

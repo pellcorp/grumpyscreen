@@ -8,6 +8,18 @@
 #include <iterator>
 #include <cstdlib>
 
+LV_FONT_DECLARE(lang_accents_12);
+LV_FONT_DECLARE(lang_accents_14);
+LV_FONT_DECLARE(lang_accents_16);
+LV_FONT_DECLARE(lang_accents_18);
+LV_FONT_DECLARE(lang_accents_20);
+LV_FONT_DECLARE(lang_accents_22);
+#if LV_FONT_MONTSERRAT_24
+LV_FONT_DECLARE(lang_accents_24);
+LV_FONT_DECLARE(lang_accents_26);
+LV_FONT_DECLARE(lang_accents_28);
+#endif
+
 namespace Theme {
 
 namespace {
@@ -85,21 +97,31 @@ int scale_h(int px) { return px * lv_disp_get_physical_ver_res(NULL) / 272; }
 int scale_r(int px) { return std::min(scale_w(px), scale_h(px)); }
 
 const lv_font_t *scale_font(int px) {
-  struct F { int size; const lv_font_t *font; };
+  struct F { int size; lv_font_t font; };
+  // LVGL's fonts stop at ASCII; each copy falls back to the accented letters
+  auto with_accents = [](const lv_font_t &base, const lv_font_t &accents) {
+    lv_font_t font = base;
+    font.fallback = &accents;
+    return font;
+  };
   static const F fonts[] = {
-    {12, &lv_font_montserrat_12}, {14, &lv_font_montserrat_14},
-    {16, &lv_font_montserrat_16}, {18, &lv_font_montserrat_18},
-    {20, &lv_font_montserrat_20}, {22, &lv_font_montserrat_22},
+    {12, with_accents(lv_font_montserrat_12, lang_accents_12)},
+    {14, with_accents(lv_font_montserrat_14, lang_accents_14)},
+    {16, with_accents(lv_font_montserrat_16, lang_accents_16)},
+    {18, with_accents(lv_font_montserrat_18, lang_accents_18)},
+    {20, with_accents(lv_font_montserrat_20, lang_accents_20)},
+    {22, with_accents(lv_font_montserrat_22, lang_accents_22)},
 #if LV_FONT_MONTSERRAT_24  // the small-screen build leaves the big sizes out of flash
-    {24, &lv_font_montserrat_24}, {26, &lv_font_montserrat_26},
-    {28, &lv_font_montserrat_28},
+    {24, with_accents(lv_font_montserrat_24, lang_accents_24)},
+    {26, with_accents(lv_font_montserrat_26, lang_accents_26)},
+    {28, with_accents(lv_font_montserrat_28, lang_accents_28)},
 #endif
   };
   const int target = scale_r(px);
   for (const F &f : fonts) {
-    if (f.size >= target) return f.font;
+    if (f.size >= target) return &f.font;
   }
-  return fonts[sizeof(fonts) / sizeof(fonts[0]) - 1].font;
+  return &fonts[sizeof(fonts) / sizeof(fonts[0]) - 1].font;
 }
 
 int gap() {
