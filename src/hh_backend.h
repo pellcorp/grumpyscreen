@@ -59,7 +59,11 @@ class HhBackend : public MmuBackend {
   KWebSocketClient &ws;
 
   // HH publishes gate_spool_id but never grams; weights come from spoolman
-  std::map<int, int> spool_weights;      // spool id -> grams remaining
+  struct SpoolWeight {
+    int remaining = 0;
+    int full = 0;
+  };
+  std::map<int, SpoolWeight> spool_weights;  // by spool id
   std::vector<int> fetched_spool_ids;    // ids covered by the last fetch
   std::chrono::steady_clock::time_point last_fetch;
   bool fetch_failed = false;             // last fetch got nothing back
