@@ -29,7 +29,7 @@ Letters from U+00C0 to U+00FF (Western European) are built in. For other alphabe
 
 Text passed to these LVGL calls is translated automatically by `src/i18n_hooks.h`: `lv_label_set_text`, `lv_label_set_text_fmt`, `lv_tabview_add_tab`, `lv_table_set_cell_value`, `lv_textarea_set_placeholder_text`, `lv_msgbox_create`, `lv_btnmatrix_set_map`.
 
-- Add the new English string as a key in `languages/it.json`. `check_languages.py` regenerates `en.json` from it.
+- Add the new English string as a key in `languages/it.json`. English needs no file: it is the text in the code.
 - Text built with `fmt::format` needs `I18n::tr` on the format string, as the finished text won't match a key.
 - Don't keep the pointer `I18n::tr` returns, since a switch frees it.
 - For text that must not be translated, such as a hidden label holding a command, call the function in parentheses: `(lv_label_set_text)(obj, text)`.
