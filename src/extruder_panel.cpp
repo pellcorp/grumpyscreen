@@ -317,7 +317,7 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
     }
 
     if (btn == cooldown_btn.get_container()) {
-      if (!cooldown_btn.start_pressed_transition(1000)) {
+      if (!cooldown_btn.start_pressed_transition(2000)) {
         return;
       }
       const std::string cooldown_macro = conf->get<std::string>("/default_macros/cooldown");
