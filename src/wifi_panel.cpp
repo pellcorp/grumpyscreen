@@ -434,7 +434,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     std::lock_guard<std::mutex> lock(lv_lock);
     if (credential_connecting) {
       show_connection_error("Incorrect password. Please try again.");
-    } else {
+    } else if (connection_in_progress) {
       connection_in_progress = false;
       set_network_status(selected_network, "Connection failed", LV_SYMBOL_WIFI);
     }
@@ -442,7 +442,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     std::lock_guard<std::mutex> lock(lv_lock);
     if (credential_connecting) {
       show_connection_error("The access point rejected the connection. Try again.");
-    } else {
+    } else if (connection_in_progress) {
       connection_in_progress = false;
       set_network_status(selected_network, "Connection rejected", LV_SYMBOL_WIFI);
     }
@@ -450,7 +450,7 @@ void WifiPanel::handle_wpa_event(const std::string &event) {
     std::lock_guard<std::mutex> lock(lv_lock);
     if (credential_connecting) {
       show_connection_error("Network not found. Check that it is still available.");
-    } else {
+    } else if (connection_in_progress) {
       connection_in_progress = false;
       set_network_status(selected_network, "Not found", LV_SYMBOL_WIFI);
     }
@@ -676,6 +676,7 @@ void WifiPanel::cancel_password_dialog() {
   hide_password_dialog();
   if (find_current_network()) {
     update_connection_status_label(cur_network);
+    start_ip_poll();
   }
 }
 
