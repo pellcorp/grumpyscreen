@@ -64,6 +64,7 @@ class AfcBackend : public MmuBackend {
   std::vector<std::string> lane_ids;
   bool printing = false;
   bool multiple_mapping = false;
+  std::string acked_error;  // queued error already popped, until the queue moves on
 };
 
 #endif // __AFC_BACKEND_H__

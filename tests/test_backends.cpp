@@ -251,8 +251,14 @@ static void test_messages(KWebSocketClient &ws) {
   load_state(j);
   {
     AfcBackend afc(ws);
+    sent.clear();
     afc.refresh();
+    afc.refresh();
+    // the top banner shows errors: popped once, and not left for the panel
     CHECK(afc.message_error);
+    CHECK(afc.message.empty());
+    CHECK_EQ(sent.size(), (size_t)1);
+    CHECK_EQ(sent[0], std::string("AFC_CLEAR_MESSAGE"));
   }
 
   // a fault with no queued text still reads as a fault

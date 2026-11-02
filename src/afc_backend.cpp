@@ -76,6 +76,19 @@ void AfcBackend::refresh() {
                     type->template get<std::string>() == "error";
   }
 
+  // AFC also sends an error to the console, so PromptPanel's banner already
+  // shows it. Pop it from the queue here so the panel doesn't show it again and
+  // it doesn't hide the messages behind it.
+  if (message_error && !message.empty()) {
+    if (message != acked_error) {
+      acked_error = message;
+      dismiss_message();
+    }
+    message.clear();
+  } else {
+    acked_error.clear();
+  }
+
   auto &err = afc["/error_state"_json_pointer];
   if (err.is_boolean()) error = err.template get<bool>();
 

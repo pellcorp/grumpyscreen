@@ -77,6 +77,10 @@ so the panel hiding it locally is not enough. `AfcBackend` sends
 `AFC_CLEAR_MESSAGE`. A backend whose message is derived from live state has
 nothing to pop and leaves the default alone.
 
+AFC errors also reach the console, so they show in the top banner.
+`AfcBackend` pops them itself and leaves `message` empty, so the panel doesn't
+show them too. While AFC is stopped, the panel still offers `Tap to reset`.
+
 ### Tool mapping (optional)
 
 Before a print, `ToolMapPanel` shows the slot feeding each tool the file uses
