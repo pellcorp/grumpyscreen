@@ -48,6 +48,11 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
   lv_obj_add_flag(spinner, LV_OBJ_FLAG_FLOATING);
   lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 0);
   lv_obj_move_foreground(spinner);
+  // Only a file list refresh shows the spinner. The panel starts hidden, and
+  // the spinner's animation would otherwise keep invalidating the middle of
+  // the screen behind the main panel, forcing the temperature graph to redraw
+  // on every frame for as long as the screen is up.
+  lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
 
   // the file list is a panel on the left half, its scrollbar beside it
   lv_obj_set_size(left_cont, 0, LV_PCT(100));
@@ -200,6 +205,10 @@ void PrintPanel::foreground() {
 }
 
 void PrintPanel::background() {
+  visible = false;
+  // A refresh may still be in flight; its spinner must not keep animating
+  // over the main panel while this one is put away.
+  lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_background(files_cont);
 }
 
@@ -403,8 +412,7 @@ void PrintPanel::handle_metadata(const std::string& full_path, json &j) {
 void PrintPanel::handle_back_btn(lv_event_t *event) {
   lv_obj_t *btn = lv_event_get_current_target(event);
   if (btn == back_btn.get_container()) {
-    visible = false;
-    lv_obj_move_background(files_cont);
+    background();
     print_status.background();
   }
 }
@@ -443,8 +451,7 @@ void PrintPanel::start_print(const std::string &path) {
     LOG_DEBUG("printer ready to print. print file {}", path);
 
     json fname_input = {{"filename", path }};
-    visible = false;
-    lv_obj_move_background(files_cont);
+    background();
     ws.send_jsonrpc("printer.print.start", fname_input);
     print_status.foreground();
   }
@@ -454,8 +461,7 @@ void PrintPanel::handle_status_btn(lv_event_t *event) {
   lv_event_code_t code = lv_event_get_code(event);
   if (code == LV_EVENT_CLICKED && cur_file != NULL) {
     LOG_TRACE("status button clicked");
-    visible = false;
-    lv_obj_move_background(files_cont);
+    background();
     print_status.foreground();
   }
 }
