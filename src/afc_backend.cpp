@@ -94,6 +94,10 @@ void AfcBackend::refresh() {
   spoolman = (spm.is_boolean() && spm.template get<bool>()) ||
              (spm.is_string() && !spm.template get<std::string>().empty());
 
+  // track_filament_weight is config only, and on unless set off
+  json &track = state->get_data("/printer_state/configfile/settings/afc/track_filament_weight"_json_pointer);
+  weight_tracked = !track.is_boolean() || track.template get<bool>();
+
   // Lane state lives in a per-lane klipper object whose name AFC does not
   // report ("AFC_lane lane1", "AFC_stepper lane1", ... across versions), so
   // index the object list once by the name after the space rather than
@@ -166,6 +170,9 @@ void AfcBackend::refresh() {
       if (st.contains("load") && st["load"].is_boolean()) slot.ready = st["load"].template get<bool>();
       if (st.contains("tool_loaded") && st["tool_loaded"].is_boolean()) slot.tool_loaded = st["tool_loaded"].template get<bool>();
       if (st.contains("weight") && st["weight"].is_number()) slot.weight = st["weight"].template get<int>();
+      if (st.contains("initial_weight") && st["initial_weight"].is_number()) {
+        slot.full_weight = st["initial_weight"].template get<int>();
+      }
       // A lane with a spoolman spool assigned has its colour and material
       // refetched from spoolman at every PREP, so a local edit here would
       // apply and then quietly revert. Spoolman owns it; edit it there.

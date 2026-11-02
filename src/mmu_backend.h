@@ -17,6 +17,7 @@ struct MmuSlot {
   std::string colour;    // "RRGGBB", "" when unset
   int backup = -1;       // slot index that takes over when this one runs out
   int weight = 0;        // grams remaining (spoolman), 0 = unknown
+  int full_weight = 0;   // grams on a full spool, 0 = unknown
   bool prepped = false;  // filament physically present at the slot
   bool ready = false;    // fed into the unit, ready to load
   bool tool_loaded = false;
@@ -159,6 +160,7 @@ class MmuBackend {
   bool error = false;       // unit stopped; tapping the banner resets it
   bool bypass = false;      // unit bypassed, printing from a single spool
   bool spoolman = false;    // weights are meaningful
+  bool weight_tracked = false; // the backend counts weights down as it prints
 
   // Backend-initiated update, for state that arrives outside refresh() -- an
   // async RPC response, typically. Set by the panel; may be null.

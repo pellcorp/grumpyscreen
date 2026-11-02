@@ -45,7 +45,8 @@ def make_lane(name, index, tool, material, color, prep, load, weight):
             "buffer": "", "buffer_status": "", "lane": index, "map": [tool] if tool else [],
             "current_map": tool or "", "load": load, "prep": prep, "tool_loaded": False,
             "loaded_to_hub": False, "material": material, "spool_id": None, "color": color,
-            "weight": weight, "extruder_temp": None, "bed_temp": None, "runout_lane": None,
+            "weight": weight, "initial_weight": 1000, "extruder_temp": None, "bed_temp": None,
+            "runout_lane": None,
             "filament_status": "Ready" if (prep and load) else "Not Ready",
             "filament_status_led": "ready", "status": "", "dist_hub": 1200}
 

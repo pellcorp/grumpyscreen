@@ -114,6 +114,38 @@ static void style_spool_icon(lv_obj_t *spool, lv_obj_t *hole, int diameter) {
   lv_obj_clear_flag(hole, LV_OBJ_FLAG_CLICKABLE);
 }
 
+// What is used of the spool, dimmed over the disc clockwise from 12 o'clock:
+// the rest keeps the filament's colour, so the disc reads as a pie chart. An
+// arc as wide as its radius is a wedge; the hole stays on top of it.
+static lv_obj_t *create_used_arc(lv_obj_t *spool, lv_obj_t *hole, int diameter) {
+  lv_obj_t *arc = lv_arc_create(spool);
+  lv_obj_remove_style_all(arc);
+  const int d = diameter - 2 * spool_rim();
+  lv_obj_set_size(arc, d, d);
+  lv_obj_center(arc);
+  lv_arc_set_rotation(arc, 270);
+  lv_arc_set_bg_angles(arc, 0, 360);
+  lv_arc_set_range(arc, 0, 100);
+  lv_obj_set_style_arc_opa(arc, LV_OPA_TRANSP, LV_PART_MAIN);
+  lv_obj_set_style_arc_width(arc, d / 2, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_rounded(arc, false, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_color(arc, col(BG), LV_PART_INDICATOR);
+  lv_obj_set_style_arc_opa(arc, LV_OPA_70, LV_PART_INDICATOR);
+  lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_flag(arc, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(hole);
+  return arc;
+}
+
+static void paint_used_arc(lv_obj_t *arc, int remaining_pct) {
+  if (remaining_pct < 0) {
+    lv_obj_add_flag(arc, LV_OBJ_FLAG_HIDDEN);
+    return;
+  }
+  lv_arc_set_value(arc, 100 - remaining_pct);
+  lv_obj_clear_flag(arc, LV_OBJ_FLAG_HIDDEN);
+}
+
 // two colours near enough that a ring of one round a disc of the other would
 // not read as a ring: the channel differences summed, on a 0..765 scale
 // The spool shows what is in the lane, never whether it is the loaded one:
@@ -182,6 +214,7 @@ MmuPanel::MmuPanel(KWebSocketClient &c, std::mutex &l)
   , edit_panel_cont(NULL)
   , edit_preview_spool(NULL)
   , edit_preview_hole(NULL)
+  , edit_preview_used(NULL)
   , edit_name_lbl(NULL)
   , edit_tool_lbl(NULL)
   , edit_mat_lbl(NULL)
@@ -354,6 +387,7 @@ void MmuPanel::create_edit_screen() {
   edit_preview_spool = lv_obj_create(preview_box);
   edit_preview_hole = lv_obj_create(edit_preview_spool);
   style_spool_icon(edit_preview_spool, edit_preview_hole, scale_r(48));
+  edit_preview_used = create_used_arc(edit_preview_spool, edit_preview_hole, scale_r(48));
 
   // both info lines can grow ("PLA - 750g (locked)", "Tool: T0 - Backup for
   // T1, T2"), so they truncate rather than spill out of the column
@@ -664,6 +698,7 @@ void MmuPanel::refresh() {
   error_state = false;
   bypass = false;
   spoolman_active = false;
+  weight_active = false;
 
   if (backend == NULL) return;
 
@@ -676,6 +711,7 @@ void MmuPanel::refresh() {
   error_state = backend->error;
   bypass = backend->bypass;
   spoolman_active = backend->spoolman;
+  weight_active = backend->weight_tracked;
 
   // Stop suppressing as soon as the backend reports something else. Only
   // clearing on an empty message would swallow a repeat: a queue-backed
@@ -695,6 +731,14 @@ static const char *activity_text(MmuActivity a) {
     case MmuActivity::Idle:      break;
   }
   return "Idle";
+}
+
+int MmuPanel::remaining_pct(const MmuSlot &slot) const {
+  if (!(spoolman_active || weight_active) || !mmu_has_filament(slot) ||
+      slot.weight <= 0 || slot.full_weight <= 0) {
+    return -1;
+  }
+  return std::min(100, (slot.weight * 100 + slot.full_weight / 2) / slot.full_weight);
 }
 
 // a slot is a backup when another slot names it as its backup (infinite spool)
@@ -757,6 +801,7 @@ void MmuPanel::rebuild_grid(size_t page_count) {
     card.spool = lv_obj_create(card.cont);
     card.hole = lv_obj_create(card.spool);
     style_spool_icon(card.spool, card.hole, spool_diam);
+    card.used = create_used_arc(card.spool, card.hole, spool_diam);
 
     // Group the two text lines tightly; SPACE_EVENLY on the card then puts
     // the breathing room above the spool and below the text
@@ -852,6 +897,8 @@ void MmuPanel::populate() {
     bool backup = is_backup_slot((int)slot_idx);
 
     paint_spool_icon(card.spool, card.hole, colour, colour_valid, has_filament);
+    const int pct = remaining_pct(slot);
+    paint_used_arc(card.used, pct);
 
     // Line 1: slot and tool (e.g. "S1 (T0)", "S1 (T0) (B)")
     std::string tool_str = slot_label(slot, slot_idx);
@@ -863,6 +910,7 @@ void MmuPanel::populate() {
     // physically empty (the translucent spool conveys emptiness); bare slots say "Empty"
     std::string mat_line = !slot.material.empty() ? slot.material : has_filament ? "-" : "Empty";
     if (spoolman_active && slot.spool_id >= 0) mat_line += fmt::format(" #{}", slot.spool_id);
+    if (pct >= 0) mat_line += fmt::format(" {}%", pct);
     lv_label_set_text(card.material, mat_line.c_str());
 
     // the loaded lane outlines itself in the accent, a step heavier than the
@@ -1067,6 +1115,8 @@ void MmuPanel::update_edit_preview() {
 
   bool has_filament = mmu_has_filament(slot);
   paint_spool_icon(edit_preview_spool, edit_preview_hole, colour, draft_colour_valid, has_filament);
+  const int pct = remaining_pct(slot);
+  paint_used_arc(edit_preview_used, pct);
 
   // Material line: "PLA - 750g" when a spool weight is known, else just
   // "PLA". A bare empty slot shows nothing; the weight belongs to the
@@ -1076,9 +1126,11 @@ void MmuPanel::update_edit_preview() {
     mat_str = "-";
   } else {
     mat_str = draft_material.empty() ? "-" : draft_material;
-    // remaining grams only mean something when spoolman tracks the spool
-    if (has_filament && spoolman_active && slot.weight > 0) {
+    // remaining grams only mean something when spoolman or the backend
+    // tracks the spool
+    if (has_filament && (spoolman_active || weight_active) && slot.weight > 0) {
       mat_str += fmt::format(" - {}g", slot.weight);
+      if (pct >= 0) mat_str += fmt::format(" ({}%)", pct);
     }
   }
   // a slot whose metadata something else owns says so, so a greyed-out Save

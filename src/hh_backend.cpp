@@ -203,7 +203,10 @@ void HhBackend::refresh() {
       const int sid = gate_spool_id[g].template get<int>();
       if (spoolman && sid > 0) slot.spool_id = sid;
       const auto w = sid > 0 ? spool_weights.find(sid) : spool_weights.end();
-      if (w != spool_weights.end()) slot.weight = w->second;
+      if (w != spool_weights.end()) {
+        slot.weight = w->second.remaining;
+        slot.full_weight = w->second.full;
+      }
     }
 
     slots.push_back(slot);
@@ -289,11 +292,20 @@ void HhBackend::fetch_spoolman_weights() {
     fetch_failed = false;
     for (auto &s : spools) {
       if (s.contains("id") && s["id"].is_number()) {
-        int grams = 0;
+        SpoolWeight weight;
         if (s.contains("remaining_weight") && s["remaining_weight"].is_number()) {
-          grams = (int)std::lround(s["remaining_weight"].template get<double>());
+          weight.remaining = (int)std::lround(s["remaining_weight"].template get<double>());
         }
-        spool_weights[s["id"].template get<int>()] = grams;
+        // a spool without its own initial weight is full at its filament's weight
+        const json initial = s.value("initial_weight", json());
+        const json net = s.contains("filament") && s["filament"].is_object()
+          ? s["filament"].value("weight", json()) : json();
+        if (initial.is_number()) {
+          weight.full = (int)std::lround(initial.template get<double>());
+        } else if (net.is_number()) {
+          weight.full = (int)std::lround(net.template get<double>());
+        }
+        spool_weights[s["id"].template get<int>()] = weight;
       }
     }
     if (changed) changed(); // ids unchanged, so the re-refresh can't re-fetch
