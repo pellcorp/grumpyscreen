@@ -151,9 +151,9 @@ void PromptPanel::show_banner(const std::string &text, bool error) {
     lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
   }
   banner_is_error = error;
-  lv_obj_set_style_bg_color(error_banner, error ? col(DANGER) : lv_color_white(), 0);
+  lv_obj_set_style_bg_color(error_banner, col(error ? DANGER : TEXT), 0);
   lv_obj_t *label = lv_obj_get_child(error_banner, 0);
-  lv_obj_set_style_text_color(label, error ? lv_color_white() : lv_color_black(), 0);
+  lv_obj_set_style_text_color(label, col(error ? ON_PRIMARY : BG), 0);
   lv_label_set_text(label, fmt::format("{} - Tap to dismiss", text).c_str());
 }
 
