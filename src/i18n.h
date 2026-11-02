@@ -11,6 +11,10 @@
 // Like LVGL, this is only safe to use while holding lv_lock.
 namespace I18n {
 
+#ifdef COSMOS
+// COSMOS builds are English only: the text in the code
+inline const char *tr(const char *text) { return text; }
+#else
 struct Language {
   std::string code;
   std::string name;
@@ -42,6 +46,7 @@ std::string default_dir();
 
 // Switch language and retranslate everything on screen (i18n_ui.cpp)
 bool switch_to(const std::string &code);
+#endif
 
 }  // namespace I18n
 

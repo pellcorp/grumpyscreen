@@ -125,7 +125,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , emergency_prompt_switch(nullptr)
   , emergency_stop_warning(nullptr)
   , sleep_timeout_selector(nullptr)
+#ifndef COSMOS
   , language_selector(nullptr)
+#endif
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
@@ -238,6 +240,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_add_event_cb(sleep_timeout_selector, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
 
+#ifndef COSMOS
   add_about_line(settings_panel, "Language", true);
   language_selector = lv_dropdown_create(settings_panel);
   lv_obj_set_width(language_selector, LV_PCT(100));
@@ -251,6 +254,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   select_current_language();
   lv_obj_add_event_cb(language_selector, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
+#endif
 
   // Optional tiles only appear with a command behind them; the grid is built
   // from what is left, four across, so a hidden tile never leaves a hole.
@@ -337,6 +341,7 @@ void SettingPanel::setting_changed(lv_event_t *event) {
         lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, old_idx, LV_BTNMATRIX_CTRL_CHECKED);
       }
     }
+#ifndef COSMOS
   } else if (target == language_selector) {
     const std::string previous = I18n::current();
     const std::string &code = languages[lv_dropdown_get_selected(language_selector)].code;
@@ -351,6 +356,7 @@ void SettingPanel::setting_changed(lv_event_t *event) {
       I18n::switch_to(previous);
       select_current_language();
     }
+#endif
   }
 
   if (!saved) {
@@ -361,11 +367,13 @@ void SettingPanel::setting_changed(lv_event_t *event) {
   if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
 }
 
+#ifndef COSMOS
 void SettingPanel::select_current_language() {
   for (size_t i = 0; i < languages.size(); i++) {
     if (languages[i].code == I18n::current()) lv_dropdown_set_selected(language_selector, i);
   }
 }
+#endif
 
 void SettingPanel::refresh_emergency_stop_warning() {
   if (lv_obj_has_state(emergency_prompt_switch, LV_STATE_CHECKED)) {

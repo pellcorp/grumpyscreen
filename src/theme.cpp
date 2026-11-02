@@ -8,6 +8,7 @@
 #include <iterator>
 #include <cstdlib>
 
+#ifndef COSMOS
 LV_FONT_DECLARE(lang_accents_12);
 LV_FONT_DECLARE(lang_accents_14);
 LV_FONT_DECLARE(lang_accents_16);
@@ -18,6 +19,7 @@ LV_FONT_DECLARE(lang_accents_22);
 LV_FONT_DECLARE(lang_accents_24);
 LV_FONT_DECLARE(lang_accents_26);
 LV_FONT_DECLARE(lang_accents_28);
+#endif
 #endif
 
 namespace Theme {
@@ -98,23 +100,28 @@ int scale_r(int px) { return std::min(scale_w(px), scale_h(px)); }
 
 const lv_font_t *scale_font(int px) {
   struct F { int size; lv_font_t font; };
+#ifdef COSMOS
+#define LANG_FONT(size) lv_font_montserrat_##size  // English only: no accents
+#else
   // LVGL's fonts stop at ASCII; each copy falls back to the accented letters
   auto with_accents = [](const lv_font_t &base, const lv_font_t &accents) {
     lv_font_t font = base;
     font.fallback = &accents;
     return font;
   };
+#define LANG_FONT(size) with_accents(lv_font_montserrat_##size, lang_accents_##size)
+#endif
   static const F fonts[] = {
-    {12, with_accents(lv_font_montserrat_12, lang_accents_12)},
-    {14, with_accents(lv_font_montserrat_14, lang_accents_14)},
-    {16, with_accents(lv_font_montserrat_16, lang_accents_16)},
-    {18, with_accents(lv_font_montserrat_18, lang_accents_18)},
-    {20, with_accents(lv_font_montserrat_20, lang_accents_20)},
-    {22, with_accents(lv_font_montserrat_22, lang_accents_22)},
+    {12, LANG_FONT(12)},
+    {14, LANG_FONT(14)},
+    {16, LANG_FONT(16)},
+    {18, LANG_FONT(18)},
+    {20, LANG_FONT(20)},
+    {22, LANG_FONT(22)},
 #if LV_FONT_MONTSERRAT_24  // the small-screen build leaves the big sizes out of flash
-    {24, with_accents(lv_font_montserrat_24, lang_accents_24)},
-    {26, with_accents(lv_font_montserrat_26, lang_accents_26)},
-    {28, with_accents(lv_font_montserrat_28, lang_accents_28)},
+    {24, LANG_FONT(24)},
+    {26, LANG_FONT(26)},
+    {28, LANG_FONT(28)},
 #endif
   };
   const int target = scale_r(px);

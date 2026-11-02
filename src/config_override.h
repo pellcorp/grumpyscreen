@@ -24,9 +24,11 @@ public:
         return patch_ui_value("display_sleep_sec", std::to_string(seconds));
     }
 
+#ifndef COSMOS
     bool set_language(const std::string& code) const {
         return patch_ui_value("language", code);
     }
+#endif
 
 private:
     static std::string trimmed(const std::string& value) {

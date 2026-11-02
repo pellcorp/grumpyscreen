@@ -60,6 +60,9 @@ DEFINES 		+= $(MMU_BACKEND_DEFS)
 # The Moonraker update_manager client only exists in a COSMOS build.
 ifndef COSMOS
 MAINSRC 		:= $(filter-out $(LVGL_DIR)/src/update_manager_client.cpp,$(MAINSRC))
+else
+# COSMOS builds are English only
+MAINSRC 		:= $(filter-out $(LVGL_DIR)/src/i18n.cpp $(LVGL_DIR)/src/i18n_ui.cpp,$(MAINSRC))
 endif
 
 include $(LVGL_DIR)/lvgl/lvgl.mk
@@ -67,6 +70,9 @@ include $(LVGL_DIR)/lv_drivers/lv_drivers.mk
 CSRCS			:= $(filter-out $(LVGL_DIR)/lv_drivers/wayland/%.c,$(CSRCS))
 
 CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/*.c)
+ifdef COSMOS
+CSRCS			:= $(filter-out $(LVGL_DIR)/assets/lang_accents_%.c,$(CSRCS))
+endif
 ifdef GUPPY_CALIBRATE
 CSRCS			+= $(wildcard $(LVGL_DIR)/lv_touch_calibration/*.c)
 DEFINES += -D GUPPY_CALIBRATE

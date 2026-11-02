@@ -2,6 +2,8 @@
 
 The language is picked under Settings > Language, and saved as `language` in the `[ui]` config section. It applies right away, with no restart.
 
+COSMOS builds are English only: they have no language setting, and leave out the translation code, language files and accented fonts.
+
 Each language is a JSON file in `languages/`, next to the `grumpyscreen` binary:
 
 ```json

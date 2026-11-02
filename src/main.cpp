@@ -92,10 +92,12 @@ int main(void) {
         }
     }
 
+#ifndef COSMOS
     const std::string language = conf->get<std::string>("/ui/language", "en");
     if (!I18n::load(I18n::default_dir(), language)) {
         LOG_ERROR("Failed to load language {}, using English", language);
     }
+#endif
 
     GuppyScreen::init(hal_init);
     GuppyScreen::loop();
