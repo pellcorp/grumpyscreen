@@ -176,7 +176,7 @@ void GuppyScreen::loop() {
 #endif
 
     lv_lock.lock();
-    lv_timer_handler();
+    const uint32_t time_till_next = lv_timer_handler();
 
     // The Settings panel updates Config in place, so do not keep using the
     // startup snapshot after the user changes the timeout.
@@ -219,7 +219,16 @@ void GuppyScreen::loop() {
     }
 
     lv_lock.unlock();
-    usleep(5000);
+
+    // LVGL says when the next timer is due; polling every 5 ms woke the
+    // process 200 times a second whether anything needed doing or not. Wait
+    // for that timer instead. Ten milliseconds is the shortest timer in the
+    // loop (SDL's event poll), and the cap keeps network updates that need
+    // the lock from waiting longer than a frame.
+    uint32_t wait_ms = time_till_next;
+    if (wait_ms < 1) wait_ms = 1;
+    else if (wait_ms > 10) wait_ms = 10;
+    usleep(wait_ms * 1000);
   }
 }
 
