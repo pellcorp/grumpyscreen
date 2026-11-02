@@ -109,7 +109,7 @@ struct Styles {
   lv_style_t dim_disabled;           // tiles fade when not editable
   lv_style_t dim_label;              // section titles and secondary text
   lv_style_t icon;                   // an icon at rest: the icon colour
-  lv_style_t icon_danger, icon_info; // the few icons that wear a status colour at rest
+  lv_style_t icon_danger, icon_cooldown; // icons with a special resting colour
   lv_style_t icon_pressed;           // an icon under a finger: accent recolour
   lv_style_t icon_disabled;          // a greyed-out icon
   lv_style_t text_btn;               // a text-only action
@@ -148,7 +148,7 @@ std::string recolor(Colour c);
 // not events, so call refresh_scroll() after repopulating the object.
 // Wear the theme's icon styles: the resting colour, the accent under a finger,
 // grey when disabled. Every bitmap is a white glyph the theme recolours; the
-// destructive actions wear DANGER and cooldown wears INFO. Call after
+// destructive actions wear DANGER and cooldown wears pale ice blue. Call after
 // lv_img_set_src, because which bitmap it is decides the resting colour.
 void style_icon(lv_obj_t *img);
 

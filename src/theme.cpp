@@ -261,9 +261,10 @@ Styles &styles() {
   lv_style_set_img_recolor_opa(&s.icon_danger, LV_OPA_COVER);
   lv_style_set_img_recolor(&s.icon_danger, col(DANGER));
 
-  lv_style_init(&s.icon_info);
-  lv_style_set_img_recolor_opa(&s.icon_info, LV_OPA_COVER);
-  lv_style_set_img_recolor(&s.icon_info, col(INFO));
+  lv_style_init(&s.icon_cooldown);
+  lv_style_set_img_recolor_opa(&s.icon_cooldown, LV_OPA_COVER);
+  // A pale ice blue keeps cooldown distinct from the stronger pressed accent.
+  lv_style_set_img_recolor(&s.icon_cooldown, lv_color_hex(0xB3E5FC));
 
   lv_style_init(&s.icon_pressed);
   lv_style_set_img_recolor_opa(&s.icon_pressed, LV_OPA_COVER);
@@ -468,7 +469,7 @@ void style_icon(lv_obj_t *img) {
                       src == Icons::SHUTDOWN_IMG || src == Icons::SWITCH_STOCK_IMG ||
                       src == Icons::UPDATE_IMG;
   lv_obj_add_style(img, danger ? &styles().icon_danger
-                               : src == Icons::COOLDOWN_IMG ? &styles().icon_info
+                               : src == Icons::COOLDOWN_IMG ? &styles().icon_cooldown
                                                             : &styles().icon, 0);
   lv_obj_add_style(img, &styles().icon_pressed, LV_STATE_PRESSED);
   lv_obj_add_style(img, &styles().icon_disabled, LV_STATE_DISABLED);
