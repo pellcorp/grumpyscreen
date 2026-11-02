@@ -54,6 +54,9 @@ WifiPanel::WifiPanel(std::mutex &l, const WifiPanelOptions &options)
   lv_obj_set_style_arc_width(spinner, Theme::scale_r(6), LV_PART_MAIN);
   lv_obj_set_style_arc_width(spinner, Theme::scale_r(6), LV_PART_INDICATOR);
   lv_obj_align(spinner, LV_ALIGN_CENTER, 0, 0);
+  // The loading spinner belongs to a scan in progress. Keep its animation from
+  // invalidating the screen while the panel is not the one being looked at.
+  lv_obj_add_flag(spinner, LV_OBJ_FLAG_HIDDEN);
 
 #ifdef GUPPY_BOOTSTRAP
   refresh_btn.float_bottom_right();
