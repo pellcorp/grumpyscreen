@@ -256,7 +256,8 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
   if (lv_obj_check_type(obj, &lv_btn_class)) {
     lv_obj_add_style(obj, &s.btn, LV_PART_MAIN);
   }
-  // nothing draws a scrollbar: every list in the UI is swiped
+  // lists are swiped, so only a dropdown's list draws a scrollbar: closed up, it
+  // gives no other hint of how many options it holds
   if (!lv_obj_check_type(obj, &lv_label_class) && !lv_obj_check_type(obj, &lv_img_class)) {
     lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
   }
@@ -289,6 +290,9 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
     lv_obj_add_style(obj, &s.option, LV_PART_SELECTED);
     lv_obj_add_style(obj, &s.key_checked, LV_PART_SELECTED | LV_STATE_CHECKED);
     lv_obj_add_style(obj, &s.key_pressed, LV_PART_SELECTED | LV_STATE_PRESSED);
+    lv_obj_add_style(obj, &s.list_scrollbar, LV_PART_SCROLLBAR);
+    lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_ON);
+    lv_obj_set_scroll_dir(obj, LV_DIR_VER);
   }
   if (lv_obj_check_type(obj, &lv_table_class)) {
     lv_obj_add_style(obj, &s.table, LV_PART_MAIN);

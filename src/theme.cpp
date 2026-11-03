@@ -275,6 +275,12 @@ Styles &styles() {
   lv_style_set_border_width(&s.swatch, border_w());
   lv_style_set_border_color(&s.swatch, col(BORDER_DIM));
 
+  lv_style_init(&s.list_scrollbar);
+  lv_style_set_width(&s.list_scrollbar, scale_w(6));
+  lv_style_set_radius(&s.list_scrollbar, LV_RADIUS_CIRCLE);
+  lv_style_set_bg_opa(&s.list_scrollbar, LV_OPA_COVER);
+  lv_style_set_bg_color(&s.list_scrollbar, col(TEXT_DIM));
+
   lv_style_init(&s.dim_disabled);
   lv_style_set_bg_opa(&s.dim_disabled, LV_OPA_30);
 

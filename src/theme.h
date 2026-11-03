@@ -122,6 +122,7 @@ struct Styles {
   lv_style_t key, key_pressed, key_checked, key_disabled, key_ctrl;  // one key; pressed and chosen states
   lv_style_t input;                  // a text entry
   lv_style_t option;                 // a dropdown list's rows: the entry's colours, no outline
+  lv_style_t list_scrollbar;         // shown on a dropdown's list when options overflow
   lv_style_t input_placeholder;      // its hint text
   lv_style_t table;                  // a list/table: outlined, cells padded
   lv_style_t table_cell;
@@ -141,7 +142,7 @@ Styles &styles();
 // over their values, for one label that reads as a form.
 std::string recolor(Colour c);
 
-// Nothing in the UI draws a scrollbar; lists are swiped. What is left to
+// Only dropdown lists draw a scrollbar; other lists are swiped. What is left to
 // manage is the bounce: an object that is scrollable but has nothing to scroll
 // still slides under a finger and springs back. These keep the scroll flag in
 // step with the content, so a list that fits sits still. Content changes are
