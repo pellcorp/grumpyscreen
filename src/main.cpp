@@ -102,11 +102,13 @@ static void hal_init(lv_color_t primary, lv_color_t secondary) {
 
     /*A small buffer for LittlevGL to draw the screen's content*/
     static lv_color_t buf[DISP_BUF_SIZE];
-    static lv_color_t buf2[DISP_BUF_SIZE];
 
     /*Initialize a descriptor for the buffer*/
+    // Single buffered: fbdev_flush and sdl_display_flush both copy the pixels
+    // and call lv_disp_flush_ready before returning, so a second buffer never
+    // overlaps rendering with flushing and only costs another 512 KiB of RAM.
     static lv_disp_draw_buf_t disp_buf;
-    lv_disp_draw_buf_init(&disp_buf, buf, buf2, DISP_BUF_SIZE);
+    lv_disp_draw_buf_init(&disp_buf, buf, NULL, DISP_BUF_SIZE);
 
     /*Initialize and register a display driver*/
     static lv_disp_drv_t disp_drv;
