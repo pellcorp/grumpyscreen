@@ -51,7 +51,19 @@ namespace I18n {
 const char *tr(const char *text) {
   if (text == nullptr || table.empty()) return text;
   const auto found = table.find(text);
-  return found == table.end() ? text : found->second.c_str();
+  if (found != table.end()) return found->second.c_str();
+
+  // "Extruder 0": translate the name and keep the number. In the table, the
+  // result outlives this call and a language switch can read it back.
+  const std::string whole(text);
+  const size_t space = whole.find_last_of(' ');
+  if (space == std::string::npos || space == 0 || space + 1 == whole.size() ||
+      whole.find_first_not_of("0123456789", space + 1) != std::string::npos) {
+    return text;
+  }
+  const auto name = table.find(whole.substr(0, space));
+  if (name == table.end()) return text;
+  return table.emplace(whole, name->second + whole.substr(space)).first->second.c_str();
 }
 
 const char **map(const char *const *english) {

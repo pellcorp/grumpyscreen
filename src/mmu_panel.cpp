@@ -212,6 +212,12 @@ MmuPanel::MmuPanel(KWebSocketClient &c, std::mutex &l)
   // screens are built lazily in create() so printers without AFC
   // never allocate any of this panel's LVGL objects
   ws.register_notify_update(this);
+#ifndef COSMOS
+  // the status line and cards are built with fmt::format
+  I18n::on_switch([this]() {
+    if (cont != NULL) populate();
+  });
+#endif
 }
 
 MmuPanel::~MmuPanel() {

@@ -2,6 +2,7 @@
 #define __I18N_H__
 
 #include <cstddef>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -46,6 +47,10 @@ std::string default_dir();
 
 // Switch language and retranslate everything on screen (i18n_ui.cpp)
 bool switch_to(const std::string &code);
+
+// Run after every switch_to, to redraw text built with fmt::format: a finished
+// string is no longer a key, so switch_to can't translate it (i18n_ui.cpp)
+void on_switch(std::function<void()> redraw);
 #endif
 
 }  // namespace I18n

@@ -45,6 +45,18 @@ int main() {
     assert(std::strcmp(I18n::tr("Not in the file"), "Not in the file") == 0);
     assert(std::strcmp(buttons[0], "Indietro") == 0 && std::strcmp(buttons[1], "Other") == 0);
 
+    // a name with a number after it: the number stays, and a switch can read it back
+    assert(std::strcmp(I18n::tr("Stop 2"), "Ferma 2") == 0);
+    assert(std::strcmp(I18n::tr("Stop 2"), "Ferma 2") == 0);
+    assert(std::strcmp(I18n::tr("Other 2"), "Other 2") == 0);
+    assert(std::strcmp(I18n::tr("Stop 2b"), "Stop 2b") == 0);
+    assert(std::strcmp(I18n::tr("Stop "), "Stop ") == 0);
+    bool reversible = false;
+    for (const auto &entry : I18n::reverse_table()) {
+        reversible = reversible || (entry.first == "Ferma 2" && entry.second == "Stop 2");
+    }
+    assert(reversible);
+
     // the next language replaces the last, it does not add to it
     assert(I18n::load(dir.string(), "de"));
     assert(I18n::loaded_strings() == 1);

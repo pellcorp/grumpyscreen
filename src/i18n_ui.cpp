@@ -12,6 +12,11 @@ namespace {
 
 using Reverse = std::unordered_map<std::string, std::string>;
 
+std::vector<std::function<void()>> &redraws() {
+  static std::vector<std::function<void()>> callbacks;
+  return callbacks;
+}
+
 // the new-language text for what a widget shows now, or null to leave it alone
 const char *retranslated(const Reverse &reverse, const char *shown) {
   if (shown == nullptr || shown[0] == '\0') return nullptr;
@@ -77,9 +82,14 @@ bool switch_to(const std::string &code) {
   }
   lv_obj_tree_walk(disp->top_layer, retranslate_obj, &reverse);
   lv_obj_tree_walk(disp->sys_layer, retranslate_obj, &reverse);
+  for (const auto &redraw : redraws()) redraw();
 
   LOG_INFO("Language {} active, {} strings", code, loaded_strings());
   return true;
+}
+
+void on_switch(std::function<void()> redraw) {
+  redraws().push_back(std::move(redraw));
 }
 
 }  // namespace I18n
