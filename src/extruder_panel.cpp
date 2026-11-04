@@ -106,13 +106,15 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , speed_options(load_selector_options("/ui/extruder_speed_presets", 8))
   , speed_option_map(build_selector_map(speed_options))
   , speed_default_idx(resolve_default_idx("/ui/extruder_speed_default", speed_options))
-  , extruder_temp(ws, panel_cont, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
-                  "extruder", NULL, NULL)
   , tabview(lv_tabview_create(panel_cont, LV_DIR_TOP, scale_r(36)))
   , load_tab(lv_tabview_add_tab(tabview, "Load / Unload"))
   , extrude_tab(lv_tabview_add_tab(tabview, "Extrude / Retract"))
-  , load_cont(create_screen(load_tab))
-  , extrude_cont(create_screen(extrude_tab))
+  , load_extruder_temp(ws, load_tab, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
+                       "extruder", NULL, NULL)
+  , extrude_extruder_temp(ws, extrude_tab, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
+                          "extruder", NULL, NULL)
+  , load_cont(create_row(load_tab))
+  , extrude_cont(create_row(extrude_tab))
   , extrude_col(create_row(extrude_cont))
   , load_temp_selector(load_cont, "Extruder Temperature (C)",
 		       temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
@@ -126,34 +128,46 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 			  temp_option_map, temp_default_idx, &ExtruderPanel::_handle_callback, this)
   , extrude_btn(extrude_col, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
   , retract_btn(extrude_col, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
-  , right_col(create_row(panel_cont))
-  , cooldown_btn(right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
-  , back_btn(right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
+  , load_right_col(create_row(load_tab))
+  , extrude_right_col(create_row(extrude_tab))
+  , load_cooldown_btn(load_right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
+  , load_back_btn(load_right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
+  , extrude_cooldown_btn(extrude_right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
+  , extrude_back_btn(extrude_right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
 {
   lv_obj_move_background(panel_cont);
 
-  // The readout sits over the tabview, which takes the rest of the height; a
-  // column on the right spans both and holds the tiles that apply whichever
-  // tab is showing.
+  // The tab bar spans the screen; each page owns all of its controls.
+  lv_obj_set_style_pad_all(panel_cont, 0, 0);
+  lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
   static lv_coord_t grid_panel_col_dsc[] = {LV_GRID_FR(1), (lv_coord_t)scale_w(90), LV_GRID_TEMPLATE_LAST};
   static lv_coord_t grid_panel_row_dsc[] = {LV_GRID_CONTENT, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
-  lv_obj_set_grid_dsc_array(panel_cont, grid_panel_col_dsc, grid_panel_row_dsc);
-  lv_obj_set_grid_cell(extruder_temp.get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START, 0, 1);
-  lv_obj_set_grid_cell(tabview, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
-  lv_obj_set_grid_cell(right_col, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 2);
   for (lv_obj_t *tab : {load_tab, extrude_tab}) {
-    lv_obj_set_style_pad_all(tab, 0, 0);
+    lv_obj_add_style(tab, &styles().screen, 0);
+    lv_obj_set_grid_dsc_array(tab, grid_panel_col_dsc, grid_panel_row_dsc);
+    lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
+  }
+  for (SensorContainer *sensor : {&load_extruder_temp, &extrude_extruder_temp}) {
+    lv_obj_set_grid_cell(sensor->get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START, 0, 1);
+  }
+  for (lv_obj_t *content : {load_cont, extrude_cont}) {
+    lv_obj_set_grid_cell(content, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
   }
   style_embedded_tabview(tabview);
 
   ButtonContainer *all_tiles[] = {&load_btn, &unload_btn, &extrude_btn, &retract_btn,
-                                  &cooldown_btn, &back_btn};
+                                  &load_cooldown_btn, &load_back_btn,
+                                  &extrude_cooldown_btn, &extrude_back_btn};
   for (ButtonContainer *b : all_tiles) b->use_plain();
 
-  // Cooldown and Back divide the right-hand column evenly.
-  lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_style_pad_row(right_col, 0, 0);
-  for (ButtonContainer *b : {&cooldown_btn, &back_btn}) {
+  // Cooldown and Back divide each page's right-hand column evenly.
+  for (lv_obj_t *right_col : {load_right_col, extrude_right_col}) {
+    lv_obj_set_grid_cell(right_col, LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 0, 2);
+    lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(right_col, 0, 0);
+  }
+  for (ButtonContainer *b : {&load_cooldown_btn, &load_back_btn,
+                             &extrude_cooldown_btn, &extrude_back_btn}) {
     lv_obj_set_width(b->get_container(), LV_PCT(100));
     lv_obj_set_height(b->get_container(), 0);
     lv_obj_set_flex_grow(b->get_container(), 1);
@@ -215,13 +229,15 @@ void ExtruderPanel::consume(json& j) {
   auto target_value = j["/params/0/extruder/target"_json_pointer];
   if (!target_value.is_null()) {
     int target = target_value.template get<int>();
-    extruder_temp.update_target(target);
+    load_extruder_temp.update_target(target);
+    extrude_extruder_temp.update_target(target);
   }
 
   auto temp_value = j["/params/0/extruder/temperature"_json_pointer];
   if (!temp_value.is_null()) {
     int value = temp_value.template get<int>();
-    extruder_temp.update_value(value);
+    load_extruder_temp.update_value(value);
+    extrude_extruder_temp.update_value(value);
   }
 
   json &pstat_state = j["/params/0/print_stats/state"_json_pointer];
@@ -251,7 +267,7 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
   } else if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
     lv_obj_t *btn = lv_event_get_current_target(e);
 
-    if (btn == back_btn.get_container()) {
+    if (btn == load_back_btn.get_container() || btn == extrude_back_btn.get_container()) {
       lv_obj_move_background(panel_cont);
     }
 
@@ -296,8 +312,11 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       ws.gcode_script(fmt::format(load_filament_macro, selected(load_temp_selector)));
     }
 
-    if (btn == cooldown_btn.get_container()) {
-      if (!cooldown_btn.start_pressed_transition(2000)) {
+    ButtonContainer *cooldown_btn = btn == load_cooldown_btn.get_container() ? &load_cooldown_btn
+                                    : btn == extrude_cooldown_btn.get_container() ? &extrude_cooldown_btn
+                                    : nullptr;
+    if (cooldown_btn != nullptr) {
+      if (!cooldown_btn->start_pressed_transition(2000)) {
         return;
       }
       const std::string cooldown_macro = conf->get<std::string>("/default_macros/cooldown");

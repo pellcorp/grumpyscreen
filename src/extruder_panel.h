@@ -39,14 +39,12 @@ class ExtruderPanel : public NotifyConsumer {
   std::vector<const char*> speed_option_map;
   uint32_t speed_default_idx;
 
-  // the readout is the only sign the load / extrude macros are heating and running
-  SensorContainer extruder_temp;
-
-  // Load / Unload and Extrude / Retract each get a tab; the tiles that apply
-  // to both keep a column to the right of the tabview.
+  // Each full-screen tab includes its own readout and navigation controls.
   lv_obj_t *tabview;
   lv_obj_t *load_tab;
   lv_obj_t *extrude_tab;
+  SensorContainer load_extruder_temp;
+  SensorContainer extrude_extruder_temp;
   lv_obj_t *load_cont;
   lv_obj_t *extrude_cont;
   lv_obj_t *extrude_col;  // the Extrude / Retract tiles, stacked
@@ -61,9 +59,12 @@ class ExtruderPanel : public NotifyConsumer {
   ButtonContainer extrude_btn;
   ButtonContainer retract_btn;
 
-  lv_obj_t *right_col;
-  ButtonContainer cooldown_btn;
-  ButtonContainer back_btn;
+  lv_obj_t *load_right_col;
+  lv_obj_t *extrude_right_col;
+  ButtonContainer load_cooldown_btn;
+  ButtonContainer load_back_btn;
+  ButtonContainer extrude_cooldown_btn;
+  ButtonContainer extrude_back_btn;
 };
 
 #endif // __EXTRUDER_PANEL_H__
