@@ -3,7 +3,6 @@
 
 #include "websocket_client.h"
 #include "notify_consumer.h"
-#include "spoolman_panel.h"
 #include "selector.h"
 #include "sensor_container.h"
 #include "numpad.h"
@@ -14,13 +13,11 @@
 
 class ExtruderPanel : public NotifyConsumer {
  public:
-  ExtruderPanel(KWebSocketClient &ws, std::mutex &l, Numpad &np, SpoolmanPanel &sm);
+  ExtruderPanel(KWebSocketClient &ws, std::mutex &l, Numpad &np);
   ~ExtruderPanel();
 
   void foreground();
   void background();
-  void enable_spoolman();
-  void show_spoolman(bool shown);
   void consume(json &j);
   void handle_callback(lv_event_t *e);
 
@@ -32,7 +29,6 @@ class ExtruderPanel : public NotifyConsumer {
  private:
   KWebSocketClient &ws;
   lv_obj_t *panel_cont;
-  SpoolmanPanel &spoolman_panel;
   std::vector<std::string> temp_options;
   std::vector<const char*> temp_option_map;
   uint32_t temp_default_idx;
@@ -66,7 +62,6 @@ class ExtruderPanel : public NotifyConsumer {
   ButtonContainer retract_btn;
 
   lv_obj_t *right_col;
-  ButtonContainer spoolman_btn;
   ButtonContainer cooldown_btn;
   ButtonContainer back_btn;
 };

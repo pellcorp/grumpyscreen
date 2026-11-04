@@ -41,6 +41,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, tab_bar_w()))
   , main_tab(lv_tabview_add_tab(tabview, HOME_SYMBOL))
   , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
+  , spoolman_tab(lv_tabview_add_tab(tabview, " "))
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
   , console_panel(ws, lock, console_tab)
   , setting_tab(lv_tabview_add_tab(tabview, TOOLS_SYMBOL))
@@ -49,7 +50,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , print_status_panel(websocket, lock, main_cont)
   , print_panel(ws, lock, print_status_panel, mmu)
   , numpad(Numpad(main_cont))
-  , extruder_panel(ws, lock, numpad, sm)
+  , extruder_panel(ws, lock, numpad)
   , prompt_panel(websocket, lock, main_cont, print_status_panel)
   , spoolman_panel(sm)
   , mmu_panel(mmu)
@@ -68,9 +69,9 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   emergency_btn.set_prompt_condition([] {
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
   });
+    spoolman_panel.attach(spoolman_tab);
     ws.register_notify_update(this);
     if (mmu_panel != NULL) {
-      mmu_panel->open_spoolman = [this]() { spoolman_panel.foreground(); };
       mmu_panel->pick_spool = [this](const std::string &lane, int current, std::function<void(int)> done) {
         spoolman_panel.pick(lane, current, std::move(done));
       };
@@ -84,6 +85,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
 
 MainPanel::~MainPanel() {
   if (tabview != NULL) {
+    spoolman_panel.detach();
     lv_obj_del(tabview);
     tabview = NULL;
   }
@@ -232,6 +234,43 @@ static void scroll_begin_event(lv_event_t * e) {
   }
 }
 
+void MainPanel::_draw_spoolman_tab(lv_event_t *e) {
+  auto *self = static_cast<MainPanel*>(lv_event_get_user_data(e));
+  auto *part = static_cast<lv_obj_draw_part_dsc_t*>(lv_event_get_param(e));
+  if (part->part != LV_PART_ITEMS || part->id != lv_obj_get_index(self->spoolman_tab)) return;
+  // LVGL changes draw_area to the label bounds before DRAW_PART_END.
+  if (lv_event_get_code(e) == LV_EVENT_DRAW_PART_BEGIN) {
+    self->spoolman_tab_area = *part->draw_area;
+    // The icon font has no space glyph; hide the label's missing-glyph box.
+    part->label_dsc->opa = LV_OPA_TRANSP;
+    return;
+  }
+
+  const auto &slot = self->spoolman_tab_area;
+  const auto *icon = Icons::SPOOLMAN_IMG;
+  const int size = std::max(1, std::min({40, lv_area_get_width(&slot) - 2 * gap(),
+                                      lv_area_get_height(&slot) - 2 * gap()}));
+  const int zoom = size * LV_IMG_ZOOM_NONE / std::max(icon->header.w, icon->header.h);
+  const int width = icon->header.w * zoom / LV_IMG_ZOOM_NONE;
+  const int height = icon->header.h * zoom / LV_IMG_ZOOM_NONE;
+  lv_area_t area;
+  area.x1 = slot.x1 + (lv_area_get_width(&slot) - width) / 2;
+  area.y1 = slot.y1 + (lv_area_get_height(&slot) - height) / 2;
+  area.x2 = area.x1 + icon->header.w - 1;
+  area.y2 = area.y1 + icon->header.h - 1;
+
+  lv_draw_img_dsc_t image;
+  lv_draw_img_dsc_init(&image);
+  image.zoom = zoom;
+  image.pivot = {0, 0};
+  image.recolor_opa = LV_OPA_COVER;
+  const bool disabled = lv_btnmatrix_has_btn_ctrl(lv_event_get_target(e), part->id,
+                                                 LV_BTNMATRIX_CTRL_DISABLED);
+  image.recolor = disabled ? col(DISABLED)
+                          : lv_tabview_get_tab_act(self->tabview) == part->id ? theme_primary() : col(TEXT);
+  lv_draw_img(part->draw_ctx, &image, &area, icon);
+}
+
 void MainPanel::_tabview_event_cb(lv_event_t *e) {
     if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
 
@@ -240,7 +279,9 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
 
     const uint16_t idx = lv_tabview_get_tab_act(tv);
 
-    if (idx == lv_obj_get_index(self->console_tab)) {
+    if (idx == lv_obj_get_index(self->spoolman_tab)) {
+        self->spoolman_panel.foreground();
+    } else if (idx == lv_obj_get_index(self->console_tab)) {
         self->console_panel.select_first_tab();
     } else if (idx == lv_obj_get_index(self->setting_tab)) {
         self->setting_panel.select_first_tab();
@@ -286,13 +327,17 @@ void MainPanel::create_panel() {
   lv_obj_set_style_bg_color(lv_scr_act(), col(BG), 0);
   lv_obj_set_style_bg_color(tabview, col(BG), 0);
   lv_obj_set_style_bg_opa(tabview, LV_OPA_COVER, 0);
-  for (lv_obj_t *tab : {main_tab, console_tab, setting_tab, mmu_tab}) {
+  for (lv_obj_t *tab : {main_tab, console_tab, setting_tab, mmu_tab, spoolman_tab}) {
     if (tab == NULL) continue;
     lv_obj_add_style(tab, &styles().screen, 0);
     // the tab is only a page behind a panel that pads itself; without this
     // the screen style's gap would double up with the panel's own
     lv_obj_set_style_pad_all(tab, 0, 0);
   }
+
+  lv_btnmatrix_set_btn_ctrl(tab_btns, lv_obj_get_index(spoolman_tab), LV_BTNMATRIX_CTRL_DISABLED);
+  lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_spoolman_tab, LV_EVENT_DRAW_PART_BEGIN, this);
+  lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_spoolman_tab, LV_EVENT_DRAW_PART_END, this);
 
   if (mmu_tab != NULL) {
     // greyed out until klipper confirms the configured backend is there
@@ -545,16 +590,9 @@ void MainPanel::create_leds(json &leds) {
 
 void MainPanel::enable_spoolman() {
   spoolman_panel.init();
-  extruder_panel.enable_spoolman();
   std::lock_guard<std::mutex> lock(lv_lock);
-  spoolman_ready = true;
-  place_spoolman();
-}
-
-// with an MMU, spoolman opens from the MMU tab instead of the extruder panel
-void MainPanel::place_spoolman() {
-  extruder_panel.show_spoolman(spoolman_ready && !mmu_ready);
-  if (mmu_panel != NULL) mmu_panel->show_spoolman_button(mmu_ready && spoolman_ready);
+  lv_btnmatrix_clear_btn_ctrl(lv_tabview_get_tab_btns(tabview),
+                              lv_obj_get_index(spoolman_tab), LV_BTNMATRIX_CTRL_DISABLED);
 }
 
 void MainPanel::enable_mmu() {
@@ -565,8 +603,6 @@ void MainPanel::enable_mmu() {
   mmu_panel->create(mmu_tab);
   lv_btnmatrix_clear_btn_ctrl(lv_tabview_get_tab_btns(tabview),
                               lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
-  mmu_ready = true;
-  place_spoolman();
 }
 
 // Klipper came back without the backend this time. The tab may already be
@@ -583,6 +619,4 @@ void MainPanel::disable_mmu() {
     lv_tabview_set_act(tabview, lv_obj_get_index(main_tab), LV_ANIM_OFF);
   }
   lv_btnmatrix_set_btn_ctrl(lv_tabview_get_tab_btns(tabview), idx, LV_BTNMATRIX_CTRL_DISABLED);
-  mmu_ready = false;
-  place_spoolman();
 }

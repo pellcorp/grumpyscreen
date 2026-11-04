@@ -42,10 +42,6 @@ class MmuPanel : public NotifyConsumer {
   static bool enabled();
   // detect the configured backend; returns it (NULL when it is not there)
   MmuBackend *select_backend();
-  // the header's Spoolman button, while the MMU tab stands in for spoolman's
-  // own; a tap runs open_spoolman. caller holds lv_lock
-  void show_spoolman_button(bool shown);
-  std::function<void()> open_spoolman;
   // names of the lanes holding spool_id, ", " separated
   std::string spool_lanes(int spool_id) const {
     return backend == NULL ? std::string() : backend->lanes_with_spool(spool_id);
@@ -79,11 +75,6 @@ class MmuPanel : public NotifyConsumer {
 
   static void _handle_status_bar(lv_event_t *e) {
     ((MmuPanel*)e->user_data)->handle_status_bar(e);
-  };
-
-  static void _handle_spoolman(lv_event_t *e) {
-    MmuPanel *self = (MmuPanel*)e->user_data;
-    if (self->open_spoolman) self->open_spoolman();
   };
 
   static void _handle_page_prev(lv_event_t *e) {
@@ -135,8 +126,6 @@ class MmuPanel : public NotifyConsumer {
   lv_obj_t *header_row;
   lv_obj_t *status_bar;
   lv_obj_t *status_label;
-  lv_obj_t *spoolman_btn = NULL;
-  bool spoolman_btn_shown = false;  // kept for a header not built yet
   lv_obj_t *cards_row1;
   lv_obj_t *cards_row2;
   lv_obj_t *nav_row;

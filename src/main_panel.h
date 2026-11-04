@@ -100,9 +100,8 @@ class MainPanel : public NotifyConsumer {
 
  private:
   void create_main(lv_obj_t *parent);
-  // caller holds lv_lock
-  void place_spoolman();
   static void _tabview_event_cb(lv_event_t *e);
+  static void _draw_spoolman_tab(lv_event_t *e);
   KWebSocketClient &ws;
   HomingPanel homing_panel;
   FanPanel fan_panel;
@@ -112,8 +111,8 @@ class MainPanel : public NotifyConsumer {
   // NULL when /mmu/backend is none; otherwise the tab exists from startup and
   // its button stays disabled until the backend is detected
   lv_obj_t *mmu_tab;
-  bool mmu_ready = false;
-  bool spoolman_ready = false;
+  lv_obj_t *spoolman_tab;
+  lv_area_t spoolman_tab_area{};
   lv_obj_t *console_tab;
   ConsolePanel console_panel;
   lv_obj_t *setting_tab;
