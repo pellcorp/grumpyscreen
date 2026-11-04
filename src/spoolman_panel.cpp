@@ -192,6 +192,19 @@ void SpoolmanPanel::init() {
   });
 }
 
+void SpoolmanPanel::attach(lv_obj_t *parent) {
+  tab_parent = parent;
+  lv_obj_set_parent(cont, parent);
+  lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
+  back_btn.hide();
+}
+
+void SpoolmanPanel::detach() {
+  tab_parent = NULL;
+  lv_obj_set_parent(cont, lv_scr_act());
+  lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
+}
+
 void SpoolmanPanel::foreground() {
   end_pick();
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
@@ -200,6 +213,8 @@ void SpoolmanPanel::foreground() {
 }
 
 void SpoolmanPanel::pick(const std::string &lane, int current_spool, std::function<void(int)> done) {
+  lv_obj_set_parent(cont, lv_scr_act());
+  back_btn.show();
   pick_done = std::move(done);
   pick_current = current_spool;
   lv_label_set_text(pick_label, fmt::format("Spool for {}", lane).c_str());
@@ -214,6 +229,11 @@ void SpoolmanPanel::end_pick() {
   pick_done = nullptr;
   pick_current = -1;
   lv_obj_add_flag(pick_bar, LV_OBJ_FLAG_HIDDEN);
+  if (tab_parent != NULL) {
+    lv_obj_set_parent(cont, tab_parent);
+    back_btn.hide();
+    lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
+  }
 }
 
 void SpoolmanPanel::repopulate() {
@@ -336,8 +356,10 @@ void SpoolmanPanel::handle_callback(lv_event_t *event) {
   if (btn == back_btn.get_container()) {
     LOG_TRACE("spoolman back button pressed");
     end_pick();
-    lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_background(cont);
+    if (tab_parent == NULL) {
+      lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_move_background(cont);
+    }
   } else if (btn == reload_btn.get_container()) {
     LOG_TRACE("spoolman reload button pressed");
     init();
@@ -438,8 +460,10 @@ void SpoolmanPanel::handle_spoolman_action(lv_event_t *e) {
         const int id = std::atoi(spool_id);
         const bool remove = id == pick_current;
         end_pick();
-        lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_move_background(cont);
+        if (tab_parent == NULL) {
+          lv_obj_add_flag(cont, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_move_background(cont);
+        }
         done(remove ? -1 : id);
         return;
       }

@@ -93,12 +93,10 @@ uint32_t resolve_default_idx(const std::string &config_key,
 
 ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
 			     std::mutex &lock,
-			     Numpad &numpad,
-			     SpoolmanPanel &sm)
+			     Numpad &numpad)
   : NotifyConsumer(lock)
   , ws(websocket_client)
   , panel_cont(create_screen(NULL))
-  , spoolman_panel(sm)
   , temp_options(load_selector_options("/ui/extruder_temp_presets", 8))
   , temp_option_map(build_selector_map(temp_options))
   , temp_default_idx(resolve_default_idx("/ui/extruder_temp_default", temp_options))
@@ -129,7 +127,6 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , extrude_btn(extrude_col, Icons::EXTRUDE_IMG, "Extrude", &ExtruderPanel::_handle_callback, this)
   , retract_btn(extrude_col, Icons::RETRACT_IMG, "Retract", &ExtruderPanel::_handle_callback, this)
   , right_col(create_row(panel_cont))
-  , spoolman_btn(right_col, Icons::SPOOLMAN_IMG, "Spoolman", &ExtruderPanel::_handle_callback, this)
   , cooldown_btn(right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
   , back_btn(right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
 {
@@ -149,14 +146,14 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   }
   style_embedded_tabview(tabview);
 
-  ButtonContainer *all_tiles[] = {&spoolman_btn, &load_btn, &unload_btn, &extrude_btn, &retract_btn,
+  ButtonContainer *all_tiles[] = {&load_btn, &unload_btn, &extrude_btn, &retract_btn,
                                   &cooldown_btn, &back_btn};
   for (ButtonContainer *b : all_tiles) b->use_plain();
 
-  // Spoolman, Cooldown and Back divide the right-hand column evenly.
+  // Cooldown and Back divide the right-hand column evenly.
   lv_obj_set_flex_flow(right_col, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_row(right_col, 0, 0);
-  for (ButtonContainer *b : {&spoolman_btn, &cooldown_btn, &back_btn}) {
+  for (ButtonContainer *b : {&cooldown_btn, &back_btn}) {
     lv_obj_set_width(b->get_container(), LV_PCT(100));
     lv_obj_set_height(b->get_container(), 0);
     lv_obj_set_flex_grow(b->get_container(), 1);
@@ -194,9 +191,6 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
     lv_obj_set_style_pad_bottom(mid[r]->get_container(), 0, 0);
   }
 
-  spoolman_btn.disable();  // state, not style: until moonraker says spoolman is there
-  spoolman_btn.hide();
-
   ws.register_notify_update(this);
 }
 
@@ -214,15 +208,6 @@ void ExtruderPanel::foreground() {
 
 void ExtruderPanel::background() {
   lv_obj_move_background(panel_cont);
-}
-
-void ExtruderPanel::enable_spoolman() {
-  spoolman_btn.enable();
-}
-
-void ExtruderPanel::show_spoolman(bool shown) {
-  if (shown) lv_obj_clear_flag(spoolman_btn.get_container(), LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_add_flag(spoolman_btn.get_container(), LV_OBJ_FLAG_HIDDEN);
 }
 
 void ExtruderPanel::consume(json& j) {
@@ -309,11 +294,6 @@ void ExtruderPanel::handle_callback(lv_event_t *e) {
       const std::string load_filament_macro = conf->get<std::string>("/default_macros/load_filament");
 
       ws.gcode_script(fmt::format(load_filament_macro, selected(load_temp_selector)));
-    }
-
-    // disable() clears the clickable flag, so a tap cannot arrive while it is off
-    if (btn == spoolman_btn.get_container()) {
-      spoolman_panel.foreground();
     }
 
     if (btn == cooldown_btn.get_container()) {

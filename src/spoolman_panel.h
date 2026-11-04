@@ -29,6 +29,9 @@ class SpoolmanPanel {
   SpoolmanPanel(KWebSocketClient &c, std::mutex &l);
   ~SpoolmanPanel();
 
+  // Embed the list in main navigation; the MMU picker temporarily uses the screen.
+  void attach(lv_obj_t *parent);
+  void detach();
   void init();
   void foreground();
   // the list, to pick a spool for an MMU lane: done gets the spool id, or -1
@@ -63,6 +66,7 @@ class SpoolmanPanel {
   KWebSocketClient &ws;
   std::mutex &lv_lock;
   lv_obj_t *cont;
+  lv_obj_t *tab_parent = NULL;
   lv_obj_t *table_box;  // the table and its side scrollbar
   lv_obj_t *spool_table;
   lv_obj_t *empty_box;  // "No spools", shown in the table's place
