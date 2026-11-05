@@ -212,6 +212,7 @@ void GuppyScreen::loop() {
           // Draw the cover once, then stop drawing and animating until wake
           lv_refr_now(NULL);
           pause_drawing(true);
+          ws.set_display_asleep(true);
           is_sleeping = true;
         }
       } else {
@@ -222,6 +223,7 @@ void GuppyScreen::loop() {
 #endif
           pause_drawing(false);
           lv_obj_move_background(screen_saver);
+          ws.set_display_asleep(false);
           is_sleeping = false;
         }
       }
