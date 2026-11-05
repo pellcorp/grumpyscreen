@@ -109,6 +109,7 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , tabview(lv_tabview_create(panel_cont, LV_DIR_TOP, scale_r(36)))
   , load_tab(lv_tabview_add_tab(tabview, "Load / Unload"))
   , extrude_tab(lv_tabview_add_tab(tabview, "Extrude / Retract"))
+#ifndef COSMOS
   , load_header(create_row(load_tab))
   , extrude_header(create_row(extrude_tab))
   , load_extruder_temp(ws, load_header, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
@@ -117,6 +118,12 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
                           "extruder", NULL, NULL)
   , load_extruder_dd(lv_dropdown_create(load_header))
   , extrude_extruder_dd(lv_dropdown_create(extrude_header))
+#else
+  , load_extruder_temp(ws, load_tab, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
+                       "extruder", NULL, NULL)
+  , extrude_extruder_temp(ws, extrude_tab, Icons::EXTRUDER, "Extruder", theme_secondary(), false, true, numpad,
+                          "extruder", NULL, NULL)
+#endif
   , load_cont(create_row(load_tab))
   , extrude_cont(create_row(extrude_tab))
   , extrude_col(create_row(extrude_cont))
@@ -151,6 +158,7 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
     lv_obj_set_grid_dsc_array(tab, grid_panel_col_dsc, grid_panel_row_dsc);
     lv_obj_clear_flag(tab, LV_OBJ_FLAG_SCROLLABLE);
   }
+#ifndef COSMOS
   for (lv_obj_t *header : {load_header, extrude_header}) {
     lv_obj_set_grid_cell(header, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START, 0, 1);
     lv_obj_set_height(header, LV_SIZE_CONTENT);
@@ -167,6 +175,11 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
     lv_obj_add_event_cb(dd, &ExtruderPanel::_handle_extruder_select, LV_EVENT_VALUE_CHANGED, this);
     lv_obj_add_flag(dd, LV_OBJ_FLAG_HIDDEN);
   }
+#else
+  for (SensorContainer *sensor : {&load_extruder_temp, &extrude_extruder_temp}) {
+    lv_obj_set_grid_cell(sensor->get_sensor(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_START, 0, 1);
+  }
+#endif
   for (lv_obj_t *content : {load_cont, extrude_cont}) {
     lv_obj_set_grid_cell(content, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 1, 1);
   }
@@ -233,7 +246,9 @@ ExtruderPanel::~ExtruderPanel() {
 }
 
 void ExtruderPanel::foreground() {
+#ifndef COSMOS
   refresh_extruders();
+#endif
   lv_tabview_set_act(tabview, lv_obj_get_index(load_tab), LV_ANIM_OFF);
   lv_obj_move_foreground(panel_cont);
 }
@@ -242,6 +257,7 @@ void ExtruderPanel::background() {
   lv_obj_move_background(panel_cont);
 }
 
+#ifndef COSMOS
 // "extruder" is T0, "extruderN" is TN
 static int extruder_tool(const std::string &name) {
   const std::string digits = name.substr(std::string("extruder").size());
@@ -312,13 +328,16 @@ void ExtruderPanel::handle_extruder_select(lv_event_t *e) {
     ws.gcode_script(fmt::format("ACTIVATE_EXTRUDER EXTRUDER={}", name));
   }
 }
+#endif  // COSMOS
 
 void ExtruderPanel::consume(json& j) {
   std::lock_guard<std::mutex> lock(lv_lock);
+#ifndef COSMOS
   json &toolhead_extruder = j["/params/0/toolhead/extruder"_json_pointer];
   if (toolhead_extruder.is_string()) {
     set_active_extruder(toolhead_extruder.template get<std::string>());
   }
+#endif
 
   auto target_value = j[json::json_pointer("/params/0/" + active_extruder + "/target")];
   if (!target_value.is_null()) {

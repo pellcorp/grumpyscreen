@@ -138,6 +138,7 @@ void SensorContainer::update_value(int new_value) {
   }
 }
 
+#ifndef COSMOS
 void SensorContainer::set_id(const std::string &name, const char *text) {
   id = name;
   lv_label_set_text(sensor_label, text);
@@ -145,6 +146,7 @@ void SensorContainer::set_id(const std::string &name, const char *text) {
   value = -1;
   target = -1;
 }
+#endif
 
 void SensorContainer::update_series(int v) {
   if (series != NULL && chart != NULL) {

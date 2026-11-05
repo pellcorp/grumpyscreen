@@ -20,17 +20,21 @@ class ExtruderPanel : public NotifyConsumer {
   void background();
   void consume(json &j);
   void handle_callback(lv_event_t *e);
+#ifndef COSMOS
   void handle_extruder_select(lv_event_t *e);
+#endif
 
   static void _handle_callback(lv_event_t *event) {
     ExtruderPanel *panel = (ExtruderPanel*)event->user_data;
     panel->handle_callback(event);
   };
 
+#ifndef COSMOS
   static void _handle_extruder_select(lv_event_t *event) {
     ExtruderPanel *panel = (ExtruderPanel*)event->user_data;
     panel->handle_extruder_select(event);
   };
+#endif
 
  private:
   KWebSocketClient &ws;
@@ -49,19 +53,23 @@ class ExtruderPanel : public NotifyConsumer {
   lv_obj_t *tabview;
   lv_obj_t *load_tab;
   lv_obj_t *extrude_tab;
+#ifndef COSMOS
   // each readout shares its row with an extruder picker, shown only when
   // there is more than one
   lv_obj_t *load_header;
   lv_obj_t *extrude_header;
+#endif
   SensorContainer load_extruder_temp;
   SensorContainer extrude_extruder_temp;
   std::string active_extruder = "extruder";
+#ifndef COSMOS
   lv_obj_t *load_extruder_dd;
   lv_obj_t *extrude_extruder_dd;
   std::vector<std::string> extruders;
 
   void refresh_extruders();
   void set_active_extruder(const std::string &name);
+#endif
   lv_obj_t *load_cont;
   lv_obj_t *extrude_cont;
   lv_obj_t *extrude_col;  // the Extrude / Retract tiles, stacked
