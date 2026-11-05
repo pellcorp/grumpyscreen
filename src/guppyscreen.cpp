@@ -163,6 +163,7 @@ void GuppyScreen::loop() {
   int32_t display_sleep = conf->get<int32_t>("/ui/display_sleep_sec") * 1000;
   uint32_t inactive_baseline = lv_disp_get_inactive_time(NULL);
   uint32_t last_inactive = inactive_baseline;
+  uint32_t sleep_checked = lv_tick_get();
 
   LOG_DEBUG("Display sleep timeout: {} ms, starting inactivity baseline: {} ms",
            display_sleep,
@@ -179,8 +180,13 @@ void GuppyScreen::loop() {
     const uint32_t time_till_next = lv_timer_handler();
 
     // The Settings panel updates Config in place, so do not keep using the
-    // startup snapshot after the user changes the timeout.
-    display_sleep = conf->get<int32_t>("/ui/display_sleep_sec") * 1000;
+    // startup snapshot after the user changes the timeout. Once a second is
+    // soon enough, and spares a config lookup on every pass.
+    const uint32_t now = lv_tick_get();
+    if (now - sleep_checked >= 1000) {
+      sleep_checked = now;
+      display_sleep = conf->get<int32_t>("/ui/display_sleep_sec") * 1000;
+    }
 
 #ifdef GUPPY_SDL
     if (sdl_quit_qry) {
@@ -204,6 +210,10 @@ void GuppyScreen::loop() {
           fbdev_blank();
 #endif
           lv_obj_move_foreground(screen_saver);
+          // Draw the cover once, then stop drawing and animating until wake
+          lv_refr_now(NULL);
+          pause_drawing(true);
+          ws.set_display_asleep(true);
           is_sleeping = true;
         }
       } else {
@@ -212,7 +222,9 @@ void GuppyScreen::loop() {
 #ifndef GUPPY_SDL
           fbdev_unblank();
 #endif
+          pause_drawing(false);
           lv_obj_move_background(screen_saver);
+          ws.set_display_asleep(false);
           is_sleeping = false;
         }
       }
@@ -222,13 +234,29 @@ void GuppyScreen::loop() {
 
     // LVGL says when the next timer is due; polling every 5 ms woke the
     // process 200 times a second whether anything needed doing or not. Wait
-    // for that timer instead. Ten milliseconds is the shortest timer in the
-    // loop (SDL's event poll), and the cap keeps network updates that need
-    // the lock from waiting longer than a frame.
+    // for that timer instead, capped at a frame so network updates are drawn
+    // on time; SDL's event poll runs every 10 ms. Asleep, only a touch
+    // matters, so it is read less often.
+#ifdef GUPPY_SDL
+    const uint32_t awake_wait = 10;
+#else
+    const uint32_t awake_wait = LV_DISP_DEF_REFR_PERIOD;
+#endif
+    const uint32_t max_wait = is_sleeping.load() ? 100 : awake_wait;
     uint32_t wait_ms = time_till_next;
     if (wait_ms < 1) wait_ms = 1;
-    else if (wait_ms > 10) wait_ms = 10;
+    else if (wait_ms > max_wait) wait_ms = max_wait;
     usleep(wait_ms * 1000);
+  }
+}
+
+void GuppyScreen::pause_drawing(bool pause) {
+  lv_disp_t *disp = lv_disp_get_default();
+  lv_timer_t *timers[] = {disp != NULL ? disp->refr_timer : NULL, lv_anim_get_timer()};
+  for (lv_timer_t *t : timers) {
+    if (t == NULL) continue;
+    if (pause) lv_timer_pause(t);
+    else lv_timer_resume(t);
   }
 }
 

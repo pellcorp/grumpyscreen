@@ -54,7 +54,7 @@ void State::set_data(const std::string &key, json &j, const std::string &json_pa
     LOG_DEBUG("state update for {} missing {}", key, json_path);
     return;
   }
-  auto patch = j[ptr];
+  const json &patch = j[ptr];
   if (!patch.is_null()) {
     data[key].merge_patch(patch);
   }

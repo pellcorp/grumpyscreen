@@ -236,8 +236,8 @@ void ExcludeObjectPanel::consume(json &j) {
 
 void ExcludeObjectPanel::load_bed_bounds() {
   auto s = State::get_instance();
-  auto stepper_x_max = s->get_data("/printer_state/configfile/config/stepper_x/position_max"_json_pointer);
-  auto stepper_y_max = s->get_data("/printer_state/configfile/config/stepper_y/position_max"_json_pointer);
+  auto stepper_x_max = s->get_data("/printer_state/configfile/settings/stepper_x/position_max"_json_pointer);
+  auto stepper_y_max = s->get_data("/printer_state/configfile/settings/stepper_y/position_max"_json_pointer);
   double max_x = 0.0;
   double max_y = 0.0;
   if (parse_scalar(stepper_x_max, max_x) && parse_scalar(stepper_y_max, max_y)) {

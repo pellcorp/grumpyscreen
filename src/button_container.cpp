@@ -187,6 +187,8 @@ void ButtonContainer::set_prompt_condition(std::function<bool()> condition) {
 }
 
 void ButtonContainer::set_image(const void *img) {
+  // Setting the same source still redraws the button
+  if (lv_img_get_src(btn) == img) return;
   lv_img_set_src(btn, img);
 }
 

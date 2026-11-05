@@ -63,16 +63,27 @@ int KWebSocketClient::connect(const char* url,
     if (j.contains("method")) {
       std::string method = j["method"].template get<std::string>();
       if ("notify_status_update" == method) {
+        const bool asleep = display_asleep.load();
+        if (!asleep) {
+          deliver_deferred();
+        } else if (j.contains("params") && !j["params"].empty() && j["params"][0].is_object()) {
+          deferred_status.merge_patch(j["params"][0]);
+          if (j["params"].size() > 1) deferred_eventtime = j["params"][1];
+        }
         for (const auto &entry : notify_consumers) {
-          entry->consume(j);
+          if (!asleep || entry->consume_while_asleep()) {
+            entry->consume(j);
+          }
         }
       } else if ("notify_klippy_disconnected" == method) {
+        deferred_status = json();  // stale once Klipper restarts
         LOG_DEBUG("klippy disconnected");
         klippy_disconnected();
       } else if ("notify_klippy_shutdown" == method) {
         LOG_DEBUG("klippy shutdown");
         klippy_shutdown();
       } else if ("notify_klippy_ready" == method) {
+        deferred_status = json();  // stale once Klipper restarts
         LOG_DEBUG("klippy connected");
         klippy_ready();
       }
@@ -142,6 +153,26 @@ int KWebSocketClient::send_jsonrpc(const std::string &method, const json &params
     return send_jsonrpc(method, params);
   }
   return 0;
+}
+
+void KWebSocketClient::set_display_asleep(bool asleep) {
+  display_asleep = asleep;
+  if (!asleep && loop() != NULL) {
+    loop()->runInLoop([this]() { deliver_deferred(); });
+  }
+}
+
+void KWebSocketClient::deliver_deferred() {
+  if (deferred_status.is_null() || display_asleep.load()) return;
+  json j = {{"jsonrpc", "2.0"},
+            {"method", "notify_status_update"},
+            {"params", json::array({std::move(deferred_status), deferred_eventtime})}};
+  deferred_status = json();
+  for (const auto &entry : notify_consumers) {
+    if (!entry->consume_while_asleep()) {
+      entry->consume(j);
+    }
+  }
 }
 
 void KWebSocketClient::register_notify_update(NotifyConsumer *consumer) {

@@ -24,6 +24,7 @@ class State : public NotifyConsumer {
   json &get_data(const json::json_pointer &ptr);
 
   void consume(json &j);
+  bool consume_while_asleep() const { return true; }
 
   std::vector<std::string> get_extruders();
   std::vector<std::string> get_heaters();

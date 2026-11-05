@@ -26,6 +26,7 @@ class KWebSocketClient : public hv::WebSocketClient {
 
   void register_notify_update(NotifyConsumer *consumer);
   void unregister_notify_update(NotifyConsumer *consumer);
+  void set_display_asleep(bool asleep);
 
   // void register_gcode_resp(std::function<void(json&)> cb);
 
@@ -59,6 +60,12 @@ class KWebSocketClient : public hv::WebSocketClient {
   // method_name : { <unique-name-cb-handler> :handler-cb }
   std::map<std::string, std::map<std::string, std::function<void(json&)>>> method_resp_cbs;
   std::atomic_uint64_t id;
+
+  std::atomic_bool display_asleep{false};
+  // network thread only
+  json deferred_status;
+  json deferred_eventtime;
+  void deliver_deferred();
 };
 
 #endif //__KWEBSOCKET_CLIENT_H__
