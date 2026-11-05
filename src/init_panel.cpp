@@ -128,14 +128,23 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
     auto display_leds = state->get_display_leds();
     this->main_panel.create_leds(display_leds);
 
-    // subscribe to all objects except gcode_macro
+    // Everything except what nothing here reads: MCU and host stats change on
+    // every update, and configfile's raw config doubles its settings
     const auto objects_ptr = "/result/objects"_json_pointer;
     if (d.contains(objects_ptr) && !d[objects_ptr].is_null()) {
       auto objs = d[objects_ptr];
       json sub_objs;
+      const char *skip_prefixes[] = {"gcode_macro ", "mcu ", "tmc"};
+      const char *skip_names[] = {"mcu", "system_stats", "gcode", "stepper_enable"};
       for (auto &obj : objs) {
         std::string obj_name = obj.template get<std::string>();
-        if (obj_name.rfind("gcode_macro ", 0 ) != 0) {
+        bool skip = false;
+        for (const char *p : skip_prefixes) skip = skip || obj_name.rfind(p, 0) == 0;
+        for (const char *n : skip_names) skip = skip || obj_name == n;
+        if (skip) continue;
+        if (obj_name == "configfile") {
+          sub_objs[obj_name] = json::array({"settings"});
+        } else {
           sub_objs[obj_name] = nullptr;
         }
       }
