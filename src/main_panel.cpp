@@ -41,7 +41,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, tab_bar_w()))
   , main_tab(lv_tabview_add_tab(tabview, HOME_SYMBOL))
   , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
-  , spoolman_tab(lv_tabview_add_tab(tabview, " "))
+  , spoolman_tab(NULL)
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
   , console_panel(ws, lock, console_tab)
   , setting_tab(lv_tabview_add_tab(tabview, TOOLS_SYMBOL))
@@ -69,7 +69,6 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   emergency_btn.set_prompt_condition([] {
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
   });
-    spoolman_panel.attach(spoolman_tab);
     ws.register_notify_update(this);
     if (mmu_panel != NULL) {
       mmu_panel->pick_spool = [this](const std::string &lane, int current, std::function<void(int)> done) {
@@ -237,7 +236,8 @@ static void scroll_begin_event(lv_event_t * e) {
 void MainPanel::_draw_spoolman_tab(lv_event_t *e) {
   auto *self = static_cast<MainPanel*>(lv_event_get_user_data(e));
   auto *part = static_cast<lv_obj_draw_part_dsc_t*>(lv_event_get_param(e));
-  if (part->part != LV_PART_ITEMS || part->id != lv_obj_get_index(self->spoolman_tab)) return;
+  if (self->spoolman_tab == NULL || part->part != LV_PART_ITEMS ||
+      part->id != lv_obj_get_index(self->spoolman_tab)) return;
   // LVGL changes draw_area to the label bounds before DRAW_PART_END.
   if (lv_event_get_code(e) == LV_EVENT_DRAW_PART_BEGIN) {
     self->spoolman_tab_area = *part->draw_area;
@@ -279,7 +279,7 @@ void MainPanel::_tabview_event_cb(lv_event_t *e) {
 
     const uint16_t idx = lv_tabview_get_tab_act(tv);
 
-    if (idx == lv_obj_get_index(self->spoolman_tab)) {
+    if (self->spoolman_tab != NULL && idx == lv_obj_get_index(self->spoolman_tab)) {
         self->spoolman_panel.foreground();
     } else if (idx == lv_obj_get_index(self->console_tab)) {
         self->console_panel.select_first_tab();
@@ -335,7 +335,6 @@ void MainPanel::create_panel() {
     lv_obj_set_style_pad_all(tab, 0, 0);
   }
 
-  lv_btnmatrix_set_btn_ctrl(tab_btns, lv_obj_get_index(spoolman_tab), LV_BTNMATRIX_CTRL_DISABLED);
   lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_spoolman_tab, LV_EVENT_DRAW_PART_BEGIN, this);
   lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_spoolman_tab, LV_EVENT_DRAW_PART_END, this);
 
@@ -591,8 +590,33 @@ void MainPanel::create_leds(json &leds) {
 void MainPanel::enable_spoolman() {
   spoolman_panel.init();
   std::lock_guard<std::mutex> lock(lv_lock);
-  lv_btnmatrix_clear_btn_ctrl(lv_tabview_get_tab_btns(tabview),
-                              lv_obj_get_index(spoolman_tab), LV_BTNMATRIX_CTRL_DISABLED);
+  if (spoolman_tab != NULL) return;
+
+  // The tab only exists with Spoolman. LVGL appends tabs, so move it up to sit
+  // before the console, page and button both.
+  lv_obj_t *btns = lv_tabview_get_tab_btns(tabview);
+  const uint32_t pos = lv_obj_get_index(console_tab);
+  const uint16_t act = lv_tabview_get_tab_act(tabview);
+  const bool mmu_disabled = mmu_tab != NULL &&
+    lv_btnmatrix_has_btn_ctrl(btns, lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
+
+  spoolman_tab = lv_tabview_add_tab(tabview, " ");
+  lv_obj_move_to_index(spoolman_tab, pos);
+  auto *tv = reinterpret_cast<lv_tabview_t *>(tabview);
+  const char **map = reinterpret_cast<const char **>(tv->map);
+  const char *name = map[(tv->tab_cnt - 1) * 2];
+  for (uint32_t i = tv->tab_cnt - 1; i > pos; i--) map[i * 2] = map[(i - 1) * 2];
+  map[pos * 2] = name;
+  lv_btnmatrix_set_map(btns, map);
+
+  // a new button count clears every button's flags
+  if (mmu_disabled) {
+    lv_btnmatrix_set_btn_ctrl(btns, lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
+  }
+  lv_obj_add_style(spoolman_tab, &styles().screen, 0);
+  lv_obj_set_style_pad_all(spoolman_tab, 0, 0);
+  spoolman_panel.attach(spoolman_tab);
+  lv_tabview_set_act(tabview, act >= pos ? act + 1 : act, LV_ANIM_OFF);
 }
 
 void MainPanel::enable_mmu() {
