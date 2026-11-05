@@ -182,8 +182,8 @@ void PrintStatusPanel::reset() {
   time_left.update_label("...");
   estimated_time_s = 0;
 
-  auto v = State::get_instance()->get_data("/printer_state/configfile/config/extruder/filament_diameter"_json_pointer);
-  filament_diameter = v.is_null() ? 1.750 : std::stod(v.template get<std::string>());
+  auto v = State::get_instance()->get_data("/printer_state/configfile/settings/extruder/filament_diameter"_json_pointer);
+  filament_diameter = v.is_number() ? v.template get<double>() : 1.750;
   extruder_target = -1;
   active_extruder_.clear();
   heater_bed_target = -1;
