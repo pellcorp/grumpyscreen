@@ -35,7 +35,7 @@ class GuppyScreen {
   static lv_obj_t *screen_saver;
   static std::mutex lv_lock;
   static KWebSocketClient ws;
-  SpoolmanPanel spoolman_panel;
+  std::unique_ptr<SpoolmanPanel> spoolman_panel;
   std::unique_ptr<MmuPanel> mmu_panel;
 #ifdef MMU_BACKEND_AFC
   std::unique_ptr<AfcBackend> afc_backend;

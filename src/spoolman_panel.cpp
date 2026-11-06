@@ -125,10 +125,6 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   lv_obj_add_event_cb(spool_table, &SpoolmanPanel::_handle_spoolman_action, LV_EVENT_VALUE_CHANGED, this);
   lv_obj_add_event_cb(spool_table, &SpoolmanPanel::_handle_spoolman_action, LV_EVENT_DRAW_PART_BEGIN, this);
 
-  ws.register_method_callback("notify_active_spool_set",
-			      "SpoolmanPanel",
-			      [this](json& d) { this->handle_active_id_update(d); });
-
   // shown above the table while picking a spool for an MMU lane
   pick_bar = create_row(cont);
   lv_obj_move_to_index(pick_bar, 0);
@@ -149,6 +145,12 @@ SpoolmanPanel::~SpoolmanPanel() {
 }
 
 void SpoolmanPanel::init() {
+  // Register only when the global tab or MMU picker actually uses the list.
+  if (!listening) {
+    ws.register_method_callback("notify_active_spool_set", "SpoolmanPanel",
+                                [this](json &d) { handle_active_id_update(d); });
+    listening = true;
+  }
   json param = {
     { "request_method", "GET" },
     { "path", "/v1/spool?allow_archived=true" },

@@ -79,6 +79,7 @@ class SpoolmanPanel {
   lv_obj_t *pick_label = NULL;
   std::function<void(int)> pick_done;
   int pick_current = -1;  // the spool already in the lane being picked for
+  bool listening = false;
   int32_t active_id;
   std::map<uint32_t, SpoolRec> spools;
   uint32_t sorted_by;

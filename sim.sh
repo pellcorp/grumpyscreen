@@ -9,12 +9,17 @@
 # /tmp/grumpy-sim-$SIM_PORT (logs too); nothing outside it is touched.
 #
 #   SIM_BACKEND=hh SIM_LANES=8 ./sim.sh
+#   SIM_HIDE_SPOOLMAN=1 ./sim.sh
 #   SIM_ARGS="--extruders 2 --rgb-led --update nightly" ./sim.sh
 #   python3 tools/fake_moonraker.py --help      # every SIM_ARGS flag
 set -e
 cd "$(dirname "$0")"
 PORT="${SIM_PORT:-7125}"
 SESSION=/tmp/grumpy-sim-$PORT
+case "${SIM_HIDE_SPOOLMAN:-}" in
+    ""|0|1) ;;
+    *) echo "ERROR: SIM_HIDE_SPOOLMAN must be 0 or 1"; exit 1 ;;
+esac
 
 if [ -z "${SIM_BUILD:-}" ]; then
     for d in build/sdl-small build/sdl build; do
@@ -72,6 +77,12 @@ for _ in $(seq 1 100); do
     sleep 0.1
 done
 echo "[sim] moonraker on $PORT (${ARGS[*]}), session $SESSION"
+
+if [ -n "${SIM_HIDE_SPOOLMAN:-}" ]; then
+    HIDE_SPOOLMAN=false
+    [ "$SIM_HIDE_SPOOLMAN" = 1 ] && HIDE_SPOOLMAN=true
+    printf '\n[ui]\nhide_spoolman: %s\n' "$HIDE_SPOOLMAN" >> "$SIM_CFG"
+fi
 
 # settings the UI saves stay in the session; a GUI restart (settings, factory
 # reset, shutdown) brings it straight back
