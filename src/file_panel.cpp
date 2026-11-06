@@ -68,7 +68,7 @@ void FilePanel::refresh_view(json &j, const std::string &gcode_path) {
   auto filename = fs::path(gcode_path).filename();
   lv_label_set_text(fname_label, filename.string().c_str());
   
-  std::string detail = fmt::format("Filament Weight: {} g\nPrint Time: {}\nSize: {} MB",
+  std::string detail = fmt::format(I18n::tr("Filament Weight: {} g\nPrint Time: {}\nSize: {} MB"),
 				   fweight > 0 ? std::to_string(fweight) : "(unknown)",
 				   eta > 0 ? KUtils::eta_string(eta) : "(unknown)",
 				   KUtils::bytes_to_mb(j["result"]["size"].template get<size_t>()));

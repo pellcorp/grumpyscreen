@@ -40,7 +40,7 @@ lv_obj_t *ImageLabel::get_container() {
 }
 
 void ImageLabel::update_label(const char *v) {
-  if (std::strcmp(v, lv_label_get_text(label)) != 0) {
+  if (std::strcmp(I18n::tr(v), lv_label_get_text(label)) != 0) {
     lv_label_set_text(label, v);
   }
 }

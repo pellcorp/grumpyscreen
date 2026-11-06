@@ -11,6 +11,9 @@ TIMESTAMP=$(date +%s)
 
 cp "$BUILD_DIR/bin/grumpyscreen" $RELEASES_DIR/
 cp grumpyscreen.cfg $RELEASES_DIR/
+if [ "$COSMOS" != "true" ]; then
+  cp -r languages $RELEASES_DIR/
+fi
 
 echo "Timestamp was $TIMESTAMP"
 

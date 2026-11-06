@@ -8,6 +8,20 @@
 #include <iterator>
 #include <cstdlib>
 
+#ifndef COSMOS
+LV_FONT_DECLARE(lang_accents_12);
+LV_FONT_DECLARE(lang_accents_14);
+LV_FONT_DECLARE(lang_accents_16);
+LV_FONT_DECLARE(lang_accents_18);
+LV_FONT_DECLARE(lang_accents_20);
+LV_FONT_DECLARE(lang_accents_22);
+#if LV_FONT_MONTSERRAT_24
+LV_FONT_DECLARE(lang_accents_24);
+LV_FONT_DECLARE(lang_accents_26);
+LV_FONT_DECLARE(lang_accents_28);
+#endif
+#endif
+
 namespace Theme {
 
 namespace {
@@ -85,21 +99,36 @@ int scale_h(int px) { return px * lv_disp_get_physical_ver_res(NULL) / 272; }
 int scale_r(int px) { return std::min(scale_w(px), scale_h(px)); }
 
 const lv_font_t *scale_font(int px) {
-  struct F { int size; const lv_font_t *font; };
+  struct F { int size; lv_font_t font; };
+#ifdef COSMOS
+#define LANG_FONT(size) lv_font_montserrat_##size  // English only: no accents
+#else
+  // LVGL's fonts stop at ASCII; each copy falls back to the accented letters
+  auto with_accents = [](const lv_font_t &base, const lv_font_t &accents) {
+    lv_font_t font = base;
+    font.fallback = &accents;
+    return font;
+  };
+#define LANG_FONT(size) with_accents(lv_font_montserrat_##size, lang_accents_##size)
+#endif
   static const F fonts[] = {
-    {12, &lv_font_montserrat_12}, {14, &lv_font_montserrat_14},
-    {16, &lv_font_montserrat_16}, {18, &lv_font_montserrat_18},
-    {20, &lv_font_montserrat_20}, {22, &lv_font_montserrat_22},
+    {12, LANG_FONT(12)},
+    {14, LANG_FONT(14)},
+    {16, LANG_FONT(16)},
+    {18, LANG_FONT(18)},
+    {20, LANG_FONT(20)},
+    {22, LANG_FONT(22)},
 #if LV_FONT_MONTSERRAT_24  // the small-screen build leaves the big sizes out of flash
-    {24, &lv_font_montserrat_24}, {26, &lv_font_montserrat_26},
-    {28, &lv_font_montserrat_28},
+    {24, LANG_FONT(24)},
+    {26, LANG_FONT(26)},
+    {28, LANG_FONT(28)},
 #endif
   };
   const int target = scale_r(px);
   for (const F &f : fonts) {
-    if (f.size >= target) return f.font;
+    if (f.size >= target) return &f.font;
   }
-  return fonts[sizeof(fonts) / sizeof(fonts[0]) - 1].font;
+  return &fonts[sizeof(fonts) / sizeof(fonts[0]) - 1].font;
 }
 
 int gap() {
@@ -245,6 +274,12 @@ Styles &styles() {
   lv_style_set_pad_all(&s.swatch, 0);
   lv_style_set_border_width(&s.swatch, border_w());
   lv_style_set_border_color(&s.swatch, col(BORDER_DIM));
+
+  lv_style_init(&s.list_scrollbar);
+  lv_style_set_width(&s.list_scrollbar, scale_w(6));
+  lv_style_set_radius(&s.list_scrollbar, LV_RADIUS_CIRCLE);
+  lv_style_set_bg_opa(&s.list_scrollbar, LV_OPA_COVER);
+  lv_style_set_bg_color(&s.list_scrollbar, col(TEXT_DIM));
 
   lv_style_init(&s.dim_disabled);
   lv_style_set_bg_opa(&s.dim_disabled, LV_OPA_30);

@@ -104,7 +104,7 @@ void ToolMapPanel::open(MmuBackend *b, const std::vector<MmuFileTool> &t,
   print = p;
   want.clear();
   for (const MmuFileTool &tool : tools) want.push_back(mmu_slot_for_tool(backend->slots, tool.tool));
-  lv_label_set_text(title, fmt::format("Preparing {}", filename).c_str());
+  lv_label_set_text(title, fmt::format(I18n::tr("Preparing {}"), filename).c_str());
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
   lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
@@ -274,9 +274,9 @@ void ToolMapPanel::show_picker(size_t t) {
   const bool mappable = backend->can_map_tool(tool.tool);
   if (!mappable) {
     lv_label_set_long_mode(head, LV_LABEL_LONG_WRAP);
-    lv_label_set_text(head, fmt::format("T{} can't be mapped on this printer", tool.tool).c_str());
+    lv_label_set_text(head, fmt::format(I18n::tr("T{} can't be mapped on this printer"), tool.tool).c_str());
   } else {
-    lv_label_set_text(head, fmt::format("T{} {} from:", tool.tool, tool.material).c_str());
+    lv_label_set_text(head, fmt::format(I18n::tr("T{} {} from:"), tool.tool, tool.material).c_str());
     // four across, as in the backup picker; more slots scroll the popout
     const int cols = std::max(1, std::min((int)slots.size(), 4));
     const int tile_w = (popout_row_w() - (cols - 1) * gap()) / cols;

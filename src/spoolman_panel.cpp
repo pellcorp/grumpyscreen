@@ -231,7 +231,7 @@ void SpoolmanPanel::pick(const std::string &lane, int current_spool, std::functi
   back_btn.show();
   pick_done = std::move(done);
   pick_current = current_spool;
-  lv_label_set_text(pick_label, fmt::format("Spool for {}", lane).c_str());
+  lv_label_set_text(pick_label, fmt::format(I18n::tr("Spool for {}"), lane).c_str());
   lv_obj_clear_flag(pick_bar, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
