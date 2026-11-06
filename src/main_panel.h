@@ -33,6 +33,7 @@ class MainPanel : public NotifyConsumer {
 
   ~MainPanel();
   void consume(json &data);
+  bool consume_while_asleep() const { return true; }
   void init(json &data);
   void subscribe();
   void enable_spoolman();
