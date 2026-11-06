@@ -9,6 +9,7 @@
 # /tmp/grumpy-sim-$SIM_PORT (logs too); nothing outside it is touched.
 #
 #   SIM_BACKEND=hh SIM_LANES=8 ./sim.sh
+#   HIDE_SPOOLMAN=true ./sim.sh
 #   SIM_ARGS="--extruders 2 --rgb-led --update nightly" ./sim.sh
 #   python3 tools/fake_moonraker.py --help      # every SIM_ARGS flag
 set -e

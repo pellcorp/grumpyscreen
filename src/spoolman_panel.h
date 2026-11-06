@@ -28,6 +28,7 @@ class SpoolmanPanel {
  public:
   SpoolmanPanel(KWebSocketClient &c, std::mutex &l);
   ~SpoolmanPanel();
+  static bool hidden();
 
   // Embed the list in main navigation; the MMU picker temporarily uses the screen.
   void attach(lv_obj_t *parent);
@@ -79,6 +80,7 @@ class SpoolmanPanel {
   lv_obj_t *pick_label = NULL;
   std::function<void(int)> pick_done;
   int pick_current = -1;  // the spool already in the lane being picked for
+  bool listening = false;
   int32_t active_id;
   std::map<uint32_t, SpoolRec> spools;
   uint32_t sorted_by;

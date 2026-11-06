@@ -28,7 +28,7 @@ class MainPanel : public NotifyConsumer {
  public:
   MainPanel(KWebSocketClient &ws,
 	    std::mutex &lv_lock,
-	    SpoolmanPanel &sm,
+	    SpoolmanPanel *sm,
 	    MmuPanel *mmu);
 
   ~MainPanel();
@@ -123,7 +123,7 @@ class MainPanel : public NotifyConsumer {
   Numpad numpad;
   ExtruderPanel extruder_panel;
   PromptPanel prompt_panel;
-  SpoolmanPanel &spoolman_panel;
+  SpoolmanPanel *spoolman_panel;
   MmuPanel *mmu_panel;
 
   lv_obj_t *temp_cont;
