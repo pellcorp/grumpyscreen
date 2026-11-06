@@ -41,7 +41,7 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, tab_bar_w()))
   , main_tab(lv_tabview_add_tab(tabview, HOME_SYMBOL))
   , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
-  , spoolman_tab(!Config::get_instance()->get<bool>("/ui/hide_spoolman", false)
+  , spoolman_tab(!SpoolmanPanel::hidden()
                      ? lv_tabview_add_tab(tabview, " ") : NULL)
   , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
   , console_panel(ws, lock, console_tab)

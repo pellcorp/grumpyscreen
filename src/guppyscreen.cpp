@@ -33,7 +33,7 @@ KWebSocketClient GuppyScreen::ws(NULL);
 std::mutex GuppyScreen::lv_lock;
 
 GuppyScreen::GuppyScreen()
-  : spoolman_panel((!Config::get_instance()->get<bool>("/ui/hide_spoolman", false) || MmuPanel::enabled())
+  : spoolman_panel((!SpoolmanPanel::hidden() || MmuPanel::enabled())
                        ? std::make_unique<SpoolmanPanel>(ws, lv_lock) : nullptr)
   , mmu_panel(MmuPanel::enabled() ? std::make_unique<MmuPanel>(ws, lv_lock) : nullptr)
 #ifdef MMU_BACKEND_AFC

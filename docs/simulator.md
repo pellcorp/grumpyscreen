@@ -37,7 +37,7 @@ Point the screen's `[moonraker]` `host` and `port` at it, and set `thumbnail_pat
 | `SIM_FANS` | `1` | How many of `grumpyscreen.cfg`'s fans exist (1-7) |
 | `SIM_LEDS` | `1` | How many of its output_pin LEDs exist (0-5) |
 | `SIM_SPOOLMAN` | `push` | `off`, `readonly`, `push` or `pull` |
-| `SIM_HIDE_SPOOLMAN` | Config value | `1` hides the global Spoolman nav tab; `0` shows it. MMU Spoolman integration stays available. |
+| `HIDE_SPOOLMAN` | Config value | `true` hides the global Spoolman nav tab; `false` shows it. Overrides the config; MMU Spoolman integration stays available. |
 | `SIM_PRINTING` | `0` | `1` starts `quick_cube.gcode`, or name a file |
 | `SIM_ARGS` | | Any `fake_moonraker.py` flag, see below |
 | `SIM_WIFI` | `1` | `0` runs without the fake wpa_supplicant |
@@ -47,7 +47,7 @@ Point the screen's `[moonraker]` `host` and `port` at it, and set `thumbnail_pat
 | `SIM_CFG_SRC` | `grumpyscreen.cfg` | Config the session config is made from |
 | `SIM_KEEP` | `0` | `1` keeps other UIs running, for side-by-side ports |
 
-Run `SIM_HIDE_SPOOLMAN=1 ./sim.sh` to test with the global Spoolman tab hidden.
+Run `HIDE_SPOOLMAN=true ./sim.sh` to test with the global Spoolman tab hidden. The same environment variable works when launching GrumpyScreen directly. Unset or invalid values follow the config.
 
 Useful `SIM_ARGS` flags (`python3 tools/fake_moonraker.py --help` lists all):
 
