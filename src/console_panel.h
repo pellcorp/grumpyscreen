@@ -35,6 +35,7 @@ class ConsolePanel {
   };
 
  private:
+  std::string colourize(const std::string &text) const;
   KWebSocketClient &ws;
   std::mutex &lv_lock;
   // Console and Macros tabs
@@ -50,6 +51,7 @@ class ConsolePanel {
   ButtonContainer delete_btn;
   std::unique_ptr<MacroPanel> macro_panel;
   bool gcode_input_enabled = false;
+  bool colours = true;
 };
 
 #endif // __CONSOLE_PANEL_H__

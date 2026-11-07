@@ -1,4 +1,5 @@
 #include "console_panel.h"
+#include "console_colour.h"
 #include "config.h"
 #include "state.h"
 #include "logger.h"
@@ -9,6 +10,7 @@
 using namespace Theme;
 
 #include <algorithm>
+#include <cstdio>
 #include <cctype>
 
 LV_FONT_DECLARE(dejavusans_mono_14);
@@ -39,6 +41,10 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   lv_obj_set_style_text_font(output, &dejavusans_mono_14, 0);
   lv_obj_set_size(output, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_border_width(output, 0, LV_STATE_FOCUSED | LV_PART_CURSOR);
+  // each line coloured by what it is (see colourize); the log's label reads the
+  // #rrggbb ...# colour commands
+  colours = Config::get_instance()->get<bool>("/ui/console_colors", true);
+  lv_label_set_recolor(lv_textarea_get_label(output), colours);
 
   // A gcode entry line under the log, beside the clear tile; the keyboard
   // slides over the log while the line has focus and sends on enter. The entry
@@ -176,8 +182,32 @@ void ta_add_text_limit_lines(lv_obj_t * ta, const std::string &line) {
   lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
 }
 
+static std::string hex_colour(lv_color_t c) {
+  lv_color32_t c32;
+  c32.full = lv_color_to32(c);
+  char buf[8];
+  snprintf(buf, sizeof(buf), "%02x%02x%02x", c32.ch.red, c32.ch.green, c32.ch.blue);
+  return buf;
+}
+
+// errors, what was sent, the prompt protocol's own lines, echo output and
+// warnings, in the theme's colours
+std::string ConsolePanel::colourize(const std::string &text) const {
+  if (!colours) return text;
+  return colourize_console(text, [](ConsoleLine kind) -> std::string {
+    switch (kind) {
+      case ConsoleLine::ERROR: return hex_colour(col(DANGER));
+      case ConsoleLine::SENT: return hex_colour(theme_primary());
+      case ConsoleLine::PROMPT: return hex_colour(col(TEXT_DIM));
+      case ConsoleLine::ECHO: return hex_colour(col(SUCCESS));
+      case ConsoleLine::WARNING: return hex_colour(col(WARNING));
+      default: return "";
+    }
+  });
+}
+
 void ConsolePanel::append_output(const std::string &text) {
-  if (!text.empty()) ta_add_text_limit_lines(output, text);
+  if (!text.empty()) ta_add_text_limit_lines(output, colourize(text));
 }
 
 void ConsolePanel::handle_macro_response(json &j) {
