@@ -126,8 +126,17 @@ paths. Its debug timings contain the literal Unicode character `Δ`; the sample
 uses fixed example durations. The screenshot in
 [#442](https://github.com/pellcorp/grumpyscreen/issues/442) shows Happy Hare's
 inline `style="color:..."`, `<b>` tags and Unicode diagrams, which differ from
-these AFC samples. This change supplies console input for investigating the
-renderer; it does not add HTML rendering or font glyphs to the UI.
+these AFC samples. These commands supply console input for investigating the
+renderer.
+
+The console translates `<span style="color:#RRGGBB">` (also `#RGB`) into
+inline foreground colours. AFC's `success--text`, `warning--text` and
+`error--text` classes use the same theme colours as echo, warning and error
+lines; `primary--text`, `secondary--text` and `info--text` use their theme
+colours. Nested spans restore the surrounding colour when closed. Unknown
+span colours inherit the surrounding colour. `<b>` tags are removed while
+retaining their text. Turning console colours off still removes these tags.
+Sent commands remain literal. Unicode symbols still depend on font coverage.
 
 ### Happy Hare console formatting (#442)
 

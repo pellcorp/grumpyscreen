@@ -54,6 +54,8 @@ static std::string colour_of(ConsoleLine kind) {
     case ConsoleLine::PROMPT: return "888888";
     case ConsoleLine::ECHO: return "00ff00";
     case ConsoleLine::WARNING: return "ffaa00";
+    case ConsoleLine::INFO: return "00ffff";
+    case ConsoleLine::SECONDARY: return "ff00ff";
     default: return "";
   }
 }
@@ -80,6 +82,19 @@ static void check_round_trip(const std::string &text) {
   }
 }
 
+static void check_spans(const std::string &input,
+                        const std::vector<std::pair<std::string, std::string>> &runs) {
+  Drawn drawn = lvgl_draw(colourize_console(input, colour_of));
+  std::string expected;
+  std::vector<std::string> colours;
+  for (const auto &run : runs) {
+    expected += run.first;
+    for (char c : run.first) colours.push_back(c == '#' || c == '\n' ? "" : run.second);
+  }
+  CHECK(drawn.text == expected);
+  CHECK(drawn.colour == colours);
+}
+
 int main() {
   CHECK(console_line_kind("!! Move out of range") == ConsoleLine::ERROR);
   CHECK(console_line_kind("> G28") == ConsoleLine::SENT);
@@ -98,6 +113,39 @@ int main() {
   check_round_trip("!! #1 failed ## twice #\n");         // several, coloured
   check_round_trip("echo: ###\n\n\nwarning: a#b\n");     // runs of #, empty lines
   check_round_trip("no newline at the end");
+
+  check_spans("plain <span class=success--text>ready</span> plain", {
+    {"plain ", ""}, {"ready", "00ff00"}, {" plain", ""}});
+  check_spans("<span class='extra warning--text'>warn</span> plain", {
+    {"warn", "ffaa00"}, {" plain", ""}});
+  check_spans("<span class=error--text>bad</span><span class=primary--text>primary</span>"
+              "<span class=secondary--text>secondary</span><span class=info--text>info</span>", {
+    {"bad", "ff0000"}, {"primary", "0000ff"}, {"secondary", "ff00ff"}, {"info", "00ffff"}});
+  check_spans("!! outer <span CLASS = \"SUCCESS--TEXT\">inner "
+              "<span style='background-color:#000000; COLOR : #AbC;'>explicit</span>"
+              " restored</span> error", {
+    {"!! outer ", "ff0000"}, {"inner ", "00ff00"}, {"explicit", "aabbcc"},
+    {" restored", "00ff00"}, {" error", "ff0000"}});
+  check_spans("<span class=warning--text style=\"color:#000000\">■#1</span> "
+              "<b><span style='color:#87CEEB'>UNLOADED</span></b> <b>0.0mm</b>", {
+    {"■#1", "000000"}, {" ", ""}, {"UNLOADED", "87ceeb"}, {" 0.0mm", ""}});
+  check_spans("<span class=success--text>A\nB<span class=unknown>C</span>D</span> E", {
+    {"A\nBCD", "00ff00"}, {" E", ""}});
+  check_spans("<span class=success--text>unclosed", {{"unclosed", "00ff00"}});
+  check_spans("next message</span> plain", {{"next message plain", ""}});
+  check_spans("<span class=error--text style='color:#12zz34'>fallback</span>"
+              "<span style='color:#123456; other:yes'>hex</span>", {
+    {"fallback", "ff0000"}, {"hex", "123456"}});
+  check_spans("x < y <spanish>z</spanish> <span class='unterminated", {
+    {"x < y <spanish>z</spanish> <span class='unterminated", ""}});
+  check_spans("before<span disabled>unknown colour</span>after", {{"beforeunknown colourafter", ""}});
+  check_round_trip("> RESPOND MSG=\"<span style='color:#123456'>literal</span>\"");
+  CHECK(colourize_console("<span style='color:#abc'>#1</span><b>plain</b>", colour_of, false)
+        == "#1plain");
+  CHECK(colourize_console("> <span>literal</span> #abc", colour_of, false)
+        == "> <span>literal</span> #abc");
+  check_spans("// Selct: |\\<span style=\"color:#ff00ff\">▼</span>/|\xc2\xa0 T0", {
+    {"// Selct: |\\", ""}, {"▼", "ff00ff"}, {"/|\xc2\xa0 T0", ""}});
 
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);
