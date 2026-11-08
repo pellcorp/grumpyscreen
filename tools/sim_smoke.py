@@ -120,6 +120,30 @@ async def run():
     check(c.state["AFC"]["message"]["message"] == "", "queue empties")
     check(c.state["AFC"]["multiple_tool_mapping"] is True, "multiple_tool_mapping published")
 
+    # --- AFC's raw HTML stays intact over the websocket and in console history
+    start = len(c.notes)
+    await c.gcode("SIM_AFC_CONSOLE")
+    output = [n["params"][0] for n in c.notes[start:]
+              if n["method"] == "notify_gcode_response"]
+    check('lane1 tool cmd: T0  <span class=success--text>LOCKED</span>'
+          '<span class=success--text> AND LOADED</span>'
+          '<span class=primary--text> in ToolHead</span>' in output,
+          "afc: PREP sends raw adjacent colour spans and space-padded tool")
+    check('lane4 tool cmd: T3  EMPTY READY FOR SPOOL' in output,
+          "afc: PREP reports the empty lane")
+    check(any(s.startswith('<span class=success--text>R  _____     ____\n')
+              and s.endswith('  CANVAS_1\n') for s in output),
+          "afc: multiline logo stays in one raw response with spaces intact")
+    check(output[-2:] == ['<span class=warning--text>WARNING: '
+                         'Ram sensor enabled, confirm tool is loaded</span>',
+                         'Filament loaded to nozzle (Δt:0.125s, t:1.500)'],
+          "afc: console samples include warning HTML and UTF-8 delta timing")
+    store = (await c.call("server.gcode_store", {"count": 20}))["result"]["gcode_store"]
+    check([r["message"] for r in store if r["type"] == "response"][-len(output):] == output,
+          "afc: console history preserves the same raw responses")
+    check(c.state["AFC"]["message"]["message"] == "",
+          "afc: console samples leave the message queue empty")
+
     # --- files and metadata
     r = await c.call("server.files.metadata", {"filename": "nope.gcode"})
     check(r.get("error") == {"code": -32601, "message": "Metadata not available for <nope.gcode>"},
