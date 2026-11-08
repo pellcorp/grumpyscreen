@@ -118,6 +118,56 @@ def tool_lane(tool):
     return next((n for n in STATE["AFC"]["lanes"] if tool in STATE[lane_key(n)]["map"]), None)
 
 
+async def afc_prep():
+    """Replay AFC_prep/BoxTurtle checks using the simulated lane sensors.
+
+    AFC_logger sends whole messages directly, without respond_info's //
+    prefixes or line splitting. Keep the upstream spaces and even the
+    unclosed success span in the ready logo to exercise the real markup.
+    This only reports sensors; it does not simulate PREP's motor movements.
+    """
+    afc = STATE["AFC"]
+    unit = afc["units"][0].split(" ", 1)[1]
+    await console("Box_Turtle %s Prepping lanes" % unit)
+    ready = True
+    for name in afc["lanes"]:
+        lane = STATE[lane_key(name)]
+        if not lane["prep"]:
+            if not lane["load"]:
+                msg = "EMPTY READY FOR SPOOL"
+            else:
+                msg = '<span class=error--text>CHECK FILAMENT Prep: False - Load: True</span>'
+                ready = False
+        else:
+            msg = '<span class=success--text>LOCKED</span>'
+            if not lane["load"]:
+                msg += '<span class=error--text> NOT LOADED</span>'
+                ready = False
+            else:
+                msg += '<span class=success--text> AND LOADED</span>'
+                if lane["tool_loaded"]:
+                    msg += '<span class=primary--text> in ToolHead</span>'
+        await console('%s tool cmd: %-3s %s' % (name, ','.join(lane["map"]), msg))
+    # Artwork from AFC_BoxTurtle.handle_connect, labelled with our unit.
+    if ready:
+        first = '<span class=warning--text>|</span><span class=error--text>_</span>'
+        second = first + '<span class=warning--text>|</span>'
+        logo = ('<span class=success--text>R  _____     ____\n'
+                'E /      \\  |  </span><span class=info--text>o</span>'
+                '<span class=success--text> | \n'
+                'A |       |/ ___/ \n'
+                'D |_________/     \n'
+                'Y %s%s %s%s\n' % (first, second, first, second))
+    else:
+        logo = ('<span class=error--text>E  _ _   _ _\n'
+                'R |_|_|_|_|_|\n'
+                'R |         \\____\n'
+                'O |              \\ \n'
+                'R |          |\\ <span class=secondary--text>X</span> |\n'
+                '! \\_________/ |___|</span>\n')
+    await console(logo + '  ' + unit + '\n')
+
+
 async def afc_load(name, toolchange=False):
     afc = STATE["AFC"]
     lane = STATE.get(lane_key(name))
@@ -260,7 +310,9 @@ async def afc_fault(name):
 async def handle_afc(cmd):
     afc = STATE["AFC"]
     p = cmd.params
-    if cmd.name in ("TOOL_LOAD", "CHANGE_TOOL"):
+    if cmd.name == "PREP":
+        await afc_prep()
+    elif cmd.name in ("TOOL_LOAD", "CHANGE_TOOL"):
         await afc_load(cmd.get("LANE"), toolchange=cmd.name == "CHANGE_TOOL")
     elif cmd.name == "TOOL_UNLOAD":
         await afc_unload()

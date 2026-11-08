@@ -95,9 +95,35 @@ From the console panel or `python3 tools/sim_send.py "SIM_PRINT"`:
 | `SIM_DISCONNECT [SECONDS=5]` | Moonraker drops every client |
 | `SIM_KLIPPER_STOP [SECONDS=10]` | The Klipper service stops, then starts |
 | `SIM_MESSAGE TEXT=.. [TYPE=error]` | AFC message |
+| `PREP` | AFC lane checks and coloured Box Turtle artwork, using the simulated sensors |
+| `SIM_AFC_CONSOLE` | AFC PREP plus warning HTML and a Unicode debug timing sample; leaves the message queue alone |
 | `SIM_RUNOUT [LANE=x]`, `SIM_FAULT [LANE=x]` | AFC runout and lane fault |
 | `SIM_FAULT GATE=n`, `SIM_ERROR` | Happy Hare jammed gate and pause_locked error |
 
 `python3 tools/sim_send.py --rpc server.info` sends any Moonraker method; `--listen 10` prints notifications.
 
 `python3 tools/sim_smoke.py` checks the simulator end to end.
+
+### AFC console formatting (#442)
+
+Run `python3 tools/sim_send.py "SIM_AFC_CONSOLE"` with the console open to
+reproduce AFC's formatting. `PREP` reports the current sensors without moving
+motors. With `SIM_LANES=5`, the staged fifth lane produces `NOT LOADED` and
+the error artwork; the default four lanes produce the ready artwork.
+
+These samples follow the sibling AFC plugin's `AFC_prep`, `AFC_BoxTurtle`,
+`AFC_extruder`, `AFC_logger` and `afcDeltaTime` output. The mock uses Box Turtle
+artwork labelled with its existing `CANVAS_1` unit. AFC sends raw messages with
+unquoted `<span class=success--text>` (also `error`, `warning`, `info`, `primary`
+and `secondary`), adjacent spans, embedded newlines and repeated literal spaces.
+The ready artwork even leaves its final success span open upstream; the mock
+preserves that. These logger messages have no `// ` prefix and aren't split
+into separate responses. Warnings retain HTML, while errors use `!! `.
+
+No tab-based alignment or HTML character entities were found in these AFC
+paths. Its debug timings contain the literal Unicode character `Δ`; the sample
+uses fixed example durations. The screenshot in
+[#442](https://github.com/pellcorp/grumpyscreen/issues/442) shows Happy Hare's
+inline `style="color:..."`, `<b>` tags and Unicode diagrams, which differ from
+these AFC samples. This change supplies console input for investigating the
+renderer; it does not add HTML rendering or font glyphs to the UI.

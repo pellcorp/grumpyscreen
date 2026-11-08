@@ -8,6 +8,7 @@
     SIM_DISCONNECT [SECONDS=5]  moonraker drops every client and refuses connections
     SIM_KLIPPER_STOP [SECONDS=10]  the klipper service stops, then starts again
     SIM_MESSAGE TEXT=.. [TYPE=warning|error]   queue an AFC message
+    SIM_AFC_CONSOLE             AFC PREP, warning markup and Unicode debug timing samples
     SIM_RUNOUT [LANE=x]         AFC: the lane runs dry (backup lane, or pause)
     SIM_FAULT [LANE=x|GATE=n]   AFC: toggle a lane fault; HH: jam a gate
     SIM_ERROR                   Happy Hare: toggle a pause_locked failure on gate 2
@@ -89,3 +90,15 @@ async def sim_message(cmd):
         await mmu.afc_error(text)
     else:
         await mmu.afc_warning(text)
+
+
+@gcode("SIM_AFC_CONSOLE")
+async def sim_afc_console(cmd):
+    """Console-only samples from AFC_logger and afcDeltaTime, without queueing warnings."""
+    if mmu.BACKEND != "afc":
+        await S.respond_info("SIM_AFC_CONSOLE needs --backend afc")
+        return
+    await mmu.afc_prep()
+    await S.console('<span class=warning--text>WARNING: '
+                    'Ram sensor enabled, confirm tool is loaded</span>')
+    await S.console('Filament loaded to nozzle (Δt:0.125s, t:1.500)')
