@@ -67,6 +67,9 @@ include $(LVGL_DIR)/lv_drivers/lv_drivers.mk
 CSRCS			:= $(filter-out $(LVGL_DIR)/lv_drivers/wayland/%.c,$(CSRCS))
 
 CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/*.c)
+ifdef COSMOS
+CSRCS			:= $(filter-out $(LVGL_DIR)/assets/dejavusans_mono_hh_14.c,$(CSRCS))
+endif
 ifdef GUPPY_CALIBRATE
 CSRCS			+= $(wildcard $(LVGL_DIR)/lv_touch_calibration/*.c)
 DEFINES += -D GUPPY_CALIBRATE
@@ -235,7 +238,20 @@ wpaclean:
 clean:
 	rm -rf $(BUILD_DIR)
 
-test: libhv.a
+CONSOLE_FONT_TEST_SRCS = assets/dejavusans_mono_14.c \
+ lvgl/src/font/lv_font.c lvgl/src/font/lv_font_fmt_txt.c \
+ lvgl/src/misc/lv_mem.c lvgl/src/misc/lv_utils.c lvgl/src/misc/lv_gc.c
+ifndef COSMOS
+CONSOLE_FONT_TEST_SRCS += assets/dejavusans_mono_hh_14.c
+endif
+CONSOLE_FONT_TEST_OBJS = $(addprefix $(BUILD_OBJ_DIR)/,$(CONSOLE_FONT_TEST_SRCS:.c=.o))
+
+.PHONY: test-console-font
+test-console-font: $(CONSOLE_FONT_TEST_OBJS)
+	$(CXX) -std=c++17 $(INC) $(DEFINES) tests/test_console_font.cpp $(CONSOLE_FONT_TEST_OBJS) -o $(BUILD_DIR)/test_console_font
+	$(BUILD_DIR)/test_console_font
+
+test: libhv.a test-console-font
 	@mkdir -p $(BUILD_DIR)
 	g++ -std=gnu++17 -O2 -I./src -I$(DEPS_DIR)/include/ tests/test_config.cpp -o $(BUILD_DIR)/test_config
 	$(BUILD_DIR)/test_config
