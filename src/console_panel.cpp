@@ -193,7 +193,6 @@ static std::string hex_colour(lv_color_t c) {
 // errors, what was sent, the prompt protocol's own lines, echo output and
 // warnings, in the theme's colours
 std::string ConsolePanel::colourize(const std::string &text) const {
-  if (!colours) return text;
   return colourize_console(text, [](ConsoleLine kind) -> std::string {
     switch (kind) {
       case ConsoleLine::ERROR: return hex_colour(col(DANGER));
@@ -201,9 +200,11 @@ std::string ConsolePanel::colourize(const std::string &text) const {
       case ConsoleLine::PROMPT: return hex_colour(col(TEXT_DIM));
       case ConsoleLine::ECHO: return hex_colour(col(SUCCESS));
       case ConsoleLine::WARNING: return hex_colour(col(WARNING));
+      case ConsoleLine::INFO: return hex_colour(col(INFO));
+      case ConsoleLine::SECONDARY: return hex_colour(theme_secondary());
       default: return "";
     }
-  });
+  }, colours);
 }
 
 void ConsolePanel::append_output(const std::string &text) {
