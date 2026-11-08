@@ -168,6 +168,14 @@ local ones allocate, so this is also the cheaper of the two at runtime. Only
 construction-time looks belong in `styles()`; anything that changes with state
 (a spool's colour, a button greying out) stays a local write.
 
+**Console colours.** The console log colours each line by its Klipper prefix,
+in palette colours: `danger` for errors (`!!`), the primary colour for what
+was sent (`> `), `text_dim` for the prompt protocol's own lines
+(`// action:`), `success` for `echo:` and `warning` for anything mentioning a
+warning. A restyled palette restyles the log with it. `console_colors: false`
+under `[ui]` turns it off. LVGL can only draw a literal `#` outside a colour
+command, so a `#` in a coloured line keeps the default colour.
+
 **Radii.** `radius_sm/md/lg()` all derive from one base, two pixels apart, so
 the whole UI rounds off from a single number (0 today: square corners, as
 grumpyscreen has always had). Pick by the size of the thing: `sm` for buttons

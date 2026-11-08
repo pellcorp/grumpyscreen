@@ -239,6 +239,8 @@ test: libhv.a
 	@mkdir -p $(BUILD_DIR)
 	g++ -std=gnu++17 -O2 -I./src -I$(DEPS_DIR)/include/ tests/test_config.cpp -o $(BUILD_DIR)/test_config
 	$(BUILD_DIR)/test_config
+	g++ -std=gnu++17 -O2 -I./src tests/test_console_colour.cpp src/console_colour.cpp -o $(BUILD_DIR)/test_console_colour
+	$(BUILD_DIR)/test_console_colour
 # the backend fixture stubs State and the websocket client, so it links
 # only the backend under test (libhv for the client's base class)
 	g++ -std=gnu++17 -O2 -I./src -I./fmt/include -Ilibhv/include/ $(MMU_BACKEND_DEFS) $(MMU_BACKEND_SRC) \
