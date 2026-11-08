@@ -125,6 +125,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , emergency_prompt_switch(nullptr)
   , emergency_stop_warning(nullptr)
   , sleep_timeout_selector(nullptr)
+  , sleep_timeout_warning(nullptr)
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
@@ -237,6 +238,15 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_add_event_cb(sleep_timeout_selector, &SettingPanel::_setting_changed_cb,
                       LV_EVENT_VALUE_CHANGED, this);
 
+  sleep_timeout_warning = lv_label_create(settings_panel);
+  lv_label_set_text(sleep_timeout_warning,
+                    "Warning: Leaving the screen on continuously may cause "
+                    "long-term screen damage. Choose a timeout to help protect it.");
+  lv_obj_set_width(sleep_timeout_warning, LV_PCT(100));
+  lv_label_set_long_mode(sleep_timeout_warning, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_color(sleep_timeout_warning, Theme::col(Theme::WARNING), 0);
+  refresh_sleep_timeout_warning();
+
   // Optional tiles only appear with a command behind them; the grid is built
   // from what is left, four across, so a hidden tile never leaves a hole.
   auto has_cmd = [conf](const char *key) { return conf->get<std::string>(key) != ""; };
@@ -330,6 +340,15 @@ void SettingPanel::setting_changed(lv_event_t *event) {
   }
 
   if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
+  if (target == sleep_timeout_selector) refresh_sleep_timeout_warning();
+}
+
+void SettingPanel::refresh_sleep_timeout_warning() {
+  if (Config::get_instance()->get<int32_t>("/ui/display_sleep_sec") == -1) {
+    lv_obj_clear_flag(sleep_timeout_warning, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_add_flag(sleep_timeout_warning, LV_OBJ_FLAG_HIDDEN);
+  }
 }
 
 void SettingPanel::refresh_emergency_stop_warning() {
