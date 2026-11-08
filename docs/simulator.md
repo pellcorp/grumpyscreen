@@ -97,6 +97,7 @@ From the console panel or `python3 tools/sim_send.py "SIM_PRINT"`:
 | `SIM_MESSAGE TEXT=.. [TYPE=error]` | AFC message |
 | `PREP` | AFC lane checks and coloured Box Turtle artwork, using the simulated sensors |
 | `SIM_AFC_CONSOLE` | AFC PREP plus warning HTML and a Unicode debug timing sample; leaves the message queue alone |
+| `SIM_HH_CONSOLE [SAMPLE=all\|boot\|thin\|sensors]` | Replay captured Happy Hare HTML, alignment spaces and Unicode diagrams |
 | `SIM_RUNOUT [LANE=x]`, `SIM_FAULT [LANE=x]` | AFC runout and lane fault |
 | `SIM_FAULT GATE=n`, `SIM_ERROR` | Happy Hare jammed gate and pause_locked error |
 
@@ -127,3 +128,35 @@ uses fixed example durations. The screenshot in
 inline `style="color:..."`, `<b>` tags and Unicode diagrams, which differ from
 these AFC samples. This change supplies console input for investigating the
 renderer; it does not add HTML rendering or font glyphs to the UI.
+
+### Happy Hare console formatting (#442)
+
+Start `SIM_BACKEND=hh ./sim.sh`, open the console, then run:
+
+```
+python3 tools/sim_send.py "SIM_HH_CONSOLE"
+python3 tools/sim_send.py "SIM_HH_CONSOLE SAMPLE=boot"
+```
+
+`boot` reproduces the screenshot's four-gate map, bypass column, black/magenta
+swatches, selected-gate triangle and bold UNLOADED filament diagram. `thin`
+shows a loaded filament using thin lines and an arrow tip. `sensors` includes
+triggered/clear sensor circles, the encoder marker, loading arrows and a
+coloured warning. The default `all` replays all three groups. These are fixed
+formatting examples, independent of the simulator's current gate count or
+filament state; replaying them does not change that state.
+
+The captures use the sibling checkout's actual `_mmu_visual_to_string`,
+`_get_filament_char`, `get_filament_position_string` and
+`MmuLogger._color_message` methods. They retain adjacent inline colour spans,
+nested `<b>`/`<span>` tags, literal Unicode glyphs and non-breaking spaces
+(`U+00A0`), rather than HTML entities or tabs. Happy Hare uses Klipper's
+`respond_info`, so each line arrives prefixed with `// `.
+
+`tools/moonsim/hh_console_samples.json` records the source commit. Regenerate
+it with `python3 tools/make_hh_console_samples.py ../Happy-Hare`; the generator
+executes the formatting methods against plain data using Happy Hare's own
+filament-display test adapter, without booting Klipper. The simulator itself
+needs only the checked-in captures, with no sibling checkout or extra Python
+dependencies. Check replay over the websocket and in console history with
+`python3 tools/sim_smoke.py --hh-console-only`.

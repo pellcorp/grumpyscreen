@@ -9,11 +9,13 @@
     SIM_KLIPPER_STOP [SECONDS=10]  the klipper service stops, then starts again
     SIM_MESSAGE TEXT=.. [TYPE=warning|error]   queue an AFC message
     SIM_AFC_CONSOLE             AFC PREP, warning markup and Unicode debug timing samples
+    SIM_HH_CONSOLE [SAMPLE=all|boot|thin|sensors]   replay Happy Hare HTML/Unicode captures
     SIM_RUNOUT [LANE=x]         AFC: the lane runs dry (backup lane, or pause)
     SIM_FAULT [LANE=x|GATE=n]   AFC: toggle a lane fault; HH: jam a gate
     SIM_ERROR                   Happy Hare: toggle a pause_locked failure on gate 2
 """
 import asyncio
+import json
 import os
 
 from . import state as S, files, klipper as K, moonraker as M, mmu
@@ -102,3 +104,22 @@ async def sim_afc_console(cmd):
     await S.console('<span class=warning--text>WARNING: '
                     'Ram sensor enabled, confirm tool is loaded</span>')
     await S.console('Filament loaded to nozzle (Δt:0.125s, t:1.500)')
+
+
+@gcode("SIM_HH_CONSOLE")
+async def sim_hh_console(cmd):
+    """Replay upstream formatting captures without changing the simulated MMU state."""
+    if mmu.BACKEND != "hh":
+        await S.respond_info("SIM_HH_CONSOLE needs --backend hh")
+        return
+    with open(os.path.join(os.path.dirname(__file__), "hh_console_samples.json"),
+              encoding="utf-8") as f:
+        samples = json.load(f)["samples"]
+    sample = cmd.get("SAMPLE", "all").lower()
+    if sample != "all" and sample not in samples:
+        raise S.GcodeError("SAMPLE must be all, boot, thin or sensors")
+    for name, messages in samples.items():
+        if sample == "all" or sample == name:
+            for message in messages:
+                # MmuLogger.log_always/log_info use Klipper's respond_info.
+                await S.respond_info(message)
