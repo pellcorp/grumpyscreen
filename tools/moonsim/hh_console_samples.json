@@ -1,0 +1,17 @@
+{
+  "source_commit": "1b11270cbc16e9bc7921e8dad0fefdcc9577f074",
+  "samples": {
+    "boot": [
+      "Selecting last gate used (#0)...",
+      "Gate : | 0 | 1 | 2 | 3 |Byp|\nTools: |T0 |T1 |T2 |T3 | - |\nAvail: |<span style=\"color:#000000\">■</span><span style=\"color:#000000\">■</span><span style=\"color:#000000\">■</span>|<span style=\"color:#000000\">■</span><span style=\"color:#000000\">■</span><span style=\"color:#000000\">■</span>|<span style=\"color:#ff00ff\">■</span><span style=\"color:#ff00ff\">■</span><span style=\"color:#ff00ff\">■</span>|<span style=\"color:#ff00ff\">■</span><span style=\"color:#ff00ff\">■</span><span style=\"color:#ff00ff\">■</span>|   |\nSelct: |\\<span style=\"color:#000000\">▼</span>/|~~~~~~~~~~~~~~~~ T0",
+      "[T0] <span style=\"color:#000000\">■■■■■■■■■■</span>┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈Ex┈┈┈┈┈┈┈┤Nz <b><span style=\"color:#87CEEB\">UNLOADED</span></b> <b>0.0mm</b>"
+    ],
+    "thin": [
+      "[T0] <span style=\"color:#ff00ff\">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>Ex<span style=\"color:#ff00ff\">━━━━━━━</span>┫Nz▶ <b><span style=\"color:#87CEEB\">LOADED</span></b> <b>650.0mm</b>"
+    ],
+    "sensors": [
+      "[T0] <span style=\"color:#ff00ff\">■</span>◉<span style=\"color:#ff00ff\">■■</span>◉<span style=\"color:#ff00ff\">■■■■■</span>ê<span style=\"color:#ff00ff\">■■■■■</span> [ C ] ┈┈┈┈◯┈┈Ex┈┈┈◯┈┈┈┤Nz <b><span style=\"color:#87CEEB\">▷▷▷</span></b> <b>125.0mm</b>",
+      "<span style=\"color:#FF69B4\">Warning: Test warning</span>"
+    ]
+  }
+}
