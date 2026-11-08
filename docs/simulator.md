@@ -136,7 +136,23 @@ lines; `primary--text`, `secondary--text` and `info--text` use their theme
 colours. Nested spans restore the surrounding colour when closed. Unknown
 span colours inherit the surrounding colour. `<b>` tags are removed while
 retaining their text. Turning console colours off still removes these tags.
-Sent commands remain literal. Unicode symbols still depend on font coverage.
+Sent commands remain literal.
+
+Non-COSMOS builds also include a small DejaVu Sans Mono fallback containing
+28 Happy Hare punctuation, box-drawing, block, arrow and sensor glyphs. Their
+advance widths match the existing 14px console font so the diagrams retain
+their columns. COSMOS builds omit the fallback source and keep the original
+font without a fallback. Emoji are outside this subset.
+
+To regenerate `assets/dejavusans_mono_hh_14.c`, run
+`python3 tools/make_console_font.py /path/to/DejaVuSansMono.ttf`. It uses
+`lv_font_conv@1.5.3`; the generated file records the source font SHA256.
+The font used here is from
+[Matplotlib v3.10.0](https://github.com/matplotlib/matplotlib/blob/v3.10.0/lib/matplotlib/mpl-data/fonts/ttf/DejaVuSansMono.ttf),
+with its licence in `assets/LICENSE-DejaVu.txt`. Only the generated subset
+is needed to build the application. `make test-console-font` checks actual
+LVGL lookup, bitmap availability and character widths; run with a separate
+`BUILD_DIR` and `COSMOS=true` to check exclusion too.
 
 ### Happy Hare console formatting (#442)
 

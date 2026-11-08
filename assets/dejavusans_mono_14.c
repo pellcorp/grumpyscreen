@@ -16,6 +16,10 @@
 
 #if DEJAVUSANS_MONO_14
 
+#ifndef COSMOS
+LV_FONT_DECLARE(dejavusans_mono_hh_14);
+#endif
+
 /*-----------------
  *    BITMAPS
  *----------------*/
@@ -9978,7 +9982,11 @@ lv_font_t dejavusans_mono_14 = {
     .underline_thickness = 1,
 #endif
     .dsc = &font_dsc,          /*The custom font data. Will be accessed by `get_glyph_bitmap/dsc` */
+#ifdef COSMOS
     .fallback = NULL,
+#else
+    .fallback = &dejavusans_mono_hh_14,
+#endif
     .user_data = NULL
 };
 
