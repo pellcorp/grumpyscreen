@@ -1,0 +1,501 @@
+package io.github.pellcorp.grumpyscreen;
+
+import android.app.Activity;
+import android.app.Dialog;
+import android.content.ComponentName;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.hardware.display.DisplayManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.text.InputType;
+import android.util.Log;
+import android.view.Display;
+import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+
+public class MainActivity extends Activity {
+    private static final String TAG = "grumpyscreen";
+    private static final String PREFS = "printer";
+    private SharedPreferences prefs;
+    private SavedPrinters saved;
+    private Dialog printerDialog;
+    private File configFile;
+    private File moonrakerFile;
+    private File overrideFile;
+    private boolean started;
+
+    // the display can switch rates under us (power saving, a mode change)
+    private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
+        @Override public void onDisplayAdded(int displayId) {}
+        @Override public void onDisplayRemoved(int displayId) {}
+        @Override public void onDisplayChanged(int displayId) {
+            Display d = getWindowManager().getDefaultDisplay();
+            if (started && d != null && d.getDisplayId() == displayId) {
+                GrumpyNative.setRefreshRate(d.getRefreshRate());
+            }
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        saved = new SavedPrinters(prefs);
+        GrumpyNative.setActivity(this);
+        File files = getFilesDir();
+        configFile = new File(files, "grumpyscreen.cfg");
+        moonrakerFile = new File(files, "moonraker.cfg");
+        // what the Settings panel saves; survives app updates
+        overrideFile = new File(files, "grumpyscreen-override.cfg");
+
+        try {
+            // the bundled config is replaced on every start, so an app update
+            // brings its new defaults; the user's changes live in the override
+            copyAsset("grumpyscreen.cfg", configFile);
+            // left by earlier versions, which bundled a macro list
+            new File(files, "macros.cfg").delete();
+        } catch (IOException e) {
+            Log.e(TAG, "unable to install grumpyscreen.cfg", e);
+            Toast.makeText(this, "Unable to install grumpyscreen.cfg", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+
+        if (saved.hasCurrent()) {
+            start();
+        } else {
+            showPrinterDialog(true);
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) goFullscreen();
+    }
+
+    /** Back opens the printer settings; it never leaves the screen. */
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        showPrinterDialog(false);
+    }
+
+    private void start() {
+        try {
+            writeMoonrakerConfig(saved.currentHost(), saved.currentPort());
+        } catch (IOException e) {
+            Log.e(TAG, "unable to write moonraker.cfg", e);
+        }
+        started = true;
+        preferHighestRefreshRate();
+        getSystemService(DisplayManager.class).registerDisplayListener(displayListener, null);
+        // full screen first, so the surface the display is sized from is
+        // the whole screen and not the area between the system bars
+        goFullscreen();
+        setContentView(new GrumpySurfaceView(this, configFile, moonrakerFile, overrideFile));
+    }
+
+    @Override
+    protected void onDestroy() {
+        GrumpyNative.setActivity(null);
+        if (started) getSystemService(DisplayManager.class).unregisterDisplayListener(displayListener);
+        super.onDestroy();
+    }
+
+    /**
+     * Many 90/120Hz phones run apps at 60Hz unless the window asks for more.
+     * Ask for the fastest mode at the current resolution; the system may still
+     * lower it (battery saver, thermal limits).
+     */
+    @SuppressWarnings("deprecation")
+    private void preferHighestRefreshRate() {
+        Display display = getWindowManager().getDefaultDisplay();
+        Display.Mode current = display.getMode();
+        Display.Mode best = current;
+        for (Display.Mode m : display.getSupportedModes()) {
+            if (m.getPhysicalWidth() == current.getPhysicalWidth()
+                    && m.getPhysicalHeight() == current.getPhysicalHeight()
+                    && m.getRefreshRate() > best.getRefreshRate()) {
+                best = m;
+            }
+        }
+        Log.i(TAG, "display modes: current " + current.getRefreshRate() + "Hz, requesting "
+                + best.getRefreshRate() + "Hz");
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.preferredDisplayModeId = best.getModeId();
+        getWindow().setAttributes(lp);
+    }
+
+    /** Settings, Restart GUI: start over in a fresh process. */
+    @SuppressWarnings("unused")
+    void restartFromNative() {
+        runOnUiThread(() -> RestartActivity.restart(this));
+    }
+
+    /**
+     * grumpyscreen's screen timeout: the backlight goes off, as fbdev_blank
+     * does on the printer, and comes back on the touch that wakes it.
+     */
+    @SuppressWarnings("unused")
+    void setDisplaySleepFromNative(boolean sleeping) {
+        runOnUiThread(() -> {
+            WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.screenBrightness = sleeping ? WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF
+                                           : WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+            getWindow().setAttributes(lp);
+        });
+    }
+
+    /** Called from the grumpyscreen UI thread (Settings, Switch Printer). */
+    @SuppressWarnings("unused")
+    void showPrinterPickerFromNative() {
+        runOnUiThread(() -> showPrinterDialog(false));
+    }
+
+    private void showPrinterDialog(boolean firstRun) {
+        if (printerDialog != null && printerDialog.isShowing()) return;
+        // re-read each time: the user may have changed the theme in their override
+        GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
+        float density = getResources().getDisplayMetrics().density;
+        int pad = (int) (16 * density);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(pad, pad / 2, pad, 0);
+        // keep focus (and the keyboard) off the address fields until tapped,
+        // so filling them from a list does not scroll the dialog
+        layout.setFocusableInTouchMode(true);
+        layout.setDescendantFocusability(LinearLayout.FOCUS_BEFORE_DESCENDANTS);
+        // a landscape phone is short: let the dialog body scroll
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(layout);
+
+        EditText host = theme.input(new EditText(this));
+        EditText port = theme.input(new EditText(this));
+        final TextView[] selected = {null};
+        final PrinterScanner.Printer[] selectedPrinter = {null};
+
+        // a row in either list; tapping it selects that printer
+        java.util.function.BiFunction<PrinterScanner.Printer, String, TextView> row = (p, text) -> {
+            TextView item = theme.row(new TextView(this));
+            item.setText(text);
+            item.setClickable(true);
+            item.setOnClickListener(v -> {
+                if (selected[0] != null) theme.select(selected[0], false);
+                theme.select(item, true);
+                selected[0] = item;
+                selectedPrinter[0] = p;
+                host.setText(p.host);
+                port.setText(String.valueOf(p.port));
+                host.setError(null);
+                port.setError(null);
+            });
+            return item;
+        };
+
+        // --- saved printers -------------------------------------------------
+        java.util.Map<String, TextView> savedRows = new java.util.HashMap<>();
+        java.util.List<PrinterScanner.Printer> savedList = saved.all();
+        if (!savedList.isEmpty()) {
+            TextView savedLabel = theme.text(new TextView(this), 14, true);
+            savedLabel.setText("Your printers (long-press to remove)");
+            layout.addView(savedLabel);
+            LinearLayout savedBox = new LinearLayout(this);
+            savedBox.setOrientation(LinearLayout.VERTICAL);
+            layout.addView(savedBox);
+            for (PrinterScanner.Printer p : savedList) {
+                boolean current = saved.isCurrent(p);
+                TextView item = row.apply(p, (current ? "\u25CF " : "\u25CB ") + p
+                        + (current ? "  \u2014 connected" : ""));
+                item.setOnLongClickListener(v -> {
+                    if (saved.isCurrent(p)) {
+                        Toast.makeText(this, "Switch to another printer before removing this one",
+                                Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                    theme.confirm(this, "Remove printer", "Remove " + p + " from your printers?",
+                            "Remove", () -> {
+                                saved.remove(p);
+                                savedBox.removeView(item);
+                                savedRows.remove(p.host + ":" + p.port);
+                                if (selected[0] == item) {
+                                    selected[0] = null;
+                                    selectedPrinter[0] = null;
+                                }
+                            });
+                    return true;
+                });
+                item.setTag(item.getText().toString());  // the label without a status
+                savedBox.addView(item);
+                savedRows.put(p.host + ":" + p.port, item);
+                if (current) item.performClick();
+            }
+        }
+
+        // --- printers found on the network --------------------------------
+        TextView foundLabel = theme.text(new TextView(this), 14, true);
+        foundLabel.setText(savedList.isEmpty() ? "Printers on this network" : "Other printers on this network");
+        foundLabel.setPadding(0, savedList.isEmpty() ? 0 : pad, 0, 0);
+        layout.addView(foundLabel);
+        TextView status = theme.text(new TextView(this), 14, true);
+        status.setPadding(0, pad / 4, 0, pad / 4);
+        layout.addView(status);
+        LinearLayout found = new LinearLayout(this);
+        found.setOrientation(LinearLayout.VERTICAL);
+        layout.addView(found);
+        Button rescan = theme.button(new Button(this), false);
+        rescan.setText("Search again");
+        rescan.setEnabled(false);
+        layout.addView(rescan, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        final PrinterScanner[] scanner = {null};
+        Runnable startScan = new Runnable() {
+            @Override
+            public void run() {
+                if (scanner[0] != null) scanner[0].stop();
+                // Ask each saved printer directly whether it is up: the scan
+                // only sweeps this device's own subnet (and mDNS), so it
+                // misses printers elsewhere, or behind a forwarded port
+                for (PrinterScanner.Printer sp : savedList) {
+                    if (saved.isCurrent(sp)) continue;
+                    TextView item = savedRows.get(sp.host + ":" + sp.port);
+                    if (item == null) continue;
+                    item.setText(item.getTag() + "  \u2014 checking\u2026");
+                    new Thread(() -> {
+                        boolean up;
+                        try {
+                            String body = PrinterScanner.httpGet(sp.host, sp.port, "/server/info", 2000);
+                            up = body != null && new org.json.JSONObject(body).has("result");
+                        } catch (Exception e) {
+                            up = false;
+                        }
+                        final boolean online = up;
+                        runOnUiThread(() -> {
+                            if (savedRows.get(sp.host + ":" + sp.port) != item) return;  // removed
+                            item.setText(item.getTag() + (online ? "  \u2014 online" : "  \u2014 offline"));
+                        });
+                    }).start();
+                }
+                found.removeAllViews();
+                status.setText("Searching\u2026");
+                rescan.setEnabled(false);
+                scanner[0] = new PrinterScanner(MainActivity.this, new PrinterScanner.Listener() {
+                    @Override
+                    public void onFound(PrinterScanner.Printer p) {
+                        TextView known = savedRows.get(p.host + ":" + p.port);
+                        if (known != null) {
+                            // already saved: just show that it is reachable
+                            if (!saved.isCurrent(p)) known.setText(known.getTag() + "  \u2014 online");
+                            if (p.name != null && saved.find(p.host, p.port) != null
+                                    && saved.find(p.host, p.port).name == null) {
+                                saved.rename(p.host, p.port, p.name);
+                            }
+                            return;
+                        }
+                        TextView item = row.apply(p, p.toString());
+                        found.addView(item);
+                        // first run: preselect the first printer found
+                        if (selectedPrinter[0] == null && host.getText().length() == 0) item.performClick();
+                    }
+
+                    @Override
+                    public void onFinished(int probed) {
+                        int n = found.getChildCount();
+                        status.setText(n == 0
+                                ? (savedRows.isEmpty() ? "No printers found. Enter the address below." : "No others found.")
+                                : n == 1 ? "Found 1 printer." : "Found " + n + " printers.");
+                        rescan.setEnabled(true);
+                    }
+                });
+                scanner[0].start();
+            }
+        };
+        rescan.setOnClickListener(v -> startScan.run());
+
+        // --- or typed in ----------------------------------------------------
+        TextView hostLabel = theme.text(new TextView(this), 14, true);
+        hostLabel.setText("Or enter the Moonraker host or IP address");
+        hostLabel.setPadding(0, pad, 0, 0);
+        layout.addView(hostLabel);
+        host.setSingleLine(true);
+        host.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        host.setHint("192.168.1.50");
+        if (host.getText().length() == 0 && saved.hasCurrent()) host.setText(saved.currentHost());
+        layout.addView(host);
+
+        TextView portLabel = theme.text(new TextView(this), 14, true);
+        portLabel.setPadding(0, pad / 2, 0, 0);
+        portLabel.setText("Port");
+        layout.addView(portLabel);
+        port.setSingleLine(true);
+        port.setInputType(InputType.TYPE_CLASS_NUMBER);
+        if (port.getText().length() == 0) port.setText(String.valueOf(saved.currentPort()));
+        layout.addView(port);
+
+        CheckBox home = theme.check(new CheckBox(this));
+        home.setText("Offer GrumpyScreen as the home screen");
+        home.setChecked(isHomeEnabled());
+        layout.addView(home);
+
+        GrumpyTheme.ThemedDialog td = theme.dialog(this, "Printers", scroll);
+        Dialog dialog = td.dialog;
+        dialog.setCancelable(!firstRun);
+        if (firstRun) {
+            td.addButton("Exit", false, v -> finish());
+        } else {
+            td.addButton("Exit app", false, v -> finishAffinity());
+            td.spacer();
+            td.addButton("Cancel", false, v -> dialog.dismiss());
+        }
+        if (firstRun) td.spacer();
+        printerDialog = dialog;
+        dialog.setOnDismissListener(d -> {
+            if (scanner[0] != null) scanner[0].stop();
+            printerDialog = null;
+            goFullscreen();
+        });
+        td.addButton("Connect", true, v -> {
+            String[] hp = parseHost(host.getText().toString(), port.getText().toString());
+            if (hp == null) {
+                host.setError("Enter the printer's address");
+                return;
+            }
+            String newHost = hp[0];
+            int newPort;
+            try {
+                newPort = Integer.parseInt(hp[1]);
+            } catch (NumberFormatException e) {
+                newPort = -1;
+            }
+            if (newPort <= 0 || newPort > 65535) {
+                port.setError("1 - 65535");
+                return;
+            }
+            setHomeEnabled(home.isChecked());
+            PrinterScanner.Printer pick = selectedPrinter[0];
+            String name = pick != null && pick.host.equals(newHost) && pick.port == newPort ? pick.name : null;
+            boolean changed = !saved.hasCurrent() || !newHost.equals(saved.currentHost())
+                    || newPort != saved.currentPort();
+            saved.use(newHost, newPort, name);
+            if (name == null) learnName(newHost, newPort);
+            dialog.dismiss();
+            if (!started) {
+                start();
+            } else if (changed) {
+                // grumpyscreen reads its config once per process
+                RestartActivity.restart(this);
+            }
+        });
+        td.show();
+        layout.requestFocus();
+        startScan.run();
+    }
+
+    /** A typed-in printer gets its hostname as its name once it answers. */
+    private void learnName(String host, int port) {
+        new Thread(() -> {
+            String body = PrinterScanner.httpGet(host, port, "/printer/info");
+            try {
+                String name = new org.json.JSONObject(body).getJSONObject("result").optString("hostname", "");
+                if (!name.isEmpty()) saved.rename(host, port, name);
+            } catch (Exception ignored) {
+                // not reachable yet; it keeps showing its address
+            }
+        }).start();
+    }
+
+    /** Accepts "host", "host:port" or a pasted URL such as http://host:7125/. */
+    static String[] parseHost(String raw, String port) {
+        String h = raw.trim();
+        int scheme = h.indexOf("://");
+        if (scheme >= 0) h = h.substring(scheme + 3);
+        int slash = h.indexOf('/');
+        if (slash >= 0) h = h.substring(0, slash);
+        int colon = h.lastIndexOf(':');
+        if (colon > 0 && h.indexOf(':') == colon) {  // not an IPv6 literal
+            port = h.substring(colon + 1);
+            h = h.substring(0, colon);
+        }
+        if (h.isEmpty()) return null;
+        return new String[]{h, port.trim()};
+    }
+
+    private void writeMoonrakerConfig(String host, int port) throws IOException {
+        File thumbs = new File(getCacheDir(), "thumbnails");
+        //noinspection ResultOfMethodCallIgnored
+        thumbs.mkdirs();
+        String cfg = "[moonraker]\n"
+                + "host: " + host + "\n"
+                + "port: " + port + "\n"
+                // not on the printer, so thumbnails are downloaded to here
+                + "thumbnail_path: " + thumbs.getAbsolutePath() + "\n";
+        try (OutputStream out = new FileOutputStream(moonrakerFile)) {
+            out.write(cfg.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    private void copyAsset(String name, File dest) throws IOException {
+        try (InputStream in = getAssets().open(name); OutputStream out = new FileOutputStream(dest)) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        }
+    }
+
+    private ComponentName homeAlias() {
+        return new ComponentName(this, getPackageName() + ".HomeAlias");
+    }
+
+    private boolean isHomeEnabled() {
+        return getPackageManager().getComponentEnabledSetting(homeAlias())
+                == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
+    }
+
+    private void setHomeEnabled(boolean enabled) {
+        getPackageManager().setComponentEnabledSetting(homeAlias(),
+                enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                        : PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+                PackageManager.DONT_KILL_APP);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void goFullscreen() {
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // the insets controller needs the decor; it may not exist before setContentView
+        getWindow().getDecorView();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+            WindowInsetsController c = getWindow().getInsetsController();
+            if (c != null) {
+                c.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }
+    }
+}

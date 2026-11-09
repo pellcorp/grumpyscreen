@@ -52,6 +52,17 @@ build/sdl/bin/grumpyscreen
 
 Add `--setup` before the target when you want to clean that target before building, for example `./build.sh --setup mips-small`.
 
+### Build for Android
+
+```
+./build.sh android
+```
+
+Builds an APK at `android/app/build/outputs/apk/release/app-release.apk` that
+runs grumpyscreen on an Android phone or tablet, talking to Moonraker over the
+network. It needs JDK 17+ and the Android SDK (`ANDROID_HOME`); Gradle fetches
+the NDK and CMake it needs. See [android/README.md](android/README.md).
+
 ## Testing Without a Printer
 
 `tools/fake_moonraker.py` is a fake printer behind Moonraker's API: it heats, homes, prints real gcode files, and has an AFC or Happy Hare filament changer. `tools/fake_wpa_supplicant.py` fakes the wifi side. Both need only Python 3.

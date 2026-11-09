@@ -3,7 +3,9 @@
 
 #include "platform.h"
 #include "button_container.h"
+#ifndef OS_ANDROID
 #include "wifi_panel.h"
+#endif
 #include "websocket_client.h"
 #ifdef COSMOS
 #include "update_manager_client.h"
@@ -45,7 +47,9 @@ class SettingPanel {
   lv_obj_t *cont;
   lv_obj_t *tabview;
   lv_obj_t *actions_tab;
-  lv_obj_t *wifi_tab;
+#ifndef OS_ANDROID
+  lv_obj_t *wifi_tab;  // Android leaves the device's wifi to Android
+#endif
   lv_obj_t *settings_tab;
   lv_obj_t *about_tab;
   lv_obj_t *actions_cont;
@@ -59,18 +63,25 @@ class SettingPanel {
   UpdateManagerClient update_manager;
 #endif
 
+#ifndef OS_ANDROID
   WifiPanel wifi_panel;
+#endif
 
   ButtonContainer restart_klipper_btn;
   ButtonContainer restart_firmware_btn;
   ButtonContainer guppy_restart_btn;
+#ifndef OS_ANDROID
   ButtonContainer support_zip_btn;
   ButtonContainer switch_to_stock_btn;
   ButtonContainer factory_reset_btn;
+#endif
 #ifdef COSMOS
   ButtonContainer update_btn;
 #else
   ButtonContainer shutdown_host_btn;
+#endif
+#ifdef OS_ANDROID
+  ButtonContainer switch_printer_btn;
 #endif
 };
 

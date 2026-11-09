@@ -46,6 +46,20 @@ function docker_make() {
     docker run --name=grumpydev --rm --entrypoint /bin/bash -v $PWD:$PWD pellcorp/grumpydev -c "cd $PWD && $MISC_ARGS GUPPYSCREEN_VERSION=${GIT_REVISION} GUPPYSCREEN_BRANCH=$GIT_BRANCH make -j $makefile_arg $@"
 }
 
+# The Android app builds with Gradle and the Android SDK/NDK rather than in
+# the grumpydev container; see android/README.md.
+if [ "$1" = "android" ]; then
+    shift
+    if [ -z "$ANDROID_HOME" ] && [ ! -f "$CURRENT_DIR/android/local.properties" ]; then
+      echo "ERROR: set ANDROID_HOME to your Android SDK (or write android/local.properties)"
+      exit 1
+    fi
+    cd "$CURRENT_DIR/android" || exit 1
+    GUPPYSCREEN_VERSION=$GIT_REVISION GUPPYSCREEN_BRANCH=$GIT_BRANCH ./gradlew assembleRelease "$@" || exit $?
+    echo "APK: android/app/build/outputs/apk/release/app-release.apk"
+    exit 0
+fi
+
 TARGET=
 GUPPY_SMALL_SCREEN=false
 COSMOS=false

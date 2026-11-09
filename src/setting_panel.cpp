@@ -34,12 +34,14 @@ static int display_sleep_index(int32_t seconds) {
   return -1;
 }
 
+#ifndef OS_ANDROID
 static WifiPanelOptions embedded_wifi_options(lv_obj_t *parent) {
   WifiPanelOptions opts;
   opts.parent = parent;
   opts.flush = true;
   return opts;
 }
+#endif
 
 static int call_command(const std::string &cmd) {
     try {
@@ -117,7 +119,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , cont(Theme::create_screen(parent))  // fills the tab: it is the page
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
   , actions_tab(lv_tabview_add_tab(tabview, "Tools"))
+#ifndef OS_ANDROID
+  // (Android manages the device's wifi itself: no Network tab there)
   , wifi_tab(lv_tabview_add_tab(tabview, "Network"))
+#endif
   , settings_tab(lv_tabview_add_tab(tabview, "Settings"))
   , about_tab(lv_tabview_add_tab(tabview, "About"))
   , actions_cont(Theme::create_screen(actions_tab))
@@ -130,17 +135,23 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
+#ifndef OS_ANDROID
   , wifi_panel(l, embedded_wifi_options(wifi_tab))
+#endif
   , restart_klipper_btn(actions_cont, Icons::RESTART_IMG, "Restart\nKlipper", &SettingPanel::_handle_callback, this,
         "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
   , restart_firmware_btn(actions_cont, Icons::FIRMWARE_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
         "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
   , guppy_restart_btn(actions_cont, Icons::GUI_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
+#ifndef OS_ANDROID
+  // The app has no use for the printer-side tools: it cannot zip the
+  // printer's logs, and a phone has no stock firmware to switch a printer to
   , support_zip_btn(actions_cont, Icons::SUPPORT_ZIP_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
   , switch_to_stock_btn(actions_cont, Icons::SWITCH_STOCK_IMG, SWITCH_TO_STOCK_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
           SWITCH_TO_STOCK_BUTTON_TITLE, SWITCH_TO_STOCK_BUTTON_PROMPT, {"Back", "Switch to Stock"})
   , factory_reset_btn(actions_cont, Icons::FACTORY_RESET_IMG, FACTORY_RESET_BUTTON_TEXT, &SettingPanel::_handle_callback, this,
 		  FACTORY_RESET_BUTTON_TITLE, FACTORY_RESET_BUTTON_PROMPT, {"Back", "Factory Reset"})
+#endif
 #ifdef COSMOS
   // no prompt of its own: the update manager client checks for an update
   // first and asks only when there is one to install
@@ -148,6 +159,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #else
   , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
+#endif
+#ifdef OS_ANDROID
+  , switch_printer_btn(actions_cont, Icons::PRINT, "Switch\nPrinter", &SettingPanel::_handle_callback, this)
 #endif
 {
   // Restart Klipper asks Moonraker to restart the service, so it stays useful
@@ -159,7 +173,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_add_event_cb(tabview, &SettingPanel::_tabview_event_cb,
                       LV_EVENT_VALUE_CHANGED, this);
   lv_obj_set_style_pad_all(actions_tab, 0, 0);
+#ifndef OS_ANDROID
   lv_obj_set_style_pad_all(wifi_tab, 0, 0);
+#endif
   lv_obj_set_style_pad_all(settings_tab, 0, 0);
   lv_obj_set_style_pad_all(about_tab, 0, 0);
   Theme::style_embedded_tabview(tabview);
@@ -249,6 +265,12 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_set_style_text_color(sleep_timeout_warning, Theme::col(Theme::WARNING), 0);
   refresh_sleep_timeout_warning();
 
+#ifdef OS_ANDROID
+  // The app's tools are the same everywhere: it can be pointed at any of
+  // several printers, and the rest go through Moonraker
+  layout_tiles(actions_cont, {&switch_printer_btn, &restart_klipper_btn, &restart_firmware_btn,
+                              &guppy_restart_btn, &shutdown_host_btn});
+#else
   // Optional tiles only appear with a command behind them; the grid is built
   // from what is left, four across, so a hidden tile never leaves a hole.
   auto has_cmd = [conf](const char *key) { return conf->get<std::string>(key) != ""; };
@@ -270,6 +292,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #endif
 
   layout_tiles(actions_cont, action_tiles);
+#endif
 }
 
 SettingPanel::~SettingPanel() {
@@ -360,10 +383,12 @@ void SettingPanel::refresh_emergency_stop_warning() {
 }
 
 void SettingPanel::refresh_active_tab() {
+#ifndef OS_ANDROID
   const uint16_t idx = lv_tabview_get_tab_act(tabview);
   if (idx == lv_obj_get_index(wifi_tab)) {
     wifi_panel.foreground();
   }
+#endif
 }
 
 void SettingPanel::handle_callback(lv_event_t *event) {
@@ -387,6 +412,10 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     } else if (btn == restart_firmware_btn.get_container()) {
       ws.send_jsonrpc("printer.firmware_restart");
     } else if (btn == guppy_restart_btn.get_container()) {
+#ifdef OS_ANDROID
+      android_restart_app();
+      return;
+#endif
       Config *conf = Config::get_instance();
       auto restart_command = conf->get<std::string>("/commands/gui_restart_cmd");
       auto ret = call_command(restart_command);
@@ -414,6 +443,7 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       });
       if (sent < 0) failed();  // no connection to Moonraker
 #endif
+#ifndef OS_ANDROID
     } else if (btn == support_zip_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
@@ -443,6 +473,10 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       run_command_deferred(mbox, cmd,
                            FACTORY_RESET_BUTTON_TITLE " Failed", FACTORY_RESET_BUTTON_FAILURE,
                            FACTORY_RESET_DELAY_MS);
+#else
+    } else if (btn == switch_printer_btn.get_container()) {
+      android_show_printer_picker();
+#endif
     }
   }
 }
