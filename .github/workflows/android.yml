@@ -1,0 +1,60 @@
+name: android build
+
+# Unlike branch.yml (cross builds and releases), this only builds an APK, so
+# it runs for every branch, forks included, and can be started by hand.
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE != '' }}
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: '21'
+        cache: gradle
+
+    # The runner image ships the Android SDK with its licences accepted
+    # (ANDROID_HOME); Gradle fetches the NDK and CMake versions
+    # android/app/build.gradle.kts pins.
+
+    - name: set grumpyscreen version
+      run: |
+        BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+        VERSION="v2.0.0-$(git rev-list --count 2.0.0..${{ github.sha }})"
+        echo "GUPPYSCREEN_BRANCH=$BRANCH" >> $GITHUB_ENV
+        echo "GUPPYSCREEN_VERSION=$VERSION" >> $GITHUB_ENV
+
+    - name: setup signing
+      if: env.HAS_KEYSTORE == 'true'
+      env:
+        ENCODED_KS: ${{ secrets.ANDROID_KEYSTORE }}
+      run: |
+        echo "$ENCODED_KS" | base64 -d > "$RUNNER_TEMP/ks.jks"
+        echo "KEYSTORE=$RUNNER_TEMP/ks.jks" >> $GITHUB_ENV
+
+    - name: build apk
+      working-directory: android
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      run: ./gradlew --no-daemon assembleRelease
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: grumpyscreen-android
+        path: android/app/build/outputs/apk/release/app-release.apk
