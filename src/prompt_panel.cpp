@@ -135,9 +135,16 @@ void PromptPanel::show_banner(const std::string &text, bool error) {
   using Level = NotificationBanner::Level;
   auto &banner = NotificationBanner::instance();
   // A new command error can repeat the same text after dismissal.
-  if (error) banner.clear(Source::Klipper);
-  banner.show(error ? Source::Klipper : Source::Display, text,
-              error ? Level::Error : Level::Info);
+  if (error) {
+    banner.clear(Source::Klipper);
+    banner.show(Source::Klipper, text, Level::Error);
+  } else {
+    // Clear the printer's stored message on dismissal so a later M117 with
+    // identical text is a new message. Its status update clears our copy too.
+    banner.show(Source::Display, text, Level::Info, [this]() {
+      ws.gcode_script("M117");
+    });
+  }
 }
 
 // M117: an empty message clears it, and an error on screen is not replaced.
