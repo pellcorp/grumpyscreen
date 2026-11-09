@@ -40,6 +40,7 @@ class SettingPanel {
   void refresh_sleep_timeout_warning();
 
   KWebSocketClient &ws;
+  std::mutex &lv_lock;
   bool owns_cont;
   lv_obj_t *cont;
   lv_obj_t *tabview;

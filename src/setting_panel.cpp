@@ -112,6 +112,7 @@ static lv_obj_t *add_about_line(lv_obj_t *parent, const std::string &text, bool 
 
 SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   : ws(c)
+  , lv_lock(l)
   , owns_cont(parent == nullptr)
   , cont(Theme::create_screen(parent))  // fills the tab: it is the page
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
@@ -148,9 +149,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
 {
-  // Restart Klipper is a local service command and remains useful even when
-  // Moonraker or Klipper is unavailable. Firmware restart, on the other hand,
-  // is a Klipper RPC and starts disabled until that connection is confirmed.
+  // Restart Klipper asks Moonraker to restart the service, so it stays useful
+  // while Klipper is down. Firmware restart, on the other hand, is a Klipper
+  // RPC and starts disabled until that connection is confirmed.
   restart_firmware_btn.disable();
   lv_obj_set_style_pad_all(cont, 0, 0);
   lv_obj_set_size(tabview, LV_PCT(100), LV_PCT(100));
@@ -370,12 +371,20 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     if (lv_event_get_code(event) == LV_EVENT_CLICKED) {
       lv_obj_t *btn = lv_event_get_current_target(event);
     if (btn == restart_klipper_btn.get_container()) {
-      Config *conf = Config::get_instance();
-      auto restart_command = conf->get<std::string>("/commands/restart_klipper_cmd");
-      auto ret = call_command(restart_command);
-      if (ret != 0) {
+      // Moonraker restarts the klipper service it manages (moonraker.asvc),
+      // whatever runs it on this host: systemd, or the init scripts behind
+      // the K1's supervisorctl
+      auto failed = []() {
         create_simple_dialog(lv_scr_act(), "Restart Klipper Failed", "Failed to restart Klipper!", true, true);
-      }
+      };
+      const int sent = ws.send_jsonrpc("machine.services.restart", {{"service", "klipper"}},
+                                       [this, failed](json &r) {
+        if (!r.contains("error")) return;
+        LOG_ERROR("Failed to restart Klipper: {}", r["error"].dump());
+        std::lock_guard<std::mutex> lock(lv_lock);
+        failed();
+      });
+      if (sent < 0) failed();  // no connection to Moonraker
     } else if (btn == restart_firmware_btn.get_container()) {
       ws.send_jsonrpc("printer.firmware_restart");
     } else if (btn == guppy_restart_btn.get_container()) {
