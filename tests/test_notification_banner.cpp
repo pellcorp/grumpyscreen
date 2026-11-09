@@ -30,24 +30,23 @@ int main() {
   using Source = NotificationBanner::Source;
   using Level = NotificationBanner::Level;
   auto &banner = NotificationBanner::instance();
-  int acknowledgements = 0, resets = 0;
+  int acknowledgements = 0;
   banner.show(Source::Display, "Ready", Level::Info);
   lv_obj_t *overlay = lv_obj_get_child(lv_layer_top(), 0);
   lv_obj_t *text = lv_obj_get_child(overlay, 0);
-  lv_obj_t *reset = lv_obj_get_child(overlay, 1);
-  lv_obj_t *close = lv_obj_get_child(overlay, 2);
+  lv_obj_t *close = lv_obj_get_child(overlay, 1);
+  assert(lv_obj_get_child_cnt(overlay) == 2); // message and close button only
   lv_obj_update_layout(overlay);
   const auto line_height = lv_font_get_line_height(lv_obj_get_style_text_font(text, LV_PART_MAIN));
   assert(lv_obj_get_height(overlay) == line_height + 16);
   assert(lv_obj_get_x(close) > lv_obj_get_x(text) + lv_obj_get_width(text));
 
   banner.show(Source::Mmu, "Filament jam", Level::Error,
-              [&]() { ++acknowledgements; }, [&]() { ++resets; });
+              [&]() { ++acknowledgements; });
   assert(lv_obj_get_child_cnt(lv_layer_top()) == 1);
   assert(std::strcmp(lv_label_get_text(text), "Filament jam") == 0);
-  assert(!lv_obj_has_flag(reset, LV_OBJ_FLAG_HIDDEN));
-  lv_event_send(reset, LV_EVENT_CLICKED, nullptr);
-  assert(resets == 1 && acknowledgements == 0);
+  assert(lv_obj_get_child_cnt(overlay) == 2);
+  assert(acknowledgements == 0);
   lv_obj_update_layout(overlay);
   assert(lv_obj_get_height(overlay) == line_height + 16);
 
@@ -57,9 +56,9 @@ int main() {
   lv_event_send(close, LV_EVENT_CLICKED, nullptr);
   assert(std::strcmp(lv_label_get_text(text), "Filament jam") == 0);
   lv_event_send(close, LV_EVENT_CLICKED, nullptr);
-  assert(acknowledgements == 1 && resets == 1);
+  assert(acknowledgements == 1);
   assert(std::strcmp(lv_label_get_text(text), "Ready") == 0);
-  banner.show(Source::Mmu, "Filament jam", Level::Error, {}, []() {});
+  banner.show(Source::Mmu, "Filament jam", Level::Error);
   assert(!banner.visible(Source::Mmu)); // status updates don't reopen a fault
   banner.clear(Source::Mmu);
   banner.show(Source::Mmu, "Filament jam", Level::Error);
