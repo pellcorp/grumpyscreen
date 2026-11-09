@@ -112,7 +112,7 @@ Start `./sim.sh`, then send these from the simulated console or through
 
 | Scenario | Commands / check |
 | --- | --- |
-| Short message and compact height | `M117 Ready` — X dismisses; `M117` clears |
+| Short message and compact height | `M117 Ready` — X sends an empty `M117` to clear it; sending `M117 Ready` again shows it again |
 | Long wrapped message | `M117 A long printer message that should wrap across several lines while keeping the close button at the far right of the banner` |
 | Klipper command error | `G28`, then `G0 X99999` — X dismisses; repeat to show it again |
 | AFC warning queue | `SIM_MESSAGE TEXT="First warning" TYPE=warning`, then `SIM_MESSAGE TEXT="Second warning" TYPE=warning` — X acknowledges the first and exposes the next |
