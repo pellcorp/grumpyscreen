@@ -204,7 +204,6 @@ if [ -n "$PRINTER_IP" ] && [ -f "$BUILD_DIR/bin/grumpyscreen" ] && { [ "$TARGET_
     cp grumpyscreen.cfg /tmp
     scp "$BUILD_DIR/bin/grumpyscreen" $PI_USERNAME@$PRINTER_IP:/tmp/
     sed -i 's:/etc/init.d/S99grumpyscreen restart:sudo systemctl restart grumpyscreen:g' /tmp/grumpyscreen.cfg
-    sed -i 's:/etc/init.d/S55klipper_service restart:sudo systemctl restart klipper:g' /tmp/grumpyscreen.cfg
     sed -i 's:/usr/data/pellcorp/tools/support.sh:/home/$PI_USERNAME/pellcorp/tools/support.sh:g' /tmp/grumpyscreen.cfg
     sed -i 's:/sbin/halt:sudo systemctl poweroff:g' /tmp/grumpyscreen.cfg
 
