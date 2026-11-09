@@ -96,15 +96,17 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   macro_panel = std::make_unique<MacroPanel>(macro_tab,
       [this](const std::string &gcode) {
         lv_tabview_set_act(tabview, lv_obj_get_index(console_cont), LV_ANIM_OFF);
-        this->send_gcode(gcode);
+        ws.gcode_script(gcode);
       });
 
+  ws.set_gcode_sent_callback([this](const std::string &gcode) { append_gcode(gcode); });
   ws.register_method_callback("notify_gcode_response",
 			      "ConsolePanel",
 			      [this](json& d) { this->handle_macro_response(d); });
 }
 
 ConsolePanel::~ConsolePanel() {
+  ws.set_gcode_sent_callback({});
   lv_obj_del(tabview);
 }
 
@@ -229,10 +231,19 @@ void ConsolePanel::handle_macro_response(json &j) {
   }
 }
 
-void ConsolePanel::send_gcode(const std::string &gcode) {
-  // klipper does not echo commands, so show what was sent
-  append_output("> " + gcode);
-  ws.gcode_script(gcode);
+void ConsolePanel::append_gcode(const std::string &gcode) {
+  // Klipper does not echo commands. Mark every line of a script as sent,
+  // without changing the active panel or tab.
+  std::string text;
+  size_t start = 0;
+  while (start < gcode.size()) {
+    const size_t end = gcode.find('\n', start);
+    if (!text.empty()) text += '\n';
+    text += "> " + gcode.substr(start, end == std::string::npos ? end : end - start);
+    if (end == std::string::npos) break;
+    start = end + 1;
+  }
+  append_output(text);
 }
 
 void ConsolePanel::handle_input(lv_event_t *e) {
@@ -252,7 +263,7 @@ void ConsolePanel::handle_input(lv_event_t *e) {
   if (code == LV_EVENT_READY) {
     const char *text = lv_textarea_get_text(input);
     if (text != NULL && text[0] != '\0') {
-      send_gcode(text);
+      ws.gcode_script(text);
       lv_textarea_set_text(input, "");
     }
   }
