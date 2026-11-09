@@ -904,15 +904,11 @@ void MmuPanel::populate() {
   }
 
   // Detailed messages use the same top overlay as Klipper errors, even on
-  // another tab. Closing a fault hides its text; only Reset recovers the MMU.
+  // another tab. Closing a fault hides its text; reset stays in the MMU panel.
   auto &banner = NotificationBanner::instance();
   // Some backends forward fault text through the Klipper console and leave
   // message empty. Don't cover that detailed banner with a generic MMU error.
   if (!message.empty() && (error_state || message != dismissed_message)) {
-    std::function<void()> reset;
-    if (error_state) reset = [this]() {
-      if (backend != NULL) backend->reset_failure();
-    };
     banner.show(NotificationBanner::Source::Mmu,
                 message,
                 message_error || error_state ? NotificationBanner::Level::Error
@@ -922,7 +918,7 @@ void MmuPanel::populate() {
                     dismissed_message = message;
                     backend->dismiss_message();
                   }
-                }, reset);
+                });
   } else {
     banner.clear(NotificationBanner::Source::Mmu);
   }
