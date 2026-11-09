@@ -5,7 +5,6 @@ fake_moonraker.py writes these into the session's UI config instead of the devic
 scripts, so the settings panel's buttons act on the simulation and never on
 the machine running it:
 
-    restart-klipper   machine.services.restart klipper
     restart-gui       the UI exits and sim.sh starts it again
     shutdown          machine.shutdown: the sim host goes down, then comes back,
                       and the UI restarts with it like a power cycle
@@ -61,9 +60,7 @@ def main():
     a = ap.parse_args()
     session = "/tmp/grumpy-sim-%d" % a.port
     print("[sim_hook] %s" % a.action, flush=True)
-    if a.action == "restart-klipper":
-        r = asyncio.run(rpc(a.port, "machine.services.restart", {"service": "klipper"}))
-    elif a.action in ("shutdown", "switch-to-stock"):
+    if a.action in ("shutdown", "switch-to-stock"):
         if a.action == "switch-to-stock":
             print("[sim_hook] the sim has no stock firmware; rebooting the sim host instead")
         r = asyncio.run(rpc(a.port, "machine.shutdown" if a.action == "shutdown" else "machine.reboot"))

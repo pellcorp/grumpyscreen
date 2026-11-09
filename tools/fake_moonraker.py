@@ -102,7 +102,7 @@ async def http_reply(path):
 # ------------------------------------------------------------------ ui config
 COMMANDS = {"factory_reset_cmd": "factory-reset", "gui_restart_cmd": "restart-gui",
             "switch_to_stock_cmd": "switch-to-stock", "support_zip_cmd": "support-zip",
-            "restart_klipper_cmd": "restart-klipper", "shutdown_host_cmd": "shutdown",
+            "shutdown_host_cmd": "shutdown",
             "restart_wifi_cmd": "restart-wifi"}
 
 
