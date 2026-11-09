@@ -35,6 +35,9 @@ class KWebSocketClient : public hv::WebSocketClient {
   int send_jsonrpc(const std::string &method, const json &params);
   int send_jsonrpc(const std::string &method);
   int gcode_script(const std::string &gcode);
+  // Runs before sending, on the caller's thread. UI callers already hold the
+  // LVGL lock; the console callback must not acquire it again.
+  void set_gcode_sent_callback(std::function<void(const std::string &)> cb);
   // Klipper splits extended gcode parameters with shlex, so a value containing
   // whitespace, a comment character or a quote has to be quoted to survive
   static std::string quote_arg(const std::string &value) {
@@ -51,6 +54,7 @@ class KWebSocketClient : public hv::WebSocketClient {
 				std::function<void(json&)> cb);
   
  private:
+  std::function<void(const std::string &)> gcode_sent_callback;
   std::map<uint32_t, std::function<void(json&)>> callbacks;
   std::map<uint32_t, NotifyConsumer*> consumers;
   std::vector<NotifyConsumer*> notify_consumers;
