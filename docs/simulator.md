@@ -105,6 +105,28 @@ From the console panel or `python3 tools/sim_send.py "SIM_PRINT"`:
 
 `python3 tools/sim_smoke.py` checks the simulator end to end.
 
+### Shared notification banner
+
+Start `./sim.sh`, then send these from the simulated console or through
+`python3 tools/sim_send.py "COMMAND"`:
+
+| Scenario | Commands / check |
+| --- | --- |
+| Short message and compact height | `M117 Ready` — X dismisses; `M117` clears |
+| Long wrapped message | `M117 A long printer message that should wrap across several lines while keeping the close button at the far right of the banner` |
+| Klipper command error | `G28`, then `G0 X99999` — X dismisses; repeat to show it again |
+| AFC warning queue | `SIM_MESSAGE TEXT="First warning" TYPE=warning`, then `SIM_MESSAGE TEXT="Second warning" TYPE=warning` — X acknowledges the first and exposes the next |
+| AFC console error | `SIM_MESSAGE TEXT="Test AFC error" TYPE=error` — detailed error uses the shared banner |
+| AFC fault | `SIM_FAULT LANE=lane1` — use the MMU header's Reset action; sending the same command again also toggles the fault |
+| Happy Hare fault | Start `SIM_BACKEND=hh ./sim.sh`, then `SIM_ERROR` — X hides the message without resetting; the MMU header still offers Reset |
+| Priority and tab changes | Show a warning, then trigger a Klipper error; the error takes priority. Dismiss it to reveal the warning. Change tabs while either is visible |
+| Prompt interaction | `SIM_PROMPT`, then trigger a Klipper command error — the error belongs to the prompt while it is open |
+
+The simulator supplies backend events; click X and Reset in the UI to check
+their effects. `make GUPPY_SDL=1 BUILD_DIR=build/sdl test-notification-banner`
+also checks the shared LVGL widget without a window: one overlay, short-message
+height, wrapping, priority, dismissal, reset callbacks and fault recurrence.
+
 ### AFC console formatting (#442)
 
 Run `python3 tools/sim_send.py "SIM_AFC_CONSOLE"` with the console open to

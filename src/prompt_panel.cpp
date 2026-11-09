@@ -1,4 +1,5 @@
 #include "prompt_panel.h"
+#include "notification_banner.h"
 #include "config.h"
 #include "print_status_panel.h"
 #include "state.h"
@@ -130,42 +131,20 @@ void PromptPanel::consume(json &j) {
 }
 
 void PromptPanel::show_banner(const std::string &text, bool error) {
-  if (error_banner == NULL) {
-    error_banner = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(error_banner, lv_pct(96), LV_SIZE_CONTENT);
-    lv_obj_align(error_banner, LV_ALIGN_TOP_MID, 0, scale_r(4));
-    lv_obj_set_style_border_width(error_banner, 0, 0);
-    lv_obj_set_style_radius(error_banner, scale_r(8), 0);
-    lv_obj_set_style_pad_hor(error_banner, scale_r(12), 0);
-    lv_obj_set_style_pad_ver(error_banner, scale_r(8), 0);
-    lv_obj_clear_flag(error_banner, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(error_banner, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(error_banner, [](lv_event_t *e) {
-      PromptPanel *panel = (PromptPanel*)e->user_data;
-      lv_obj_del_async(panel->error_banner);
-      panel->error_banner = NULL;
-    }, LV_EVENT_CLICKED, this);
-
-    lv_obj_t *label = lv_label_create(error_banner);
-    lv_obj_set_width(label, lv_pct(100));
-    lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
-  }
-  banner_is_error = error;
-  lv_obj_set_style_bg_color(error_banner, col(error ? DANGER : TEXT), 0);
-  lv_obj_t *label = lv_obj_get_child(error_banner, 0);
-  lv_obj_set_style_text_color(label, col(error ? ON_PRIMARY : BG), 0);
-  lv_label_set_text(label, fmt::format("{} - Tap to dismiss", text).c_str());
+  using Source = NotificationBanner::Source;
+  using Level = NotificationBanner::Level;
+  auto &banner = NotificationBanner::instance();
+  // A new command error can repeat the same text after dismissal.
+  if (error) banner.clear(Source::Klipper);
+  banner.show(error ? Source::Klipper : Source::Display, text,
+              error ? Level::Error : Level::Info);
 }
 
-// M117: an empty message clears it, and an error on screen is not replaced
+// M117: an empty message clears it, and an error on screen is not replaced.
 void PromptPanel::update_display_message(const std::string &message) {
-  if (error_banner != NULL && banner_is_error) return;
-  if (!message.empty()) {
-    show_banner(message, false);
-  } else if (error_banner != NULL) {
-    lv_obj_del_async(error_banner);
-    error_banner = NULL;
-  }
+  auto &banner = NotificationBanner::instance();
+  if (banner.visible(NotificationBanner::Source::Klipper)) return;
+  show_banner(message, false);
 }
 
 // screwN_name from the printer config the way fluidd shows it ("front_left"

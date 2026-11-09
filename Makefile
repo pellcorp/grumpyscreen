@@ -251,7 +251,13 @@ test-console-font: $(CONSOLE_FONT_TEST_OBJS)
 	$(CXX) -std=c++17 $(INC) $(DEFINES) tests/test_console_font.cpp $(CONSOLE_FONT_TEST_OBJS) -o $(BUILD_DIR)/test_console_font
 	$(BUILD_DIR)/test_console_font
 
-test: libhv.a test-console-font
+LVGL_TEST_OBJS = $(filter-out $(BUILD_OBJ_DIR)/lv_drivers/%.o,$(filter $(BUILD_OBJ_DIR)/lvgl/%.o $(BUILD_OBJ_DIR)/lv_%.o,$(TARGET)))
+.PHONY: test-notification-banner
+test-notification-banner: $(LVGL_TEST_OBJS) $(BUILD_OBJ_DIR)/src/notification_banner.o
+	@$(CXX) -std=c++17 -I./src $(INC) $(DEFINES) tests/test_notification_banner.cpp $(BUILD_OBJ_DIR)/src/notification_banner.o $(LVGL_TEST_OBJS) -lm -o $(BUILD_DIR)/test_notification_banner
+	$(BUILD_DIR)/test_notification_banner
+
+test: libhv.a test-console-font test-notification-banner
 	@mkdir -p $(BUILD_DIR)
 	g++ -std=gnu++17 -O2 -I./src -I$(DEPS_DIR)/include/ tests/test_config.cpp -o $(BUILD_DIR)/test_config
 	$(BUILD_DIR)/test_config
