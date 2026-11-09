@@ -266,9 +266,13 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   action_tiles.push_back(&update_btn);
 #endif
 
+#ifdef COSMOS
   for (const Optional &o : {Optional{&shutdown_host_btn, "/commands/shutdown_host_cmd"}}) {
     if (has_cmd(o.cmd)) action_tiles.push_back(o.tile); else o.tile->hide();
   }
+#else
+  action_tiles.push_back(&shutdown_host_btn);  // through Moonraker
+#endif
 
   layout_tiles(actions_cont, action_tiles);
 }
@@ -400,12 +404,29 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       update_manager.start();
 #endif
     } else if (btn == shutdown_host_btn.get_container()) {
+#ifdef COSMOS
       Config *conf = Config::get_instance();
       auto shutdown_host_cmd = conf->get<std::string>("/commands/shutdown_host_cmd");
       lv_obj_t *mbox = create_simple_dialog(lv_scr_act(), "Shutdown Host Initiated", "Shutdown of host has been initiated", false, false);
       run_command_deferred(mbox, shutdown_host_cmd,
                            "Shutdown Host Failed", "Failed to shutdown host!",
                            DEFERRED_COMMAND_DELAY_MS);
+#else
+      // Moonraker powers the host off (its [machine] shutdown_action): systemd,
+      // or the K1's systemctl wrapper around /sbin/poweroff. The notice can be
+      // closed: a screen that is not on the host outlives it.
+      create_simple_dialog(lv_scr_act(), "Shutdown Host Initiated", "Shutdown of host has been initiated", true, false);
+      auto failed = []() {
+        create_simple_dialog(lv_scr_act(), "Shutdown Host Failed", "Failed to shutdown host!", true, true);
+      };
+      const int sent = ws.send_jsonrpc("machine.shutdown", json::object(), [this, failed](json &r) {
+        if (!r.contains("error")) return;
+        LOG_ERROR("Failed to shutdown host: {}", r["error"].dump());
+        std::lock_guard<std::mutex> lock(lv_lock);
+        failed();
+      });
+      if (sent < 0) failed();  // no connection to Moonraker
+#endif
     } else if (btn == support_zip_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
