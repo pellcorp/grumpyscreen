@@ -77,9 +77,17 @@ so the panel hiding it locally is not enough. `AfcBackend` sends
 `AFC_CLEAR_MESSAGE`. A backend whose message is derived from live state has
 nothing to pop and leaves the default alone.
 
+MMU messages use `NotificationBanner`, the same top overlay as Klipper errors
+and M117 messages, across all tabs. X hides the message and acknowledges queued
+non-fault messages. A fault also offers Reset, which calls `reset_failure()`;
+X alone never resets hardware. The MMU status header keeps a reset action
+available after dismissal. Status updates with unchanged text do not reopen
+a dismissed message; a cleared or changed message can appear again.
+
 AFC errors also reach the console, so they show in the top banner.
 `AfcBackend` pops them itself and leaves `message` empty, so the panel doesn't
-show them too. While AFC is stopped, the panel still offers `Tap to reset`.
+show them too. While AFC is stopped, the MMU status header still offers
+`Tap to reset`; its empty message does not create a second generic overlay.
 
 ### Tool mapping (optional)
 

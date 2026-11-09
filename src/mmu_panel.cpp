@@ -1,4 +1,5 @@
 #include "mmu_panel.h"
+#include "notification_banner.h"
 #include "mmu_tools.h"
 #include "config.h"
 #include "icons.h"
@@ -248,6 +249,7 @@ MmuPanel::MmuPanel(KWebSocketClient &c, std::mutex &l)
 }
 
 MmuPanel::~MmuPanel() {
+  NotificationBanner::instance().clear(NotificationBanner::Source::Mmu);
   ws.unregister_notify_update(this);
   if (backup_picker != NULL) {
     lv_obj_del(backup_picker);
@@ -627,6 +629,8 @@ MmuBackend *MmuPanel::select_backend() {
   // can race LVGL event callbacks reading the backend on the UI thread
   std::lock_guard<std::mutex> guard(lv_lock);
   backend = NULL;
+  NotificationBanner::instance().clear(NotificationBanner::Source::Mmu);
+  dismissed_message.clear();
   if (!enabled()) return NULL;
 
   const std::string id = configured_backend();
@@ -899,15 +903,34 @@ void MmuPanel::populate() {
     lv_obj_set_style_border_width(card.cont, slot.tool_loaded ? scale_r(2) : border_w(), 0);
   }
 
-  // Header status & message display. A message the backend does not flag as an
-  // error is information -- amber, like the bypass banner -- and it can sit
-  // there for good, so it can be tapped away locally. A fault is only ever
-  // cleared by the backend, so that tap asks it to recover instead.
-  if (error_state || (!message.empty() && message != dismissed_message)) {
-    lv_obj_set_style_bg_color(status_bar, col(message_error || error_state ? DANGER : WARNING), 0);
-    lv_label_set_text(status_label, fmt::format("{}{}", message.empty() ? "MMU error" : message,
-                                                error_state ? " - Tap to reset"
-                                                            : " - Tap to dismiss").c_str());
+  // Detailed messages use the same top overlay as Klipper errors, even on
+  // another tab. Closing a fault hides its text; only Reset recovers the MMU.
+  auto &banner = NotificationBanner::instance();
+  // Some backends forward fault text through the Klipper console and leave
+  // message empty. Don't cover that detailed banner with a generic MMU error.
+  if (!message.empty() && (error_state || message != dismissed_message)) {
+    std::function<void()> reset;
+    if (error_state) reset = [this]() {
+      if (backend != NULL) backend->reset_failure();
+    };
+    banner.show(NotificationBanner::Source::Mmu,
+                message,
+                message_error || error_state ? NotificationBanner::Level::Error
+                                             : NotificationBanner::Level::Warning,
+                [this]() {
+                  if (!error_state && backend != NULL) {
+                    dismissed_message = message;
+                    backend->dismiss_message();
+                  }
+                }, reset);
+  } else {
+    banner.clear(NotificationBanner::Source::Mmu);
+  }
+
+  // Keep the status header useful after a fault's overlay is dismissed.
+  if (error_state) {
+    lv_obj_set_style_bg_color(status_bar, col(DANGER), 0);
+    lv_label_set_text(status_label, "MMU error - Tap to reset");
   } else if (bypass) {
     lv_obj_set_style_bg_color(status_bar, col(WARNING), 0);
     lv_label_set_text(status_label, "Bypass Active - Single Spool");
@@ -1038,13 +1061,6 @@ void MmuPanel::handle_status_bar(lv_event_t *e) {
   if (backend == NULL) return;
   if (error_state) {
     backend->reset_failure();
-  } else if (!message.empty()) {
-    // ask the backend to acknowledge it -- a queued message it never pops
-    // would hide every later one -- and stop showing this text meanwhile, so
-    // the tap feels immediate whether or not the backend has anything to do.
-    backend->dismiss_message();
-    dismissed_message = message;
-    populate(); // already on the UI thread, which holds lv_lock
   }
 }
 
