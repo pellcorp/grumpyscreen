@@ -69,8 +69,9 @@ class SettingPanel {
   ButtonContainer factory_reset_btn;
 #ifdef COSMOS
   ButtonContainer update_btn;
-#endif
+#else
   ButtonContainer shutdown_host_btn;
+#endif
 };
 
 #endif // __SETTING_PANEL_H__
