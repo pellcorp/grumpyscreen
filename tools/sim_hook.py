@@ -6,8 +6,6 @@ scripts, so the settings panel's buttons act on the simulation and never on
 the machine running it:
 
     restart-gui       the UI exits and sim.sh starts it again
-    shutdown          machine.shutdown: the sim host goes down, then comes back,
-                      and the UI restarts with it like a power cycle
     switch-to-stock   nothing to switch to: logs it and reboots the sim host
     factory-reset     session files, history, spools, wifi and UI settings
                       back to their starting state, then the UI restarts
@@ -60,10 +58,9 @@ def main():
     a = ap.parse_args()
     session = "/tmp/grumpy-sim-%d" % a.port
     print("[sim_hook] %s" % a.action, flush=True)
-    if a.action in ("shutdown", "switch-to-stock"):
-        if a.action == "switch-to-stock":
-            print("[sim_hook] the sim has no stock firmware; rebooting the sim host instead")
-        r = asyncio.run(rpc(a.port, "machine.shutdown" if a.action == "shutdown" else "machine.reboot"))
+    if a.action == "switch-to-stock":
+        print("[sim_hook] the sim has no stock firmware; rebooting the sim host instead")
+        r = asyncio.run(rpc(a.port, "machine.reboot"))
         # the screen goes down with the host and boots again with it
         restart_gui(session)
     elif a.action == "factory-reset":

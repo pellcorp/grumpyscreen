@@ -145,9 +145,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   // no prompt of its own: the update manager client checks for an update
   // first and asks only when there is one to install
   , update_btn(actions_cont, Icons::UPDATE_IMG, UPDATE_BUTTON_TEXT, &SettingPanel::_handle_callback, this)
-#endif
+#else
   , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
+#endif
 {
   // Restart Klipper asks Moonraker to restart the service, so it stays useful
   // while Klipper is down. Firmware restart, on the other hand, is a Klipper
@@ -264,11 +265,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   }
 #ifdef COSMOS
   action_tiles.push_back(&update_btn);
+#else
+  action_tiles.push_back(&shutdown_host_btn);  // through Moonraker
 #endif
-
-  for (const Optional &o : {Optional{&shutdown_host_btn, "/commands/shutdown_host_cmd"}}) {
-    if (has_cmd(o.cmd)) action_tiles.push_back(o.tile); else o.tile->hide();
-  }
 
   layout_tiles(actions_cont, action_tiles);
 }
@@ -398,14 +397,23 @@ void SettingPanel::handle_callback(lv_event_t *event) {
     } else if (btn == update_btn.get_container()) {
       // Moonraker runs the update and reports its progress to every UI.
       update_manager.start();
-#endif
+#else
     } else if (btn == shutdown_host_btn.get_container()) {
-      Config *conf = Config::get_instance();
-      auto shutdown_host_cmd = conf->get<std::string>("/commands/shutdown_host_cmd");
-      lv_obj_t *mbox = create_simple_dialog(lv_scr_act(), "Shutdown Host Initiated", "Shutdown of host has been initiated", false, false);
-      run_command_deferred(mbox, shutdown_host_cmd,
-                           "Shutdown Host Failed", "Failed to shutdown host!",
-                           DEFERRED_COMMAND_DELAY_MS);
+      // Moonraker powers the host off (its [machine] shutdown_action): systemd,
+      // or the K1's systemctl wrapper around /sbin/poweroff. The notice can be
+      // closed: a screen that is not on the host outlives it.
+      create_simple_dialog(lv_scr_act(), "Shutdown Host Initiated", "Shutdown of host has been initiated", true, false);
+      auto failed = []() {
+        create_simple_dialog(lv_scr_act(), "Shutdown Host Failed", "Failed to shutdown host!", true, true);
+      };
+      const int sent = ws.send_jsonrpc("machine.shutdown", json::object(), [this, failed](json &r) {
+        if (!r.contains("error")) return;
+        LOG_ERROR("Failed to shutdown host: {}", r["error"].dump());
+        std::lock_guard<std::mutex> lock(lv_lock);
+        failed();
+      });
+      if (sent < 0) failed();  // no connection to Moonraker
+#endif
     } else if (btn == support_zip_btn.get_container()) {
       Config *conf = Config::get_instance();
       auto support_zip_cmd = conf->get<std::string>("/commands/support_zip_cmd");
