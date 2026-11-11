@@ -114,14 +114,6 @@ Tree(const std::string &filename, const std::string &path, uint32_t modified)
     children.clear();
   }
 
-  const char* get_thumbpath() {
-    if (metadata.contains("result") && metadata["result"].contains("thumbnails")) {
-      // XXX: fix my index
-      return metadata["result"]["thumbnails"][1]["relative_path"].template get<std::string>().c_str();
-    }
-    return NULL;
-  }
-  
   std::string name;
   std::string full_path;
   uint32_t date_modified;
