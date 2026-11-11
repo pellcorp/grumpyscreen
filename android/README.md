@@ -140,8 +140,10 @@ thirds of what a 1600x720 phone needs and a third of a 2560x1600 tablet's.
 The app instead draws Montserrat Medium (the face the built-in fonts are
 made from) with [FreeType](https://freetype.org/) at exactly the size asked
 for, with LVGL's symbols from the same FontAwesome file
-(`android/app/src/main/cpp/grumpy_fonts.cpp`). FreeType 2.13.3 is fetched,
-checksum pinned, when CMake configures.
+(`android/app/src/main/cpp/grumpy_fonts.cpp`). FreeType 2.13.3 is unpacked
+from the vendored source archive in `android/app/src/main/cpp/third_party`,
+with its SHA-256 checked when CMake configures. Clean builds do not need to
+download FreeType.
 
 ## Measuring
 
