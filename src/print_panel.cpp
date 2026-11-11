@@ -37,6 +37,9 @@ PrintPanel::PrintPanel(KWebSocketClient &websocket, std::mutex &lock, PrintStatu
   , refresh_pending(false)
   , visible(false)
 {
+#ifdef OS_ANDROID
+  back_btn.use_as_back();
+#endif
   LOG_TRACE("building print panel");
   lv_obj_move_background(files_cont);
   lv_obj_set_flex_flow(files_cont, LV_FLEX_FLOW_ROW);

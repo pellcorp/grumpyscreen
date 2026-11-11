@@ -76,6 +76,9 @@ SpoolmanPanel::SpoolmanPanel(KWebSocketClient &c, std::mutex &l)
   , active_id(-1)
   , sorted_by(SORTED_BY_ID)
 {
+#ifdef OS_ANDROID
+  back_btn.use_as_back();
+#endif
   // icon-only square tiles a finger tall: the table gets the rest of the screen
   for (ButtonContainer *b : {&reload_btn, &back_btn}) {
     b->use_plain();

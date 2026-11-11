@@ -25,6 +25,7 @@
 #include "guppyscreen.h"
 #include "logger.h"
 #include "theme.h"
+#include "back_navigation.h"
 
 // grumpy_icons.c
 extern "C" void grumpy_icons_init(int hor_res, int ver_res);
@@ -358,6 +359,13 @@ Java_io_github_pellcorp_grumpyscreen_GrumpyNative_surfaceDestroyed(JNIEnv *, jcl
     ANativeWindow_release(window);
     window = nullptr;
   }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_io_github_pellcorp_grumpyscreen_GrumpyNative_back(JNIEnv *, jclass) {
+  if (!ready) return JNI_FALSE;
+  std::lock_guard<std::mutex> g(GuppyScreen::get()->get_lock());
+  return BackNavigation::handle() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

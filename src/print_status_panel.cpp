@@ -58,6 +58,9 @@ PrintStatusPanel::PrintStatusPanel(KWebSocketClient &websocket_client,
   , heater_bed_target(-1)
   , chamber_sensor_key_(Config::get_instance()->get<std::string>("/ui/chamber_temp_sensor"))
 {
+#ifdef OS_ANDROID
+  back_btn.use_as_back();
+#endif
   emergency_btn.set_prompt_condition([] {
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
   });

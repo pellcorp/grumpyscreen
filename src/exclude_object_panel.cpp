@@ -141,6 +141,9 @@ ExcludeObjectPanel::ExcludeObjectPanel(KWebSocketClient &websocket_client, std::
   , zoom_in_btn(create_text_btn(zoom_row, LV_SYMBOL_PLUS, &ExcludeObjectPanel::_handle_zoom, this))
   , back_btn(panel_cont, Icons::BACK, "Back", &ExcludeObjectPanel::_handle_callback, this)
 {
+#ifdef OS_ANDROID
+  back_btn.use_as_back();
+#endif
   lv_obj_move_background(panel_cont);
   // canvas on the left, the legend column filling the rest, one gap apart
   lv_obj_set_flex_flow(panel_cont, LV_FLEX_FLOW_ROW);

@@ -34,6 +34,9 @@ FineTunePanel::FineTunePanel(KWebSocketClient &websocket_client, std::mutex &l)
                         &FineTunePanel::_handle_selector, this)
   , back_btn(panel_cont, Icons::BACK, "Back", &FineTunePanel::_handle_back, this)
 {
+#ifdef OS_ANDROID
+  back_btn.use_as_back();
+#endif
   lv_obj_move_background(panel_cont);
 
   // readout | down | up | reset, four rows sharing the height above a

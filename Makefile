@@ -45,6 +45,9 @@ bindir 			?= $(prefix)/bin
 #Collect the files to compile
 MAINSRC = 		$(wildcard $(LVGL_DIR)/src/*.cpp)
 
+# System Back navigation is built by Android's CMake project.
+MAINSRC 		:= $(filter-out $(LVGL_DIR)/src/back_navigation.cpp,$(MAINSRC))
+
 # Vendor drivers for the MMU panel, one file each. A build carries only the
 # ones named here; grumpyscreen.cfg's [mmu] backend then picks between them at
 # runtime. Leave it empty for a build with the panel but no vendor support:
@@ -261,7 +264,12 @@ test-notification-banner: $(LVGL_TEST_OBJS) $(BUILD_OBJ_DIR)/src/notification_ba
 	@$(CXX) -std=c++17 -I./src $(INC) $(DEFINES) tests/test_notification_banner.cpp $(BUILD_OBJ_DIR)/src/notification_banner.o $(LVGL_TEST_OBJS) -lm -o $(BUILD_DIR)/test_notification_banner
 	$(BUILD_DIR)/test_notification_banner
 
-test: libhv.a test-console-font test-notification-banner
+.PHONY: test-back-navigation
+test-back-navigation: $(LVGL_TEST_OBJS)
+	@$(CXX) -std=c++17 -DOS_ANDROID -I./src $(INC) tests/test_back_navigation.cpp src/back_navigation.cpp src/button_container.cpp $(LVGL_TEST_OBJS) -lm -o $(BUILD_DIR)/test_back_navigation
+	$(BUILD_DIR)/test_back_navigation
+
+test: libhv.a test-console-font test-notification-banner test-back-navigation
 	@mkdir -p $(BUILD_DIR)
 	g++ -std=gnu++17 -O2 -I./src -I$(DEPS_DIR)/include/ tests/test_config.cpp -o $(BUILD_DIR)/test_config
 	$(BUILD_DIR)/test_config

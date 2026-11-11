@@ -29,6 +29,9 @@ final class GrumpyNative {
 
     static native void touch(int x, int y, boolean down);
 
+    /** Handles Back in the current native panel, or returns false for the printer list. */
+    static native boolean back();
+
     /** Who the native side asks to open the printer list (null when gone). */
     static native void setActivity(MainActivity activity);
 }

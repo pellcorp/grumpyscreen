@@ -84,7 +84,7 @@ add_custom_command(
     DEPENDS ${ICON_SVGS} ${CMAKE_CURRENT_SOURCE_DIR}/embed_assets.cmake
     COMMENT "Embedding icons")
 
-file(GLOB GRUMPY_SRC
+file(GLOB GRUMPY_SRC CONFIGURE_DEPENDS
     ${GRUMPY_ROOT}/src/*.cpp
     ${GRUMPY_ROOT}/assets/*.c)
 list(REMOVE_ITEM GRUMPY_SRC

@@ -146,6 +146,10 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   , extrude_cooldown_btn(extrude_right_col, Icons::COOLDOWN_IMG, "Cooldown", &ExtruderPanel::_handle_callback, this)
   , extrude_back_btn(extrude_right_col, Icons::BACK, "Back", &ExtruderPanel::_handle_callback, this)
 {
+#ifdef OS_ANDROID
+  load_back_btn.use_as_back();
+  extrude_back_btn.use_as_back();
+#endif
   lv_obj_move_background(panel_cont);
 
   // The tab bar spans the screen; each page owns all of its controls.

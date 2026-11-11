@@ -13,6 +13,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:enableOnBackInvokedCallback="true"
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="sensorLandscape"
@@ -24,7 +25,7 @@
         </activity>
 
         <!-- Lets a dedicated printer tablet boot straight into the screen.
-             Off until enabled from the printer dialog (Back). -->
+             Off until enabled from the printer dialog. -->
         <activity-alias
             android:name=".HomeAlias"
             android:enabled="false"

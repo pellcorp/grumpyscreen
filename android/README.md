@@ -65,7 +65,7 @@ reference signing secrets or the release environment.
   the device itself, and lists only hosts that answer like Moonraker, by
   hostname. A printer elsewhere can still be typed in (`host`, `host:port` or
   a pasted `http://host:7125/` all work).
-* The **☰** at the top left (or Back) opens the printer list:
+* The **☰** at the top left opens the printer list:
   every printer you have connected to is remembered by name, the search runs
   again, and choosing one and Connect switches to it (the app restarts itself).
   Saved printers show whether they are online (each is asked for
@@ -73,6 +73,8 @@ reference signing secrets or the release environment.
   Long-press a saved printer to forget it. The same dialog can make the app
   the home screen, for a tablet dedicated to a printer. It is drawn with
   grumpyscreen's own `[theme]` colours and Montserrat, the UI's font.
+* Android's back gesture or Back button uses the current panel's **Back**
+  button when it is visible and enabled; otherwise, it opens the printer list.
 * Settings changed in the UI are saved to the app's
   `files/grumpyscreen-override.cfg`; a `[theme]` there restyles the printer
   dialog too.

@@ -1,6 +1,7 @@
 #ifndef __BUTTON_CONTAINER_H__
 #define __BUTTON_CONTAINER_H__
 
+#include "platform.h"
 #include "lvgl/lvgl.h"
 
 #include <array>
@@ -20,6 +21,10 @@ class ButtonContainer {
 
   lv_obj_t *get_container();
   lv_obj_t *get_button();
+#ifdef OS_ANDROID
+  // Android Back invokes this tile's existing click handler when it is exposed.
+  void use_as_back();
+#endif
   // Stand as tall as another control sharing this tile's row. The row is
   // content-sized in the panels that need this, so stretching into it would be
   // circular -- it is deriving its height from us. Measuring settles it, which

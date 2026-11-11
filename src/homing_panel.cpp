@@ -29,6 +29,9 @@ HomingPanel::HomingPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , distance_selector(homing_cont, "Move Distance (mm)",
 		     {".1", ".5", "1", "5", "10", "25", "50", ""}, 2, &HomingPanel::_handle_selector_cb, this)
 {
+#ifdef OS_ANDROID
+  back_btn.use_as_back();
+#endif
   emergency_btn.set_prompt_condition([] {
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
   });

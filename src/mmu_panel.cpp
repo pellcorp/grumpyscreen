@@ -599,6 +599,9 @@ void MmuPanel::create_edit_screen() {
                                           &MmuPanel::_handle_edit_action, this));
   edit_back_btn.reset(new ButtonContainer(action_row, Icons::BACK, "Back",
                                           &MmuPanel::_handle_edit_action, this));
+#ifdef OS_ANDROID
+  edit_back_btn->use_as_back();
+#endif
   // these sit inside the right-hand panel, and a set of controls gets one box
   // round it, not a box each.
   for (ButtonContainer *b : {edit_backup_btn.get(), edit_save_btn.get(), edit_back_btn.get()}) {

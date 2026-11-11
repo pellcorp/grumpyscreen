@@ -35,6 +35,9 @@ LedPanel::LedPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   , all_off_btn(side_cont, Icons::LIGHT_OFF, "All Off", &LedPanel::_handle_callback, this)
   , back_btn(side_cont, Icons::BACK, "Back", &LedPanel::_handle_callback, this)
 {
+#ifdef OS_ANDROID
+  back_btn.use_as_back();
+#endif
   // the list takes the width, the action tiles their own column
   lv_obj_set_flex_flow(ledpanel_cont, LV_FLEX_FLOW_ROW);
   lv_obj_set_size(leds_cont, 0, lv_pct(100));

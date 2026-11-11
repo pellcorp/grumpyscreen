@@ -26,6 +26,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -45,6 +47,7 @@ public class MainActivity extends Activity {
     private File overrideFile;
     private boolean started;
     private MenuButton menu;
+    private OnBackInvokedCallback backCallback;
 
     // the display can switch rates under us (power saving, a mode change)
     private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
@@ -61,6 +64,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            backCallback = this::handleBack;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);
+        }
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         saved = new SavedPrinters(prefs);
         GrumpyNative.setActivity(this);
@@ -96,10 +104,15 @@ public class MainActivity extends Activity {
         if (hasFocus) goFullscreen();
     }
 
-    /** Back opens the printer settings; it never leaves the screen. */
+    /** Android 12 and earlier; newer releases use the gesture callback above. */
     @Override
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
+        handleBack();
+    }
+
+    private void handleBack() {
+        if (started && GrumpyNative.back()) return;
         showPrinterDialog(false);
     }
 
@@ -178,6 +191,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
+        }
         GrumpyNative.setActivity(null);
         if (started) getSystemService(DisplayManager.class).unregisterDisplayListener(displayListener);
         super.onDestroy();

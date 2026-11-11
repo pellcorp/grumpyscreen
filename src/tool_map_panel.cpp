@@ -63,6 +63,9 @@ void ToolMapPanel::create() {
                                                 &ToolMapPanel::_handle_action, this);
   back_btn = std::make_unique<ButtonContainer>(controls, Icons::BACK, "Back",
                                                &ToolMapPanel::_handle_action, this);
+#ifdef OS_ANDROID
+  back_btn->use_as_back();
+#endif
   for (ButtonContainer *b : {back_btn.get(), print_btn.get()}) {
     b->use_plain();
     b->hide_label();

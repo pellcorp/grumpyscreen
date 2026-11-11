@@ -1,6 +1,9 @@
 #include "button_container.h"
 #include "simple_dialog.h"
 #include "theme.h"
+#ifdef OS_ANDROID
+#include "back_navigation.h"
+#endif
 
 #include <algorithm>
 
@@ -67,6 +70,12 @@ ButtonContainer::~ButtonContainer() {
 lv_obj_t *ButtonContainer::get_container() {
   return btn_cont;
 }
+
+#ifdef OS_ANDROID
+void ButtonContainer::use_as_back() {
+  BackNavigation::register_button(btn_cont);
+}
+#endif
 
 // An icon-and-label action: no box of its own, the icon turning the accent
 // colour under a finger is the whole feedback, which is how every tile in
