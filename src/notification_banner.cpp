@@ -71,6 +71,8 @@ void NotificationBanner::render() {
     lv_obj_set_style_radius(container, scale_r(8), 0);
     lv_obj_set_style_pad_hor(container, scale_r(12), 0);
     lv_obj_set_style_pad_ver(container, scale_r(8), 0);
+    // The top layer has no screen font to inherit; scale both text and X.
+    lv_obj_set_style_text_font(container, scale_font(12), 0);
     lv_obj_set_flex_flow(container, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_clear_flag(container, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);

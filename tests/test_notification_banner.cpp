@@ -7,6 +7,8 @@
 extern "C" uint32_t custom_tick_get() { return 0; }
 namespace Theme {
 int scale_r(int px) { return px; }
+// Use a font distinct from LV_FONT_DEFAULT to catch unscaled overlay text.
+const lv_font_t *scale_font(int) { return &lv_font_montserrat_20; }
 lv_color_t col(Colour colour) { return lv_color_hex(0x101010 * (int(colour) + 1)); }
 }
 
@@ -37,8 +39,12 @@ int main() {
   lv_obj_t *close = lv_obj_get_child(overlay, 1);
   assert(lv_obj_get_child_cnt(overlay) == 2); // message and close button only
   lv_obj_update_layout(overlay);
+  const auto font = Theme::scale_font(12);
+  assert(lv_obj_get_style_text_font(text, LV_PART_MAIN) == font);
+  assert(lv_obj_get_style_text_font(lv_obj_get_child(close, 0), LV_PART_MAIN) == font);
   const auto line_height = lv_font_get_line_height(lv_obj_get_style_text_font(text, LV_PART_MAIN));
   assert(lv_obj_get_height(overlay) == line_height + 16);
+  assert(lv_obj_get_height(close) == line_height);
   assert(lv_obj_get_x(close) > lv_obj_get_x(text) + lv_obj_get_width(text));
 
   banner.show(Source::Mmu, "Filament jam", Level::Error,
