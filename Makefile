@@ -184,6 +184,10 @@ DEFINES				+= -D SDL_HOR_RES=480 -D SDL_VER_RES=272
 else
 DEFINES				+= -D SDL_HOR_RES=800 -D SDL_VER_RES=480
 endif
+else
+# the framebuffer drives the display and blanks it for the screen timeout
+# wherever there is no SDL window (the Android app has its own build)
+DEFINES				+= -D GUPPY_FBDEV
 endif
 
 COMPILE_CC				= $(CC) $(CFLAGS) $(INC) $(DEFINES)

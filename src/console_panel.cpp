@@ -6,6 +6,7 @@
 #include "klipper_temp_filter.h"
 #include "icons.h"
 #include "theme.h"
+#include "platform.h"
 
 using namespace Theme;
 
@@ -38,7 +39,12 @@ ConsolePanel::ConsolePanel(KWebSocketClient &websocket_client, std::mutex &lock,
   // entry. The mono face is the one fixed-width font compiled in and has no
   // scaled sizes, so it is the one unscaled font in the UI, worn by the log only.
   lv_obj_add_style(output, &styles().panel, 0);
+#ifdef OS_ANDROID
+  // a phone is far denser than 800x480: the app has the mono face in sizes
+  lv_obj_set_style_text_font(output, android_console_font(), 0);
+#else
   lv_obj_set_style_text_font(output, &dejavusans_mono_14, 0);
+#endif
   lv_obj_set_size(output, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_border_width(output, 0, LV_STATE_FOCUSED | LV_PART_CURSOR);
   // each line coloured by what it is (see colourize); the log's label reads the

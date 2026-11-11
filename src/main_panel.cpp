@@ -17,10 +17,20 @@ static constexpr int COMPACT_TAB_BAR_W = 45;
 // Keep the compact screen's nav strip narrow enough to leave more room for the
 // page. On larger displays it grows only as far as the established 60px width.
 static int tab_bar_w() {
+#ifdef OS_ANDROID
+  // phones and tablets are far denser than 800x480: past it the strip keeps
+  // growing as the rest of the UI does (60px at 800x480), or its icons end up
+  // tiny. Their icons follow the strip, see nav_icon_px.
+  return std::clamp(scale_w(45), COMPACT_TAB_BAR_W, std::max(FULL_TAB_BAR_W, scale_r(36)));
+#else
   return std::clamp(scale_w(45), COMPACT_TAB_BAR_W, FULL_TAB_BAR_W);
+#endif
 }
 
-static int reclaimed_tab_bar_w() { return FULL_TAB_BAR_W - tab_bar_w(); }
+static int reclaimed_tab_bar_w() { return std::max(0, FULL_TAB_BAR_W - tab_bar_w()); }
+
+// The nav icons are 40px, or two thirds of a strip that has grown past 60px.
+static int nav_icon_px() { return std::max(40, tab_bar_w() * 2 / 3); }
 
 MainPanel::MainPanel(KWebSocketClient &websocket,
 		     std::mutex &lock,
@@ -257,7 +267,7 @@ void MainPanel::_draw_tab_icon(lv_event_t *e) {
   // Ask the decoder so this also works with encoded image sources.
   lv_img_header_t header;
   if (lv_img_decoder_get_info(icon, &header) != LV_RES_OK || header.w == 0 || header.h == 0) return;
-  const int size = std::max(1, std::min({40, lv_area_get_width(&slot) - 2 * gap(),
+  const int size = std::max(1, std::min({nav_icon_px(), lv_area_get_width(&slot) - 2 * gap(),
                                       lv_area_get_height(&slot) - 2 * gap()}));
   const int zoom = size * LV_IMG_ZOOM_NONE / std::max(header.w, header.h);
   const int width = header.w * zoom / LV_IMG_ZOOM_NONE;
@@ -319,6 +329,13 @@ void MainPanel::create_panel() {
   lv_obj_set_style_border_side(tab_btns, 0, LV_PART_ITEMS | LV_STATE_CHECKED);
   lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_tab_icon, LV_EVENT_DRAW_PART_BEGIN, this);
   lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_tab_icon, LV_EVENT_DRAW_PART_END, this);
+#ifdef OS_ANDROID
+  // the app draws the icons from their SVGs, at exactly the size shown
+  android_set_nav_icon_px(nav_icon_px());
+  // the top of the strip is the app's printer menu, which it draws itself
+  lv_obj_set_style_pad_top(tab_btns, android_menu_height(), 0);
+  android_place_menu(tab_bar_w(), android_menu_height());
+#endif
 
   // The page is the theme's background everywhere: the screen, the tabview and
   // each tab. Left alone they paint LVGL's own dark card grey, which only

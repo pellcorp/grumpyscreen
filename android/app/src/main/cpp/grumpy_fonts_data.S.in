@@ -1,0 +1,16 @@
+// Generated from grumpy_fonts_data.S.in by CMakeLists.txt: the font files
+// grumpy_fonts.cpp hands to FreeType, embedded in the library as they are.
+    .section .rodata
+    .balign 16
+    .global grumpy_font_text
+grumpy_font_text:
+    .incbin "@GRUMPY_FONT_TEXT@"
+    .global grumpy_font_text_end
+grumpy_font_text_end:
+    .balign 16
+    .global grumpy_font_symbols
+grumpy_font_symbols:
+    .incbin "@GRUMPY_FONT_SYMBOLS@"
+    .global grumpy_font_symbols_end
+grumpy_font_symbols_end:
+    .section .note.GNU-stack,"",%progbits

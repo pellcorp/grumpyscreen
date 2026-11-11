@@ -1,0 +1,11 @@
+// The NDK's libc++ no longer ships <experimental/filesystem>; the C++17
+// <filesystem> it does ship has the same interface for everything
+// grumpyscreen uses, so expose it under the old name.
+#pragma once
+#include <filesystem>
+
+namespace std {
+namespace experimental {
+namespace filesystem = ::std::filesystem;
+}
+}

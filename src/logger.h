@@ -10,6 +10,10 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include "platform.h"
+#ifdef OS_ANDROID
+#include <android/log.h>
+#endif
 
 enum class LogLevel : int { TRACE = 0, DEBUG = 1, INFO = 2, ERROR = 3 };
 
@@ -35,6 +39,19 @@ inline void set_log_level(const std::string& s) {
 }
 
 inline void log_line(LogLevel lvl, const std::string& msg){
+#ifdef OS_ANDROID
+  // an app's stdout goes nowhere: logcat is the only log there is
+  int prio = ANDROID_LOG_INFO;
+  switch (lvl) {
+    case LogLevel::TRACE: prio = ANDROID_LOG_VERBOSE; break;
+    case LogLevel::DEBUG: prio = ANDROID_LOG_DEBUG; break;
+    case LogLevel::INFO:  prio = ANDROID_LOG_INFO; break;
+    case LogLevel::ERROR: prio = ANDROID_LOG_ERROR; break;
+    default: break;
+  }
+  __android_log_write(prio, "grumpyscreen", msg.c_str());
+  return;
+#endif
   using namespace std::chrono;
   const auto now = system_clock::to_time_t(system_clock::now());
   std::tm tm{};
