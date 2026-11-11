@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- the local address, to know which subnet to search for printers -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- installing grumpyscreen.apk downloaded from GitHub releases -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
@@ -43,6 +45,11 @@
             android:process=":restart"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true" />
+
+        <!-- receives the result of an update handed to the package installer -->
+        <receiver
+            android:name=".InstallReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>
