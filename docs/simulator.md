@@ -120,6 +120,7 @@ Start `./sim.sh`, then send these from the simulated console or through
 | AFC fault | `SIM_FAULT LANE=lane1` — use the MMU header's Reset action; sending the same command again also toggles the fault |
 | Happy Hare fault | Start `SIM_BACKEND=hh ./sim.sh`, then `SIM_ERROR` — X hides the message without resetting; the MMU header still offers Reset |
 | Priority and tab changes | Show a warning, then trigger a Klipper error; the error takes priority. Dismiss it to reveal the warning. Change tabs while either is visible |
+| Klipper goes offline | Show a banner, then send `SIM_KLIPPER_STOP SECONDS=10`, `SIM_SHUTDOWN`, or `SIM_DISCONNECT` — all banners clear immediately while the UI waits for the printer |
 | Prompt interaction | `SIM_PROMPT`, then trigger a Klipper command error — the error belongs to the prompt while it is open |
 
 The simulator supplies backend events; click X and Reset in the UI to check
