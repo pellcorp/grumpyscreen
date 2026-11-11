@@ -51,13 +51,14 @@ target_include_directories(lvgl PUBLIC ${GRUMPY_ROOT} ${GRUMPY_ROOT}/lvgl)
 # --- FreeType -----------------------------------------------------------------
 # Draws the text at whatever size the screen needs (grumpy_fonts.cpp). Only
 # what that takes: TrueType and WOFF (zlib), no HarfBuzz, PNG, bzip2 or Brotli.
+# Use the vendored upstream archive so clean builds need no FreeType download.
 include(FetchContent)
 set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
 set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
 set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
 set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
 FetchContent_Declare(freetype
-    URL https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz
+    URL "${CMAKE_CURRENT_SOURCE_DIR}/third_party/freetype-2.13.3.tar.xz"
     URL_HASH SHA256=0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289)
 FetchContent_MakeAvailable(freetype)
 
