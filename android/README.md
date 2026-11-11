@@ -73,14 +73,13 @@ reference signing secrets or the release environment.
   Long-press a saved printer to forget it. The same dialog can make the app
   the home screen, for a tablet dedicated to a printer. It is drawn with
   grumpyscreen's own `[theme]` colours and Montserrat, the UI's font.
-* The app updates itself from this repository's GitHub releases. Once a day it
-  asks GitHub for the latest release and, when it is newer, offers to download
-  it; **Update app** in the printer list (☰) checks immediately. The APK is
-  downloaded to the app cache, checked against the SHA-256 GitHub publishes,
-  and handed to Android's installer, which asks you to confirm. Your printers
-  and settings are kept. Builds whose version is a commit hash rather than a
-  `v2.0.0-<count>` release tag (local development builds) only check when
-  asked. Android shows the **Allow from this source** setting the first time.
+* **Check for updates** in the printer list (☰) checks this repository's GitHub
+  releases when pressed. If a newer version is available, choose **Open release**
+  to open it in your browser, download `grumpyscreen.apk`
+  from the release assets, and open it to install the update. Your printers
+  and settings are kept. Android may ask you to allow installs from your
+  browser or file manager. GrumpyScreen does not request permission to install
+  apps. There are no automatic update checks.
 * Settings changed in the UI are saved to the app's
   `files/grumpyscreen-override.cfg`; a `[theme]` there restyles the printer
   dialog too.
