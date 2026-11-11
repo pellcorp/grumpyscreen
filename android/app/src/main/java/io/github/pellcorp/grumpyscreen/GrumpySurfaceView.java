@@ -23,7 +23,6 @@ public class GrumpySurfaceView extends SurfaceView implements SurfaceHolder.Call
         this.moonrakerFile = moonrakerFile;
         this.overrideFile = overrideFile;
         getHolder().addCallback(this);
-        setKeepScreenOn(true);  // grumpyscreen's own screen timeout decides
     }
 
     @Override

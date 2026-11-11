@@ -32,7 +32,9 @@ class GuppyScreen {
   static GuppyScreen *instance;
   static lv_style_t style_container;
   static lv_theme_t th_new;
+#ifndef OS_ANDROID
   static lv_obj_t *screen_saver;
+#endif
   static std::mutex lv_lock;
   static KWebSocketClient ws;
   std::unique_ptr<SpoolmanPanel> spoolman_panel;

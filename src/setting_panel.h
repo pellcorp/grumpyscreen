@@ -39,7 +39,9 @@ class SettingPanel {
   void refresh_active_tab();
   void setting_changed(lv_event_t *event);
   void refresh_emergency_stop_warning();
+#ifndef OS_ANDROID
   void refresh_sleep_timeout_warning();
+#endif
 
   KWebSocketClient &ws;
   std::mutex &lv_lock;
@@ -57,8 +59,10 @@ class SettingPanel {
   lv_obj_t *about_cont;
   lv_obj_t *emergency_prompt_switch;
   lv_obj_t *emergency_stop_warning;
+#ifndef OS_ANDROID
   lv_obj_t *sleep_timeout_selector;
   lv_obj_t *sleep_timeout_warning;
+#endif
 #ifdef COSMOS
   UpdateManagerClient update_manager;
 #endif

@@ -26,7 +26,9 @@ GuppyScreen *GuppyScreen::instance = NULL;
 lv_style_t GuppyScreen::style_container;
 lv_theme_t GuppyScreen::th_new;
 
+#ifndef OS_ANDROID
 lv_obj_t *GuppyScreen::screen_saver = NULL;
+#endif
 
 KWebSocketClient GuppyScreen::ws(NULL);
 
@@ -116,6 +118,7 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
   GuppyScreen *gs = GuppyScreen::get();
 
+#ifndef OS_ANDROID
   screen_saver = lv_obj_create(lv_scr_act());
 
   lv_obj_set_size(screen_saver, LV_PCT(100), LV_PCT(100));
@@ -125,6 +128,7 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   lv_obj_set_style_bg_color(screen_saver, lv_color_black(), 0);
 #endif
   lv_obj_move_background(screen_saver);
+#endif
 
 #ifdef GUPPY_CALIBRATE
   lv_obj_t *main_screen = lv_disp_get_scr_act(NULL);
@@ -160,6 +164,8 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
 void GuppyScreen::loop() {
   /*Handle LitlevGL tasks (tickless mode)*/
+#ifndef OS_ANDROID
+  // Android manages screen timeout and brightness through the device settings.
   std::atomic_bool is_sleeping(false);
   Config *conf = Config::get_instance();
   int32_t display_sleep = conf->get<int32_t>("/ui/display_sleep_sec") * 1000;
@@ -170,6 +176,7 @@ void GuppyScreen::loop() {
   LOG_DEBUG("Display sleep timeout: {} ms, starting inactivity baseline: {} ms",
            display_sleep,
            inactive_baseline);
+#endif
 
   while (1) {
 #ifdef GUPPY_SDL
@@ -181,6 +188,7 @@ void GuppyScreen::loop() {
     lv_lock.lock();
     const uint32_t time_till_next = lv_timer_handler();
 
+#ifndef OS_ANDROID
     // The Settings panel updates Config in place, so do not keep using the
     // startup snapshot after the user changes the timeout.
     // Once a second is soon enough, and spares a config lookup every pass.
@@ -188,6 +196,7 @@ void GuppyScreen::loop() {
       sleep_checked = lv_tick_get();
       display_sleep = conf->get<int32_t>("/ui/display_sleep_sec") * 1000;
     }
+#endif
 
 #ifdef GUPPY_SDL
     if (sdl_quit_qry) {
@@ -196,6 +205,7 @@ void GuppyScreen::loop() {
     }
 #endif
 
+#ifndef OS_ANDROID
     if (display_sleep != -1) {
       const uint32_t current_inactive = lv_disp_get_inactive_time(NULL);
       if (current_inactive < last_inactive) {
@@ -210,9 +220,6 @@ void GuppyScreen::loop() {
 #ifdef GUPPY_FBDEV
           fbdev_blank();
 #endif
-#ifdef OS_ANDROID
-          android_set_display_sleep(true);
-#endif
           lv_obj_move_foreground(screen_saver);
           is_sleeping = true;
         }
@@ -222,14 +229,12 @@ void GuppyScreen::loop() {
 #ifdef GUPPY_FBDEV
           fbdev_unblank();
 #endif
-#ifdef OS_ANDROID
-          android_set_display_sleep(false);
-#endif
           lv_obj_move_background(screen_saver);
           is_sleeping = false;
         }
       }
     }
+#endif
 
     lv_lock.unlock();
 

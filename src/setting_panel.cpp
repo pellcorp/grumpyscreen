@@ -24,6 +24,7 @@ static constexpr uint32_t DEFERRED_COMMAND_DELAY_MS = 500;
 // The factory reset dialog is deliberately left up longer before we block.
 static constexpr uint32_t FACTORY_RESET_DELAY_MS = 5000;
 
+#ifndef OS_ANDROID
 static constexpr int32_t DISPLAY_SLEEP_VALUES[] = {-1, 60, 300, 600, 1800};
 static const char *DISPLAY_SLEEP_MAP[] = {"Never", "1 min", "5 min", "10 min", "30 min", ""};
 
@@ -34,7 +35,6 @@ static int display_sleep_index(int32_t seconds) {
   return -1;
 }
 
-#ifndef OS_ANDROID
 static WifiPanelOptions embedded_wifi_options(lv_obj_t *parent) {
   WifiPanelOptions opts;
   opts.parent = parent;
@@ -130,8 +130,10 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , about_cont(Theme::create_screen(about_tab))
   , emergency_prompt_switch(nullptr)
   , emergency_stop_warning(nullptr)
+#ifndef OS_ANDROID
   , sleep_timeout_selector(nullptr)
   , sleep_timeout_warning(nullptr)
+#endif
 #ifdef COSMOS
   , update_manager(c, l)
 #endif
@@ -216,6 +218,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_remove_style_all(emergency_text);
   lv_obj_clear_flag(emergency_text, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_width(emergency_text, 0);
+  lv_obj_set_height(emergency_text, LV_SIZE_CONTENT);
   lv_obj_set_flex_grow(emergency_text, 1);
   lv_obj_set_flex_flow(emergency_text, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(emergency_text, LV_FLEX_ALIGN_START,
@@ -239,6 +242,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_set_style_text_color(emergency_stop_warning, Theme::col(Theme::DANGER), 0);
   refresh_emergency_stop_warning();
 
+#ifndef OS_ANDROID
   add_about_line(settings_panel, "Screen timeout", true);
   sleep_timeout_selector = lv_btnmatrix_create(settings_panel);
   lv_obj_set_size(sleep_timeout_selector, LV_PCT(100), Theme::touch_h());
@@ -261,6 +265,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_label_set_long_mode(sleep_timeout_warning, LV_LABEL_LONG_WRAP);
   lv_obj_set_style_text_color(sleep_timeout_warning, Theme::col(Theme::WARNING), 0);
   refresh_sleep_timeout_warning();
+#endif
 
 #ifdef OS_ANDROID
   // The app's tools are the same on every printer: they all go through Moonraker
@@ -339,6 +344,7 @@ void SettingPanel::setting_changed(lv_event_t *event) {
       else
         lv_obj_clear_state(emergency_prompt_switch, LV_STATE_CHECKED);
     }
+#ifndef OS_ANDROID
   } else if (target == sleep_timeout_selector) {
     const uint32_t selected = lv_btnmatrix_get_selected_btn(sleep_timeout_selector);
     if (selected < sizeof(DISPLAY_SLEEP_VALUES) / sizeof(DISPLAY_SLEEP_VALUES[0])) {
@@ -351,6 +357,7 @@ void SettingPanel::setting_changed(lv_event_t *event) {
         lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, old_idx, LV_BTNMATRIX_CTRL_CHECKED);
       }
     }
+#endif
   }
 
   if (!saved) {
@@ -359,9 +366,12 @@ void SettingPanel::setting_changed(lv_event_t *event) {
   }
 
   if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
+#ifndef OS_ANDROID
   if (target == sleep_timeout_selector) refresh_sleep_timeout_warning();
+#endif
 }
 
+#ifndef OS_ANDROID
 void SettingPanel::refresh_sleep_timeout_warning() {
   if (Config::get_instance()->get<int32_t>("/ui/display_sleep_sec") == -1) {
     lv_obj_clear_flag(sleep_timeout_warning, LV_OBJ_FLAG_HIDDEN);
@@ -369,6 +379,7 @@ void SettingPanel::refresh_sleep_timeout_warning() {
     lv_obj_add_flag(sleep_timeout_warning, LV_OBJ_FLAG_HIDDEN);
   }
 }
+#endif
 
 void SettingPanel::refresh_emergency_stop_warning() {
   if (lv_obj_has_state(emergency_prompt_switch, LV_STATE_CHECKED)) {

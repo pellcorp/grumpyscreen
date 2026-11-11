@@ -78,8 +78,7 @@ reference signing secrets or the release environment.
   dialog too.
 
 * Thumbnails are downloaded from Moonraker into the app cache.
-* The screen stays on while the app is in front; grumpyscreen's own screen
-  timeout decides when it goes dark.
+* Screen timeout and brightness follow the device's Android settings.
 * The UI renders at the screen's native resolution; grumpyscreen sizes its
   layout from the display, as it does on the printer panels.
 * It redraws at the display's refresh rate (asking for the fastest mode the
@@ -102,7 +101,9 @@ not used.
 | Create Support ZIP, Switch to Stock, Factory Reset | printer-side scripts | not built |
 | Network tab | the printer's wifi | not built: Android manages the device's wifi |
 
-The screen timeout turns the backlight off, as on the printer.
+The printer's Screen timeout setting is omitted on Android. For a dedicated
+tablet that should stay on while plugged in, enable **Stay awake** in Android's
+**Developer options**.
 
 #### Macros
 
