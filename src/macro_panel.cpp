@@ -35,7 +35,7 @@ static const std::map<std::string, const lv_img_dsc_t *> macro_icons = {
   {"print", Icons::PRINT}, {"refresh", Icons::REFRESH_IMG}, {"restart", Icons::RESTART_IMG},
   {"resume", Icons::RESUME}, {"retract", Icons::RETRACT_IMG}, {"sd", Icons::SD_IMG},
   {"shutdown", Icons::SHUTDOWN_IMG}, {"speed_up", Icons::SPEED_UP_IMG},
-  {"spoolman", Icons::SPOOLMAN_IMG}, {"support_zip", Icons::SUPPORT_ZIP_IMG},
+  {"spoolman", Icons::NAV_SPOOLMAN}, {"support_zip", Icons::SUPPORT_ZIP_IMG},
   {"switch_stock", Icons::SWITCH_STOCK_IMG}, {"unload_filament", Icons::UNLOAD_FILAMENT_IMG},
   {"update", Icons::UPDATE_IMG}, {"z_closer", Icons::Z_CLOSER}, {"z_farther", Icons::Z_FARTHER},
 };
