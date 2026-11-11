@@ -16,10 +16,8 @@ container, the same one the printer builds use: its Dockerfile adds JDK 17
 and the SDK packages the app pins (Android 35, NDK 27.2, CMake 3.22.1), so the
 build is the same on every machine and in CI. Gradle's caches and the debug
 signing key are kept in `android/.gradle-home` and `android/.android-home`.
-Until the published image has them, build it from this checkout first:
 
 ```
-docker build -t pellcorp/grumpydev .
 ./build.sh android
 ./build.sh android -PgrumpySmallScreen=true    # material_46 assets
 ```

@@ -21,20 +21,6 @@ jobs:
         submodules: recursive
         fetch-depth: 0
 
-    # The same grumpydev image ./build.sh android uses locally, built from this
-    # checkout's Dockerfile (so it has the JDK and Android SDK before the
-    # published image does), with its layers cached between runs.
-    - uses: docker/setup-buildx-action@v3
-
-    - name: build the grumpydev image
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        load: true
-        tags: pellcorp/grumpydev:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
     - uses: actions/cache@v4
       with:
         path: android/.gradle-home
@@ -62,6 +48,7 @@ jobs:
         KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # in the published pellcorp/grumpydev image, as ./build.sh android does locally
       run: ./build.sh android
 
     - uses: actions/upload-artifact@v7
