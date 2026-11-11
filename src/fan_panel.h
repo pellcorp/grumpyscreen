@@ -28,6 +28,7 @@ class FanPanel : public NotifyConsumer {
   void handle_fan_update_generic(lv_event_t *event);
   // the gcode that sets one fan to a fraction, by the kind of object it is
   std::string fan_gcode(const std::string &key, double fraction);
+  static bool controllable(const std::string &key);
 
   static void _handle_callback(lv_event_t *event) {
     FanPanel *panel = (FanPanel*)event->user_data;

@@ -83,6 +83,9 @@ SliderContainer::SliderContainer(lv_obj_t *parent,
   lv_obj_set_flex_flow(slider_cont, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(slider_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_width(slider, LV_PCT(100));
+  for (lv_part_t part : {LV_PART_MAIN, LV_PART_INDICATOR, LV_PART_KNOB}) {
+    lv_obj_set_style_bg_color(slider, col(DISABLED), part | LV_STATE_DISABLED);
+  }
 
   if (max_text == NULL) {
     max_btn.hide();
@@ -137,14 +140,37 @@ void SliderContainer::set_range(int min_range, int max_range) {
   lv_slider_set_range(slider, min_range, max_range);
 }
 
-void SliderContainer::update_value(int value) {
-  // no slider means a plain switch: a percentage would be a lie
-  if (lv_obj_has_flag(slider, LV_OBJ_FLAG_HIDDEN)) {
-    lv_label_set_text(slider_value, value > 0 ? "On" : "Off");
-  } else {
-    lv_label_set_text(slider_value, fmt::format("{}{}", value, unit).c_str());
-  }
+void SliderContainer::update_value(int v) {
+  value = v;
+  show_value();
   lv_slider_set_value(slider, value, LV_ANIM_ON);
+}
+
+void SliderContainer::show_value() {
+  // no slider means a plain switch: a percentage would be a lie
+  std::string text = lv_obj_has_flag(slider, LV_OBJ_FLAG_HIDDEN)
+    ? std::string(value > 0 ? "On" : "Off")
+    : fmt::format("{}{}", value, unit);
+  if (!suffix.empty()) text += "  " + suffix;
+  lv_label_set_text(slider_value, text.c_str());
+}
+
+void SliderContainer::set_suffix(const std::string &text) {
+  if (text == suffix) return;
+  suffix = text;
+  show_value();
+}
+
+void SliderContainer::set_enabled(bool enabled) {
+  if (enabled) {
+    lv_obj_clear_state(slider, LV_STATE_DISABLED);
+    off_btn.enable();
+    max_btn.enable();
+  } else {
+    lv_obj_add_state(slider, LV_STATE_DISABLED);
+    off_btn.disable();
+    max_btn.disable();
+  }
 }
 
 void SliderContainer::handle_value_update(lv_event_t *event) {
