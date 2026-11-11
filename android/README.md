@@ -34,6 +34,29 @@ The release APK is signed with `KEYSTORE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and
 `KEY_PASSWORD` from the environment; without them it is signed with the debug
 key so it still installs.
 
+### CI and releases
+
+The `android build` GitHub Actions workflow builds debug-signed APK artifacts
+for pull requests and branches, including forks. A push to `main` in
+`pellcorp/grumpyscreen` (including a merged PR) builds a signed APK and uploads
+`grumpyscreen-android.apk` to the same `v2.0.0-<count>` GitHub Release as the
+printer builds. Running the workflow manually on upstream `main` also builds
+and publishes the signed APK.
+
+Create the `android-release` environment under repository **Settings >
+Environments**, restrict its deployment branches to `main`, and add these
+environment secrets:
+
+* `ANDROID_KEYSTORE`: the base64-encoded release keystore
+* `ANDROID_KEYSTORE_PASSWORD`: its password
+* `ANDROID_KEY_ALIAS`: the signing key's alias
+* `ANDROID_KEY_PASSWORD`: the signing key's password
+
+The signing job requires all four secrets and removes the decoded keystore
+after the build. The publishing job runs only after the signed build succeeds
+and has permission to upload release assets. PR and branch builds do not
+reference signing secrets or the release environment.
+
 ## Using it
 
 * First start searches the network and lists the printers it finds: tap one
