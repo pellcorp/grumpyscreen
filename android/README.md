@@ -39,7 +39,7 @@ key so it still installs.
 The `android build` GitHub Actions workflow builds debug-signed APK artifacts
 for pull requests and branches, including forks. A push to `main` in
 `pellcorp/grumpyscreen` (including a merged PR) builds a signed APK and uploads
-`grumpyscreen-android.apk` to the same `v2.0.0-<count>` GitHub Release as the
+`grumpyscreen.apk` to the same `v2.0.0-<count>` GitHub Release as the
 printer builds. Running the workflow manually on upstream `main` also builds
 and publishes the signed APK.
 
