@@ -108,6 +108,7 @@ void MainPanel::set_firmware_restart_available(bool available) {
 }
 
 void MainPanel::set_klipper_ready(bool ready) {
+  if (!ready) disable_mmu();
   std::lock_guard<std::mutex> lock(lv_lock);
   klipper_ready = ready;
   console_panel.set_gcode_input_enabled(ready);
@@ -356,7 +357,7 @@ void MainPanel::create_panel() {
   }
 
   if (mmu_tab != NULL) {
-    // greyed out until klipper confirms the configured backend is there
+    // Greyed out until Klipper reports a supported backend.
     lv_btnmatrix_set_btn_ctrl(tab_btns, lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
   }
 
@@ -619,9 +620,8 @@ void MainPanel::enable_mmu() {
                               lv_obj_get_index(mmu_tab), LV_BTNMATRIX_CTRL_DISABLED);
 }
 
-// Klipper came back without the backend this time. The tab may already be
-// built and showing the previous session's slots, so empty it and take the
-// user off it before greying the button again.
+// Klipper is offline or has no supported backend. Clear the previous session
+// and leave the MMU tab before disabling its navigation button.
 void MainPanel::disable_mmu() {
   if (mmu_tab == NULL || mmu_panel == NULL) return;
 

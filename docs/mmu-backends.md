@@ -194,20 +194,28 @@ In `GuppyScreen::GuppyScreen()` (`src/guppyscreen.cpp`), as a member so it
 outlives the panel:
 
 ```cpp
-mmu_panel.add_backend("afc", &afc_backend);   // id = the /mmu/backend value
+mmu_panel.add_backend(&afc_backend);
 ```
 
-The backend is chosen in `grumpyscreen.cfg`, never probed for:
+The MMU navigation button is visible from startup, disabled until Klipper
+reports a supported backend. `MmuPanel::select_backend()` calls `detect()` on
+the compiled-in backends in registration order (AFC, then Happy Hare), choosing
+the first match. If neither is available, the button stays disabled and no MMU
+screens are allocated. Detection runs again on every Klipper reconnect; going
+offline detaches the backend, closes its controls and disables the button.
+
+To hide the button and disable MMU integration entirely, set:
 
 ```ini
-[mmu]
-backend: afc
+[ui]
+hide_mmu: true
 ```
 
-`none` (the default) means no tab, no probing and no LVGL allocation. For any
-other value the tab is present from startup but its button is disabled;
-`MmuPanel::select_backend()` runs `detect()` on that one backend when klipper
-starts and the button is enabled if it passes, otherwise it logs and carries on.
+`hide_mmu` defaults to `false`. `HIDE_MMU=true|false` overrides the config;
+unset or invalid environment values follow the config. Hidden MMU support
+allocates no panel or backend and performs no detection. The old `[mmu] backend`
+setting is ignored; replace `backend: none` with `[ui] hide_mmu: true` to keep
+MMU support disabled. `[mmu] materials` still configures the material catalog.
 
 ---
 

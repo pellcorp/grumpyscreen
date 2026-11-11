@@ -35,12 +35,11 @@ class MmuPanel : public NotifyConsumer {
   MmuPanel(KWebSocketClient &ws, std::mutex &l);
   ~MmuPanel();
 
-  // /mmu/backend names one of these ids; "none" (the default) disables the
-  // panel entirely and no MMU code ever runs
-  void add_backend(const char *id, MmuBackend *b) { backends.push_back({id, b}); }
-  // true unless /mmu/backend is none
+  // Probe compiled-in backends in registration order when Klipper connects.
+  void add_backend(MmuBackend *b) { backends.push_back(b); }
+  // HIDE_MMU overrides /ui/hide_mmu; visible by default.
   static bool enabled();
-  // detect the configured backend; returns it (NULL when it is not there)
+  // Detect a supported backend; NULL keeps the navigation button disabled.
   MmuBackend *select_backend();
   // names of the lanes holding spool_id, ", " separated
   std::string spool_lanes(int spool_id) const {
@@ -59,7 +58,7 @@ class MmuPanel : public NotifyConsumer {
   // Caller holds lv_lock.
   bool open_tool_map(const json &metadata, const std::string &filename,
                      std::function<void()> print);
-  // empty the panel when the backend is no longer there. caller must hold lv_lock.
+  // Detach the backend and empty the panel. Caller must hold lv_lock.
   void clear();
   void consume(json &j);
 
@@ -106,6 +105,7 @@ class MmuPanel : public NotifyConsumer {
 
   // Full-screen native panels
   void create_edit_screen();
+  void create_colour_swatches();
   void open_edit(int idx);
   void close_edit();
   void update_edit_preview();
@@ -118,7 +118,7 @@ class MmuPanel : public NotifyConsumer {
 
   KWebSocketClient &ws;
   ToolMapPanel tool_map;
-  std::vector<std::pair<std::string, MmuBackend*>> backends;
+  std::vector<MmuBackend*> backends;
   MmuBackend *backend;
   lv_obj_t *cont;
 
