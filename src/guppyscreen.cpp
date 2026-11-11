@@ -2,15 +2,8 @@
 
 #include "config.h"
 #include "theme.h"
-#ifndef OS_ANDROID
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
-#endif
-// fbdev drives the display everywhere but the desktop and Android, which bring
-// their own window and decide for themselves when the screen goes dark
-#if !defined(GUPPY_SDL) && !defined(OS_ANDROID)
-#define GUPPY_FBDEV
-#endif
 #ifdef GUPPY_SDL
 #include "lv_drivers/sdl/sdl_common.h"
 #endif
