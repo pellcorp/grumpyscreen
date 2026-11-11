@@ -5,12 +5,15 @@ import android.app.Dialog;
 import android.content.ComponentName;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.hardware.display.DisplayManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
 import android.view.Display;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -18,6 +21,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -40,6 +44,7 @@ public class MainActivity extends Activity {
     private File moonrakerFile;
     private File overrideFile;
     private boolean started;
+    private MenuButton menu;
 
     // the display can switch rates under us (power saving, a mode change)
     private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
@@ -110,7 +115,65 @@ public class MainActivity extends Activity {
         // full screen first, so the surface the display is sized from is
         // the whole screen and not the area between the system bars
         goFullscreen();
-        setContentView(new GrumpySurfaceView(this, configFile, moonrakerFile, overrideFile));
+        FrameLayout root = new FrameLayout(this);
+        root.addView(new GrumpySurfaceView(this, configFile, moonrakerFile, overrideFile),
+                new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
+                                             FrameLayout.LayoutParams.MATCH_PARENT));
+        // The printer list belongs to the app, not to the printer's UI, so it
+        // has its own button: the nav strip leaves a touch target's height
+        // free at its top (placeMenuFromNative) and the button covers it
+        GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
+        GrumpyNative.setMenuHeight(theme.dp(48));
+        menu = new MenuButton(this, theme);
+        menu.setOnClickListener(v -> showPrinterDialog(false));
+        menu.setVisibility(View.GONE);
+        root.addView(menu, new FrameLayout.LayoutParams(0, 0, Gravity.TOP | Gravity.START));
+        setContentView(root);
+    }
+
+    /** The nav strip has laid itself out: its width and the room left at its top. */
+    @SuppressWarnings("unused")
+    void placeMenuFromNative(int width, int height) {
+        runOnUiThread(() -> {
+            if (menu == null) return;
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) menu.getLayoutParams();
+            lp.width = width;
+            lp.height = height;
+            menu.setLayoutParams(lp);
+            menu.setVisibility(View.VISIBLE);
+        });
+    }
+
+    /** The printer list's ☰, drawn rather than taken from a font. */
+    private static final class MenuButton extends View {
+        private final Paint bar = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint pressed = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        MenuButton(Activity activity, GrumpyTheme theme) {
+            super(activity);
+            bar.setColor(GrumpyTheme.opaque(theme.text));
+            pressed.setColor(GrumpyTheme.alpha(theme.textDim, 0x50));
+            setContentDescription("Printers");
+            setClickable(true);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            float cx = getWidth() / 2f, cy = getHeight() / 2f;
+            float s = Math.min(getWidth(), getHeight());
+            if (isPressed()) canvas.drawCircle(cx, cy, s * 0.45f, pressed);
+            float half = s * 0.25f, t = s * 0.07f;
+            for (int i = -1; i <= 1; i++) {
+                float y = cy + i * s * 0.17f;
+                canvas.drawRoundRect(cx - half, y - t / 2, cx + half, y + t / 2, t / 2, t / 2, bar);
+            }
+        }
+
+        @Override
+        protected void drawableStateChanged() {
+            super.drawableStateChanged();
+            invalidate();
+        }
     }
 
     @Override
@@ -162,12 +225,6 @@ public class MainActivity extends Activity {
                                            : WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
             getWindow().setAttributes(lp);
         });
-    }
-
-    /** Called from the grumpyscreen UI thread (Settings, Switch Printer). */
-    @SuppressWarnings("unused")
-    void showPrinterPickerFromNative() {
-        runOnUiThread(() -> showPrinterDialog(false));
     }
 
     private void showPrinterDialog(boolean firstRun) {
@@ -222,8 +279,8 @@ public class MainActivity extends Activity {
             layout.addView(savedBox);
             for (PrinterScanner.Printer p : savedList) {
                 boolean current = saved.isCurrent(p);
-                TextView item = row.apply(p, (current ? "\u25CF " : "\u25CB ") + p
-                        + (current ? "  \u2014 connected" : ""));
+                TextView item = row.apply(p, (current ? "● " : "○ ") + p
+                        + (current ? "  — connected" : ""));
                 item.setOnLongClickListener(v -> {
                     if (saved.isCurrent(p)) {
                         Toast.makeText(this, "Switch to another printer before removing this one",
@@ -278,7 +335,7 @@ public class MainActivity extends Activity {
                     if (saved.isCurrent(sp)) continue;
                     TextView item = savedRows.get(sp.host + ":" + sp.port);
                     if (item == null) continue;
-                    item.setText(item.getTag() + "  \u2014 checking\u2026");
+                    item.setText(item.getTag() + "  — checking…");
                     new Thread(() -> {
                         boolean up;
                         try {
@@ -290,12 +347,12 @@ public class MainActivity extends Activity {
                         final boolean online = up;
                         runOnUiThread(() -> {
                             if (savedRows.get(sp.host + ":" + sp.port) != item) return;  // removed
-                            item.setText(item.getTag() + (online ? "  \u2014 online" : "  \u2014 offline"));
+                            item.setText(item.getTag() + (online ? "  — online" : "  — offline"));
                         });
                     }).start();
                 }
                 found.removeAllViews();
-                status.setText("Searching\u2026");
+                status.setText("Searching…");
                 rescan.setEnabled(false);
                 scanner[0] = new PrinterScanner(MainActivity.this, new PrinterScanner.Listener() {
                     @Override
@@ -303,7 +360,7 @@ public class MainActivity extends Activity {
                         TextView known = savedRows.get(p.host + ":" + p.port);
                         if (known != null) {
                             // already saved: just show that it is reachable
-                            if (!saved.isCurrent(p)) known.setText(known.getTag() + "  \u2014 online");
+                            if (!saved.isCurrent(p)) known.setText(known.getTag() + "  — online");
                             if (p.name != null && saved.find(p.host, p.port) != null
                                     && saved.find(p.host, p.port).name == null) {
                                 saved.rename(p.host, p.port, p.name);

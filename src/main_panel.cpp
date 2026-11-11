@@ -332,6 +332,9 @@ void MainPanel::create_panel() {
 #ifdef OS_ANDROID
   // the app draws the icons from their SVGs, at exactly the size shown
   android_set_nav_icon_px(nav_icon_px());
+  // the top of the strip is the app's printer menu, which it draws itself
+  lv_obj_set_style_pad_top(tab_btns, android_menu_height(), 0);
+  android_place_menu(tab_bar_w(), android_menu_height());
 #endif
 
   // The page is the theme's background everywhere: the screen, the tabview and

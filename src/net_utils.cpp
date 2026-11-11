@@ -14,7 +14,6 @@
 namespace fs = std::experimental::filesystem;
 
 namespace KUtils {
-#ifndef OS_ANDROID
   std::vector<std::string> get_interfaces() {
     std::vector<std::string> ifaces;
     struct ifaddrs *addrs;
@@ -58,7 +57,6 @@ namespace KUtils {
     }
     return "";
   }
-#endif
 
   template <typename Out>
   void split(const std::string &s, char delim, Out result) {

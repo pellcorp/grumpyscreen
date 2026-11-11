@@ -1,4 +1,6 @@
 .gradle/
+.gradle-home/
+.android-home/
 build/
 app/build/
 app/.cxx/

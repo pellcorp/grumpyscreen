@@ -2,7 +2,6 @@
 #define __K_UTILS_H__
 
 #include "hv/json.hpp"
-#include "platform.h"
 #include <vector>
 #include <map>
 #include <functional>
@@ -31,12 +30,9 @@ namespace KUtils {
   // picks the embedded thumbnail closest to target_width px
   std::pair<std::string, size_t> get_thumbnail(const std::string &gcode_file, json &j, int target_width);
 
-#ifndef OS_ANDROID
-  // the wifi panel's (not built for Android)
   std::vector<std::string> get_interfaces();
   std::string interface_ip(const std::string &interface);
   std::string get_wifi_interface();
-#endif
 
   template <typename Out>
   void split(const std::string &s, char delim, Out result);

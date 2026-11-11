@@ -7,8 +7,6 @@
 #endif
 
 #ifdef OS_ANDROID
-// Opens the app's printer list (android/app/src/main/cpp/grumpy_android.cpp).
-void android_show_printer_picker();
 // Restarts the app: the Android "Restart GUI".
 void android_restart_app();
 // Turns the backlight off (true) or back on, for the screen timeout.
@@ -20,6 +18,11 @@ extern "C" void android_set_nav_icon_px(int px);
 // (android/app/src/main/cpp/fonts, from android/tools/console-fonts.py).
 struct _lv_font_t;
 const struct _lv_font_t *android_console_font();
+// The app's printer menu (its ☰) takes a touch target's height at the top of
+// the nav strip: how tall that is, and where the strip has left it, so the app
+// can put its button there.
+int android_menu_height();
+void android_place_menu(int width, int height);
 #endif
 
 #endif // __GUPPY_PLATFORM_H__

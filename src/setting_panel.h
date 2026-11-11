@@ -80,9 +80,6 @@ class SettingPanel {
 #else
   ButtonContainer shutdown_host_btn;
 #endif
-#ifdef OS_ANDROID
-  ButtonContainer switch_printer_btn;
-#endif
 };
 
 #endif // __SETTING_PANEL_H__

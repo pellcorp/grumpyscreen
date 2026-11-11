@@ -240,8 +240,15 @@ static void call_activity(const char *method, const char *sig, ...) {
   env->DeleteLocalRef(cls);
 }
 
-void android_show_printer_picker() {
-  call_activity("showPrinterPickerFromNative", "()V");
+// set by the app before the UI starts
+static std::atomic<int> menu_height_px{0};
+
+int android_menu_height() {
+  return menu_height_px.load();
+}
+
+void android_place_menu(int width, int height) {
+  call_activity("placeMenuFromNative", "(II)V", static_cast<jint>(width), static_cast<jint>(height));
 }
 
 void android_restart_app() {
@@ -322,6 +329,11 @@ Java_io_github_pellcorp_grumpyscreen_GrumpyNative_surfaceChanged(
     std::lock_guard<std::mutex> g(GuppyScreen::get()->get_lock());
     lv_obj_invalidate(lv_scr_act());
   }
+}
+
+JNIEXPORT void JNICALL
+Java_io_github_pellcorp_grumpyscreen_GrumpyNative_setMenuHeight(JNIEnv *, jclass, jint px) {
+  menu_height_px = px;
 }
 
 JNIEXPORT void JNICALL

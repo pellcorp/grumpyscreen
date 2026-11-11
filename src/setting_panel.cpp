@@ -160,9 +160,6 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , shutdown_host_btn(actions_cont, Icons::SHUTDOWN_IMG, "Shutdown\nHost", &SettingPanel::_handle_callback, this,
           "Shutdown host?", "Do you want to shutdown the host?", {"Back", "Shutdown Host"})
 #endif
-#ifdef OS_ANDROID
-  , switch_printer_btn(actions_cont, Icons::PRINT, "Switch\nPrinter", &SettingPanel::_handle_callback, this)
-#endif
 {
   // Restart Klipper asks Moonraker to restart the service, so it stays useful
   // while Klipper is down. Firmware restart, on the other hand, is a Klipper
@@ -266,10 +263,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   refresh_sleep_timeout_warning();
 
 #ifdef OS_ANDROID
-  // The app's tools are the same everywhere: it can be pointed at any of
-  // several printers, and the rest go through Moonraker
-  layout_tiles(actions_cont, {&switch_printer_btn, &restart_klipper_btn, &restart_firmware_btn,
-                              &guppy_restart_btn, &shutdown_host_btn});
+  // The app's tools are the same on every printer: they all go through Moonraker
+  layout_tiles(actions_cont, {&restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn,
+                              &shutdown_host_btn});
 #else
   // Optional tiles only appear with a command behind them; the grid is built
   // from what is left, four across, so a hidden tile never leaves a hole.
@@ -473,9 +469,6 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       run_command_deferred(mbox, cmd,
                            FACTORY_RESET_BUTTON_TITLE " Failed", FACTORY_RESET_BUTTON_FAILURE,
                            FACTORY_RESET_DELAY_MS);
-#else
-    } else if (btn == switch_printer_btn.get_container()) {
-      android_show_printer_picker();
 #endif
     }
   }

@@ -60,8 +60,9 @@ Add `--setup` before the target when you want to clean that target before buildi
 
 Builds an APK at `android/app/build/outputs/apk/release/app-release.apk` that
 runs grumpyscreen on an Android phone or tablet, talking to Moonraker over the
-network. It needs JDK 17+ and the Android SDK (`ANDROID_HOME`); Gradle fetches
-the NDK and CMake it needs. See [android/README.md](android/README.md).
+network. Like the other targets it builds in the `grumpydev` container, whose
+Dockerfile includes the JDK and Android SDK. See
+[android/README.md](android/README.md).
 
 ## Testing Without a Printer
 

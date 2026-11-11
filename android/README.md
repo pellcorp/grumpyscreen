@@ -11,15 +11,25 @@ Based on the approach of Guppy Screen's `android` branch
 
 ## Building
 
-Requirements: JDK 17 or newer and the Android SDK. Gradle installs the NDK
-(27.2) and CMake (3.22.1) on first use if the SDK licences are accepted.
+`./build.sh android` builds the release APK (all ABIs) in the `grumpydev`
+container, the same one the printer builds use: its Dockerfile adds JDK 17
+and the SDK packages the app pins (Android 35, NDK 27.2, CMake 3.22.1), so the
+build is the same on every machine and in CI. Gradle's caches and the debug
+signing key are kept in `android/.gradle-home` and `android/.android-home`.
+Until the published image has them, build it from this checkout first:
 
 ```
-export ANDROID_HOME=~/Android/Sdk
-./build.sh android                    # release APK, all ABIs
+docker build -t pellcorp/grumpydev .
+./build.sh android
+./build.sh android -PgrumpySmallScreen=true    # material_46 assets
+```
+
+With Android Studio or your own SDK (JDK 17+ and `ANDROID_HOME`), Gradle can
+also be run directly:
+
+```
 cd android && ./gradlew assembleDebug  # debug APK
 ./gradlew assembleDebug -PgrumpyAbis=arm64-v8a      # one ABI, faster
-./gradlew assembleDebug -PgrumpySmallScreen=true    # material_46 assets
 ```
 
 The release APK is signed with `KEYSTORE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and
@@ -34,9 +44,9 @@ key so it still installs.
   the device itself, and lists only hosts that answer like Moonraker, by
   hostname. A printer elsewhere can still be typed in (`host`, `host:port` or
   a pasted `http://host:7125/` all work).
-* **Settings → Tools → Switch Printer** (or Back) opens the printer list:
+* The **☰** at the top left (or Back) opens the printer list:
   every printer you have connected to is remembered by name, the search runs
-  again, and tapping one switches to it (the app restarts itself).
+  again, and choosing one and Connect switches to it (the app restarts itself).
   Saved printers show whether they are online (each is asked for
   Moonraker's `/server/info`); only the current one is connected.
   Long-press a saved printer to forget it. The same dialog can make the app
@@ -59,16 +69,15 @@ key so it still installs.
 
 The UI is the same code, so every panel is there except the ones that act
 on the printer host itself, which are not compiled into the app. The Tools
-tab is always the same five tiles; the `[commands]` in grumpyscreen.cfg are
+tab is always the same four tiles; the `[commands]` in grumpyscreen.cfg are
 not used.
 
 | Tools tile | K1 | Android |
 |---|---|---|
-| Switch Printer | - | the printer list |
 | Restart Klipper | Moonraker `machine.services.restart` | same |
 | Firmware Restart | Klipper RPC | same |
 | Restart GUI | restarts the service | restarts the app |
-| Shutdown Host | `/sbin/halt` | Moonraker `machine.shutdown` |
+| Shutdown Host | Moonraker `machine.shutdown` | same |
 | Create Support ZIP, Switch to Stock, Factory Reset | printer-side scripts | not built |
 | Network tab | the printer's wifi | not built: Android manages the device's wifi |
 

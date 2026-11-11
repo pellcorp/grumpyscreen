@@ -2,7 +2,6 @@
 
 #include "config.h"
 #include "theme.h"
-#include "platform.h"
 #ifndef OS_ANDROID
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"

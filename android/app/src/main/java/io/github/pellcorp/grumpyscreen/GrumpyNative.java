@@ -24,6 +24,9 @@ final class GrumpyNative {
     /** The display's current refresh rate; the UI redraws at up to this. */
     static native void setRefreshRate(float hz);
 
+    /** The height, in pixels, of the printer menu at the top of the nav strip. */
+    static native void setMenuHeight(int px);
+
     static native void touch(int x, int y, boolean down);
 
     /** Who the native side asks to open the printer list (null when gone). */
