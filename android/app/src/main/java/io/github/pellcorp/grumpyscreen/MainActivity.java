@@ -3,13 +3,19 @@ package io.github.pellcorp.grumpyscreen;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.ComponentName;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.hardware.display.DisplayManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
 import android.text.InputType;
 import android.util.Log;
 import android.view.Display;
@@ -23,6 +29,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -37,6 +44,11 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
     private static final String TAG = "grumpyscreen";
     private static final String PREFS = "printer";
+    private static final String KEY_UPDATE_CHECK = "update_check";
+    private static final String KEY_UPDATE_PROMPT = "update_prompt";
+    private static final long UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L;
+    // a tablet can stay on the screen for weeks without a restart
+    private static final long UPDATE_POLL_INTERVAL_MS = 6 * 60 * 60 * 1000L;
     private SharedPreferences prefs;
     private SavedPrinters saved;
     private Dialog printerDialog;
@@ -45,6 +57,24 @@ public class MainActivity extends Activity {
     private File overrideFile;
     private boolean started;
     private MenuButton menu;
+    private boolean updateCheckRunning;
+    private boolean updatePromptShowing;
+    private boolean updateDownloading;
+    // an update found while the printer dialog was open, shown after it closes
+    private UpdateChecker.Release pendingUpdate;
+    // an update waiting for the user to allow installs from this app
+    private UpdateChecker.Release awaitingInstallPermission;
+    private GrumpyTheme.ThemedDialog updateProgress;
+    private ProgressBar updateProgressBar;
+    private TextView updateProgressText;
+    private final Handler updatePollHandler = new Handler(Looper.getMainLooper());
+    private final Runnable updatePoll = new Runnable() {
+        @Override
+        public void run() {
+            maybeCheckForUpdates();
+            updatePollHandler.postDelayed(this, UPDATE_POLL_INTERVAL_MS);
+        }
+    };
 
     // the display can switch rates under us (power saving, a mode change)
     private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
@@ -129,6 +159,27 @@ public class MainActivity extends Activity {
         menu.setVisibility(View.GONE);
         root.addView(menu, new FrameLayout.LayoutParams(0, 0, Gravity.TOP | Gravity.START));
         setContentView(root);
+        maybeCheckForUpdates();
+    }
+
+    /** Back from allowing installs: continue the update the user asked for. */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        UpdateChecker.Release release = awaitingInstallPermission;
+        if (release != null) {
+            awaitingInstallPermission = null;
+            if (ApkInstaller.allowed(this)) downloadAndInstall(release);
+        }
+        maybeCheckForUpdates();
+        updatePollHandler.removeCallbacks(updatePoll);
+        updatePollHandler.postDelayed(updatePoll, UPDATE_POLL_INTERVAL_MS);
+    }
+
+    @Override
+    protected void onPause() {
+        updatePollHandler.removeCallbacks(updatePoll);
+        super.onPause();
     }
 
     /** The nav strip has laid itself out: its width and the room left at its top. */
@@ -180,6 +231,8 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         GrumpyNative.setActivity(null);
         if (started) getSystemService(DisplayManager.class).unregisterDisplayListener(displayListener);
+        updatePollHandler.removeCallbacks(updatePoll);
+        dismissUpdateProgress();
         super.onDestroy();
     }
 
@@ -402,8 +455,10 @@ public class MainActivity extends Activity {
         dialog.setCancelable(!firstRun);
         if (firstRun) {
             td.addButton("Exit", false, v -> finish());
+            td.addButton("Update app", false, v -> checkForUpdates(true));
         } else {
             td.addButton("Exit app", false, v -> finishAffinity());
+            td.addButton("Update app", false, v -> checkForUpdates(true));
             td.spacer();
             td.addButton("Cancel", false, v -> dialog.dismiss());
         }
@@ -413,6 +468,12 @@ public class MainActivity extends Activity {
             if (scanner[0] != null) scanner[0].stop();
             printerDialog = null;
             goFullscreen();
+            // an update found while this dialog was open waits until it closes
+            if (pendingUpdate != null && !isFinishing() && !isDestroyed()) {
+                UpdateChecker.Release release = pendingUpdate;
+                pendingUpdate = null;
+                showUpdatePrompt(release);
+            }
         });
         td.addButton("Connect", true, v -> {
             String[] hp = parseHost(host.getText().toString(), port.getText().toString());
@@ -449,6 +510,231 @@ public class MainActivity extends Activity {
         td.show();
         layout.requestFocus();
         startScan.run();
+    }
+
+    // --- updates -----------------------------------------------------------
+
+    /** Once a day, quietly ask GitHub whether there is a newer release. */
+    private void maybeCheckForUpdates() {
+        // a development build (a commit hash, not a release tag) is not
+        // nagged about; its Update app button still checks on demand
+        if (!UpdateChecker.isReleaseVersion(BuildConfig.VERSION_NAME)) return;
+        long last = prefs.getLong(KEY_UPDATE_CHECK, 0);
+        if (System.currentTimeMillis() - last < UPDATE_CHECK_INTERVAL_MS) return;
+        checkForUpdates(false);
+    }
+
+    private void checkForUpdates(boolean interactive) {
+        if (updateCheckRunning) return;
+        updateCheckRunning = true;
+        // count a failed check too, so an offline device does not retry on
+        // every start; the button in the printer dialog always checks
+        prefs.edit().putLong(KEY_UPDATE_CHECK, System.currentTimeMillis()).apply();
+        if (interactive) {
+            Toast.makeText(this, "Checking for updates…", Toast.LENGTH_SHORT).show();
+        }
+        UpdateChecker.check((release, error) -> runOnUiThread(() -> {
+            updateCheckRunning = false;
+            if (isFinishing() || isDestroyed()) return;
+            if (error != null) {
+                Log.w(TAG, "update check failed: " + error);
+                if (interactive) {
+                    showUpdateMessage("Update check failed",
+                            "Could not check GitHub for updates.\n\n" + error);
+                }
+                return;
+            }
+            if (release == null || !UpdateChecker.isNewer(release.tag, BuildConfig.VERSION_NAME)) {
+                if (interactive) {
+                    showUpdateMessage("GrumpyScreen is up to date",
+                            release == null ? "You have the latest version."
+                                    : "You have the latest version, " + release.tag + ".");
+                }
+                return;
+            }
+            if (updatePromptShowing) return;
+            if (!interactive) {
+                if (release.tag.equals(prefs.getString(KEY_UPDATE_PROMPT, null))) return;
+                // do not stack the update over the printer list; it is shown
+                // when that dialog closes
+                if (printerDialog != null && printerDialog.isShowing()) {
+                    pendingUpdate = release;
+                    return;
+                }
+            }
+            showUpdatePrompt(release);
+        }));
+    }
+
+    private void showUpdatePrompt(final UpdateChecker.Release release) {
+        if (updatePromptShowing) return;
+        updatePromptShowing = true;
+        GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
+        TextView body = theme.text(new TextView(this), 17, false);
+        StringBuilder message = new StringBuilder();
+        message.append("GrumpyScreen ").append(release.tag).append(" is available.");
+        String current = BuildConfig.VERSION_NAME;
+        if (UpdateChecker.isReleaseVersion(current) && !current.equals(release.tag)) {
+            message.append("\n\nYou have ").append(current).append(".");
+        } else if (!UpdateChecker.isReleaseVersion(current)) {
+            message.append("\n\nYou are running development build ").append(current).append(".");
+        }
+        message.append("\n\nThe APK is downloaded from GitHub releases and installed by Android.")
+                .append(" Your printers and settings are kept.");
+        body.setText(message);
+        body.setPadding(theme.dp(4), theme.dp(4), theme.dp(4), theme.dp(8));
+
+        GrumpyTheme.ThemedDialog dialog = theme.dialog(this, "Update available", body);
+        dialog.addButton("Later", false, v -> dialog.dialog.dismiss());
+        dialog.addButton("Download", true, v -> {
+            dialog.dialog.dismiss();
+            downloadAndInstall(release);
+        });
+        dialog.dialog.setOnDismissListener(d -> {
+            updatePromptShowing = false;
+            prefs.edit().putString(KEY_UPDATE_PROMPT, release.tag).apply();
+            goFullscreen();
+        });
+        dialog.show();
+    }
+
+    private void downloadAndInstall(UpdateChecker.Release release) {
+        if (updateDownloading) return;
+        if (!ApkInstaller.allowed(this)) {
+            awaitingInstallPermission = release;
+            showInstallPermission();
+            return;
+        }
+        updateDownloading = true;
+        showUpdateProgress(release);
+        new Thread(() -> {
+            File apk;
+            try {
+                apk = UpdateChecker.download(this, release, percent ->
+                        runOnUiThread(() -> {
+                            if (updateProgressBar == null) return;
+                            updateProgressBar.setProgress(Math.max(0, percent));
+                            if (updateProgressText != null && percent >= 0) {
+                                updateProgressText.setText(
+                                        "Downloading " + release.tag + "… " + percent + "%");
+                            }
+                        }));
+            } catch (Exception e) {
+                Log.e(TAG, "unable to download update", e);
+                runOnUiThread(() -> {
+                    dismissUpdateProgress();
+                    updateDownloading = false;
+                    if (!isFinishing() && !isDestroyed()) {
+                        showUpdateMessage("Update failed",
+                                e.getMessage() == null ? e.toString() : e.getMessage());
+                    }
+                });
+                return;
+            }
+            final File downloaded = apk;
+            runOnUiThread(() -> {
+                dismissUpdateProgress();
+                updateDownloading = false;
+                if (!isFinishing() && !isDestroyed()) installDownloaded(downloaded);
+            });
+        }, "update-download").start();
+    }
+
+    /** The session copy is quick but still file work, so keep it off the UI thread. */
+    private void installDownloaded(File apk) {
+        new Thread(() -> {
+            try {
+                ApkInstaller.install(this, apk);
+            } catch (Exception e) {
+                Log.e(TAG, "unable to start the update install", e);
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        showUpdateMessage("Update failed",
+                                e.getMessage() == null ? e.toString() : e.getMessage());
+                    }
+                });
+            }
+        }, "update-install").start();
+    }
+
+    private void showUpdateProgress(UpdateChecker.Release release) {
+        GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(theme.dp(4), theme.dp(4), theme.dp(4), theme.dp(4));
+        TextView text = theme.text(new TextView(this), 16, false);
+        text.setText("Downloading " + release.tag + "…");
+        body.addView(text);
+        ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        bar.setProgress(0);
+        bar.setProgressTintList(ColorStateList.valueOf(GrumpyTheme.opaque(theme.primary)));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = theme.dp(12);
+        body.addView(bar, lp);
+
+        GrumpyTheme.ThemedDialog dialog = theme.dialog(this, "Updating GrumpyScreen", body);
+        dialog.dialog.setCancelable(false);
+        updateProgress = dialog;
+        updateProgressBar = bar;
+        updateProgressText = text;
+        dialog.show();
+    }
+
+    private void dismissUpdateProgress() {
+        if (updateProgress != null) updateProgress.dialog.dismiss();
+        updateProgress = null;
+        updateProgressBar = null;
+        updateProgressText = null;
+    }
+
+    private void showInstallPermission() {
+        GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
+        TextView body = theme.text(new TextView(this), 17, false);
+        body.setText("Android needs your permission before GrumpyScreen can install its update.\n\n"
+                + "Turn on \"Allow from this source\" for GrumpyScreen, then come back.");
+        body.setPadding(theme.dp(4), theme.dp(4), theme.dp(4), theme.dp(8));
+        GrumpyTheme.ThemedDialog dialog = theme.dialog(this, "Allow app installs", body);
+        dialog.addButton("Cancel", false, v -> {
+            awaitingInstallPermission = null;
+            dialog.dialog.dismiss();
+        });
+        dialog.addButton("Open settings", true, v -> {
+            dialog.dialog.dismiss();
+            openInstallPermissionSettings();
+        });
+        dialog.dialog.setOnDismissListener(d -> goFullscreen());
+        dialog.show();
+    }
+
+    private void openInstallPermissionSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getPackageName())));
+                return;
+            } catch (RuntimeException ignored) {
+                // not every device has the per-app page; fall back below
+            }
+        }
+        try {
+            startActivity(new Intent(Settings.ACTION_SECURITY_SETTINGS));
+        } catch (RuntimeException ignored) {
+            Toast.makeText(this, "Allow installs for GrumpyScreen in Settings",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void showUpdateMessage(String title, String message) {
+        GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
+        TextView body = theme.text(new TextView(this), 17, false);
+        body.setText(message);
+        body.setPadding(theme.dp(4), theme.dp(4), theme.dp(4), theme.dp(8));
+        GrumpyTheme.ThemedDialog dialog = theme.dialog(this, title, body);
+        dialog.addButton("OK", true, v -> dialog.dialog.dismiss());
+        dialog.dialog.setOnDismissListener(d -> goFullscreen());
+        dialog.show();
     }
 
     /** A typed-in printer gets its hostname as its name once it answers. */

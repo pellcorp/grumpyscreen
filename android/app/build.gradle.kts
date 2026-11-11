@@ -110,6 +110,11 @@ android {
         }
     }
 
+    buildFeatures {
+        // BuildConfig.VERSION_NAME: the updater compares it with release tags
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
