@@ -18,6 +18,9 @@ extern "C" void android_set_nav_icon_px(int px);
 // (android/app/src/main/cpp/fonts, from android/tools/console-fonts.py).
 struct _lv_font_t;
 const struct _lv_font_t *android_console_font();
+// The UI's text, Montserrat, at exactly px pixels: past the 28px the built-in
+// fonts stop at (android/app/src/main/cpp/grumpy_fonts.cpp).
+const struct _lv_font_t *android_text_font(int px);
 // The app's printer menu (its ☰) takes a touch target's height at the top of
 // the nav strip: how tall that is, and where the strip has left it, so the app
 // can put its button there.

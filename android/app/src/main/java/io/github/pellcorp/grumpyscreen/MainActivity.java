@@ -231,8 +231,7 @@ public class MainActivity extends Activity {
         if (printerDialog != null && printerDialog.isShowing()) return;
         // re-read each time: the user may have changed the theme in their override
         GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
-        float density = getResources().getDisplayMetrics().density;
-        int pad = (int) (16 * density);
+        int pad = theme.dp(16);
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(pad, pad / 2, pad, 0);

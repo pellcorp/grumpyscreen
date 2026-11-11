@@ -2,7 +2,7 @@
 # are the same ones the Makefile builds; only main.cpp is swapped for the JNI
 # entry point in grumpy_android.cpp, which renders into the app's Surface.
 cmake_minimum_required(VERSION 3.22.1)
-project(grumpyscreen C CXX)
+project(grumpyscreen C CXX ASM)
 
 if(NOT DEFINED GRUMPY_ROOT)
     get_filename_component(GRUMPY_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../../../.. ABSOLUTE)
@@ -48,6 +48,28 @@ file(GLOB_RECURSE LVGL_SRC ${GRUMPY_ROOT}/lvgl/src/*.c)
 add_library(lvgl STATIC ${LVGL_SRC})
 target_include_directories(lvgl PUBLIC ${GRUMPY_ROOT} ${GRUMPY_ROOT}/lvgl)
 
+# --- FreeType -----------------------------------------------------------------
+# Draws the text at whatever size the screen needs (grumpy_fonts.cpp). Only
+# what that takes: TrueType and WOFF (zlib), no HarfBuzz, PNG, bzip2 or Brotli.
+include(FetchContent)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+FetchContent_Declare(freetype
+    URL https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz
+    URL_HASH SHA256=0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289)
+FetchContent_MakeAvailable(freetype)
+
+# Montserrat Medium, the face of LVGL's built-in fonts, and the FontAwesome
+# file their LV_SYMBOL_* glyphs come from
+set(GRUMPY_FONT_TEXT ${GRUMPY_ROOT}/lvgl/scripts/built_in_font/Montserrat-Medium.ttf)
+set(GRUMPY_FONT_SYMBOLS ${GRUMPY_ROOT}/lvgl/scripts/built_in_font/FontAwesome5-Solid+Brands+Regular.woff)
+set(FONTS_S ${CMAKE_CURRENT_BINARY_DIR}/grumpy_fonts_data.S)
+configure_file(grumpy_fonts_data.S.in ${FONTS_S} @ONLY)
+set_source_files_properties(${FONTS_S} PROPERTIES
+    OBJECT_DEPENDS "${GRUMPY_FONT_TEXT};${GRUMPY_FONT_SYMBOLS}")
+
 # --- grumpyscreen ------------------------------------------------------------
 # Icons: instead of the fixed-size bitmaps in assets/material*, the SVGs in
 # assets/material_svg, which grumpy_icons.c draws at the screen's size.
@@ -76,7 +98,7 @@ list(REMOVE_ITEM GRUMPY_SRC
 # the console log's mono face in the sizes a phone needs (android/tools/console-fonts.py)
 file(GLOB CONSOLE_FONTS ${CMAKE_CURRENT_SOURCE_DIR}/fonts/*.c)
 add_library(grumpyscreen SHARED ${GRUMPY_SRC} grumpy_android.cpp grumpy_icons.c ${ICONS_C}
-    ${CONSOLE_FONTS})
+    ${CONSOLE_FONTS} grumpy_fonts.cpp ${FONTS_S})
 
 target_include_directories(grumpyscreen PRIVATE
     # experimental/filesystem shim for the NDK's libc++
@@ -108,6 +130,7 @@ target_compile_options(grumpyscreen PRIVATE
 target_link_libraries(grumpyscreen
     lvgl
     hv_static
+    freetype
     android
     log
     m)

@@ -3,6 +3,9 @@
 #include "config.h"
 #include "logger.h"
 #include "icons.h"
+#if defined(ANDROID) || defined(__ANDROID__)
+#include "platform.h"
+#endif
 
 #include <algorithm>
 #include <iterator>
@@ -85,6 +88,10 @@ int scale_h(int px) { return px * lv_disp_get_physical_ver_res(NULL) / 272; }
 int scale_r(int px) { return std::min(scale_w(px), scale_h(px)); }
 
 const lv_font_t *scale_font(int px) {
+#ifdef OS_ANDROID
+  // phones and tablets need far more than the built-in sizes' 28px
+  return android_text_font(scale_r(px));
+#endif
   struct F { int size; const lv_font_t *font; };
   static const F fonts[] = {
     {12, &lv_font_montserrat_12}, {14, &lv_font_montserrat_14},

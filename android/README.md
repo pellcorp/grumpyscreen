@@ -103,6 +103,17 @@ resolution. Editing an SVG there is all it takes to change an icon.
 The nav bar's icons (`nav_*.svg`) are drawn at the strip's size instead,
 which grows with the screen.
 
+## Text
+
+The same goes for text. `Theme::scale_font` asks for a size in proportion
+to the screen, but LVGL's built-in Montserrat stops at 28px, about two
+thirds of what a 1600x720 phone needs and a third of a 2560x1600 tablet's.
+The app instead draws Montserrat Medium (the face the built-in fonts are
+made from) with [FreeType](https://freetype.org/) at exactly the size asked
+for, with LVGL's symbols from the same FontAwesome file
+(`android/app/src/main/cpp/grumpy_fonts.cpp`). FreeType 2.13.3 is fetched,
+checksum pinned, when CMake configures.
+
 ## Measuring
 
 `android/tools/measure.sh [seconds]` prints the running app's RAM (PSS and

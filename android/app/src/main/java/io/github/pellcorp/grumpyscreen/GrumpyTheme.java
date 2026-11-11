@@ -9,6 +9,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -36,6 +37,11 @@ final class GrumpyTheme {
     final int bg, surface, raised, border, text, textDim, primary, onPrimary, danger;
     final Typeface font;
     private final float density;
+    private final float textDensity;
+    // grumpyscreen's UI grows with the screen (Theme::scale_r, against
+    // 480x272) where Android's dp do not past a phone's: on a tablet the app's
+    // own dialogs would sit small beside it, so they grow by as much more
+    private final float scale;
 
     GrumpyTheme(Context context, File... configs) {
         Map<String, Integer> c = new HashMap<>();
@@ -56,7 +62,14 @@ final class GrumpyTheme {
             tf = Typeface.DEFAULT;
         }
         font = tf;
-        density = context.getResources().getDisplayMetrics().density;
+        DisplayMetrics dm = context.getResources().getDisplayMetrics();
+        density = dm.density;
+        textDensity = dm.scaledDensity;
+        // landscape, whichever way round the metrics are reported
+        float ui = Math.min(Math.max(dm.widthPixels, dm.heightPixels) / 480f,
+                            Math.min(dm.widthPixels, dm.heightPixels) / 272f);
+        // 1.5x a dp is how far it grows on a phone (2.65x at 1600x720, 1.75 dp/px)
+        scale = Math.max(1f, ui / (density * 1.5f));
     }
 
     /** Later files win, as the override does over the main config. */
@@ -98,7 +111,12 @@ final class GrumpyTheme {
     }
 
     int dp(float v) {
-        return Math.round(v * density);
+        return Math.round(v * density * scale);
+    }
+
+    /** Text sizes: sp, grown as dp(). */
+    float sp(float v) {
+        return v * textDensity * scale;
     }
 
     private GradientDrawable box(int fill, int radiusDp, int strokeColour) {
@@ -111,7 +129,7 @@ final class GrumpyTheme {
 
     TextView text(TextView v, float sp, boolean dim) {
         v.setTypeface(font);
-        v.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        v.setTextSize(TypedValue.COMPLEX_UNIT_PX, sp(sp));
         v.setTextColor(opaque(dim ? textDim : text));
         return v;
     }
@@ -149,7 +167,7 @@ final class GrumpyTheme {
     Button button(Button b, boolean accent) {
         b.setAllCaps(false);
         b.setTypeface(font);
-        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_PX, sp(16));
         int fill = accent ? primary : raised;
         int pressed = accent ? alpha(primary, 0xB0) : alpha(textDim, 0x60);
         StateListDrawable d = new StateListDrawable();
