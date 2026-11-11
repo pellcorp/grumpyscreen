@@ -10,7 +10,8 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#if defined(ANDROID) || defined(__ANDROID__)
+#include "platform.h"
+#ifdef OS_ANDROID
 #include <android/log.h>
 #endif
 
@@ -38,7 +39,7 @@ inline void set_log_level(const std::string& s) {
 }
 
 inline void log_line(LogLevel lvl, const std::string& msg){
-#if defined(ANDROID) || defined(__ANDROID__)
+#ifdef OS_ANDROID
   // an app's stdout goes nowhere: logcat is the only log there is
   int prio = ANDROID_LOG_INFO;
   switch (lvl) {

@@ -3,9 +3,7 @@
 #include "config.h"
 #include "logger.h"
 #include "icons.h"
-#if defined(ANDROID) || defined(__ANDROID__)
 #include "platform.h"
-#endif
 
 #include <algorithm>
 #include <iterator>

@@ -6,9 +6,7 @@
 #include "klipper_temp_filter.h"
 #include "icons.h"
 #include "theme.h"
-#ifdef OS_ANDROID
 #include "platform.h"
-#endif
 
 using namespace Theme;
 
