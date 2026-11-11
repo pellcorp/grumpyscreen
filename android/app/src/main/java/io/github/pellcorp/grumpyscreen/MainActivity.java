@@ -213,20 +213,6 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> RestartActivity.restart(this));
     }
 
-    /**
-     * grumpyscreen's screen timeout: the backlight goes off, as fbdev_blank
-     * does on the printer, and comes back on the touch that wakes it.
-     */
-    @SuppressWarnings("unused")
-    void setDisplaySleepFromNative(boolean sleeping) {
-        runOnUiThread(() -> {
-            WindowManager.LayoutParams lp = getWindow().getAttributes();
-            lp.screenBrightness = sleeping ? WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF
-                                           : WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
-            getWindow().setAttributes(lp);
-        });
-    }
-
     private void showPrinterDialog(boolean firstRun) {
         if (printerDialog != null && printerDialog.isShowing()) return;
         // re-read each time: the user may have changed the theme in their override
@@ -534,7 +520,6 @@ public class MainActivity extends Activity {
 
     @SuppressWarnings("deprecation")
     private void goFullscreen() {
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         // the insets controller needs the decor; it may not exist before setContentView
         getWindow().getDecorView();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

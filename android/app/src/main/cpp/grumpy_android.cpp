@@ -255,10 +255,6 @@ void android_restart_app() {
   call_activity("restartFromNative", "()V");
 }
 
-void android_set_display_sleep(bool sleeping) {
-  call_activity("setDisplaySleepFromNative", "(Z)V", static_cast<jboolean>(sleeping));
-}
-
 LV_FONT_DECLARE(dejavusans_mono_14);
 LV_FONT_DECLARE(console_mono_16);
 LV_FONT_DECLARE(console_mono_18);

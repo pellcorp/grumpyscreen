@@ -9,8 +9,6 @@
 #ifdef OS_ANDROID
 // Restarts the app: the Android "Restart GUI".
 void android_restart_app();
-// Turns the backlight off (true) or back on, for the screen timeout.
-void android_set_display_sleep(bool sleeping);
 // The size to draw the nav bar's icons (nav_*) at, before any is drawn
 // (android/app/src/main/cpp/grumpy_icons.c).
 extern "C" void android_set_nav_icon_px(int px);
