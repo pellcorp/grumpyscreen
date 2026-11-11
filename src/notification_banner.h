@@ -14,6 +14,7 @@ public:
   void show(Source source, const std::string &text, Level level,
             std::function<void()> dismiss = {});
   void clear(Source source);
+  void clear_all();
   bool visible(Source source) const;
 
 private:

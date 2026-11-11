@@ -30,6 +30,12 @@ void NotificationBanner::clear(Source source) {
   render();
 }
 
+void NotificationBanner::clear_all() {
+  messages = {};
+  sequence = 0;
+  render();
+}
+
 bool NotificationBanner::visible(Source source) const {
   const auto &message = messages[static_cast<int>(source)];
   return !message.text.empty() && !message.dismissed;

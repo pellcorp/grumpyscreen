@@ -3,6 +3,7 @@
 #include "state.h"
 #include "config.h"
 #include "mmu_panel.h"
+#include "notification_banner.h"
 #include "logger.h"
 #include "theme.h"
 
@@ -242,6 +243,8 @@ void InitPanel::begin_waiting(const char *message, bool firmware_restart_availab
     std::lock_guard<std::mutex> lock(lv_lock);
     ++lifecycle_generation;
     lifecycle = Lifecycle::WaitingForKlipper;
+    // Messages from the previous Klipper session are stale as soon as it goes down.
+    NotificationBanner::instance().clear_all();
     set_message(message);
     waiting = true;
     update_visibility();
