@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 
 // every size, colour, shared style and widget factory this panel draws with
 using namespace Theme;
@@ -243,7 +244,7 @@ MmuPanel::MmuPanel(KWebSocketClient &c, std::mutex &l)
   , error_state(false)
   , bypass(false)
 {
-  // screens are built lazily in create() so printers without AFC
+  // Screens are built lazily in create() so printers without an MMU
   // never allocate any of this panel's LVGL objects
   ws.register_notify_update(this);
 }
@@ -451,69 +452,7 @@ void MmuPanel::create_edit_screen() {
     lv_obj_set_flex_flow(*row, LV_FLEX_FLOW_ROW);
   }
 
-  // Clear ("") first when the backend supports it; the panel does not decide
-  // that, the backend does. Everything below indexes colour_swatch_hex, so a
-  // missing clear tile simply shifts the grid up by one. Decided once: the
-  // screen is built on the first open, and /mmu/backend names one backend
-  // for the life of the process.
-  colour_swatch_hex.clear();
-  if (backend == NULL || backend->can_clear_colour()) colour_swatch_hex.push_back("");
-  for (const char *hex : COLOUR_PRESETS) colour_swatch_hex.push_back(hex);
-  // one colour short of two full rows: drop the last, rather than leave a hole
-  while ((colour_swatch_hex.size() + 1) % SWATCH_ROWS != 0) colour_swatch_hex.pop_back();
-  const size_t per_row = (colour_swatch_hex.size() + 1) / SWATCH_ROWS;
-
-  colour_swatch_btns.clear();
-  for (size_t c_idx = 0; c_idx < colour_swatch_hex.size(); c_idx++) {
-    const std::string &hex_str = colour_swatch_hex[c_idx];
-    lv_obj_t *parent_row = (c_idx < per_row) ? edit_swatches_row1 : edit_swatches_row2;
-
-    lv_obj_t *swatch = lv_btn_create(parent_row);
-    lv_obj_set_height(swatch, LV_PCT(100));
-    lv_obj_set_flex_grow(swatch, 1);
-    lv_obj_add_style(swatch, &styles().swatch, 0);
-    lv_obj_add_style(swatch, &styles().dim_disabled, LV_STATE_DISABLED);
-
-    if (hex_str.empty()) {
-      lv_obj_set_style_bg_color(swatch, col(RAISED), 0);
-      lv_obj_t *icon = lv_label_create(swatch);
-      lv_label_set_text(icon, LV_SYMBOL_CLOSE);
-      lv_obj_add_style(icon, &styles().dim_label, 0);
-      lv_obj_center(icon);
-    } else {
-      lv_color_t c;
-      parse_colour(hex_str, &c);
-      lv_obj_set_style_bg_color(swatch, c, 0);
-    }
-    lv_obj_add_event_cb(swatch, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
-    colour_swatch_btns.push_back(swatch);
-  }
-
-  // custom colour: opens the colour wheel popout
-  custom_colour_btn = lv_btn_create(edit_swatches_row2);
-  lv_obj_set_height(custom_colour_btn, LV_PCT(100));
-  lv_obj_set_flex_grow(custom_colour_btn, 1);
-  lv_obj_add_style(custom_colour_btn, &styles().swatch, 0);
-  lv_obj_add_style(custom_colour_btn, &styles().dim_disabled, LV_STATE_DISABLED);
-  lv_obj_set_style_bg_color(custom_colour_btn, col(RAISED), 0);
-  lv_obj_t *cc_icon = lv_label_create(custom_colour_btn);
-  lv_label_set_text(cc_icon, LV_SYMBOL_EDIT);
-  lv_obj_set_style_text_color(cc_icon, col(ICON), 0);  // a glyph, but an icon to the theme
-  lv_obj_center(cc_icon);
-  lv_obj_add_event_cb(custom_colour_btn, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
-
-  // A swatch is a square. Its width is its share of the row, so the row is
-  // given that as its height and the swatches -- full height, equal width --
-  // come out square. Measured rather than assumed: the row's width is whatever
-  // the tray leaves after its own padding.
-  lv_obj_update_layout(colour_tray);
-  const lv_coord_t swatch_row_w = lv_obj_get_content_width(edit_swatches_row1);
-  const lv_coord_t swatch_side =
-      (swatch_row_w - (lv_coord_t)(per_row - 1) * gap()) / (lv_coord_t)per_row;
-  for (lv_obj_t *row : {edit_swatches_row1, edit_swatches_row2}) {
-    lv_obj_set_height(row, swatch_side);
-  }
-
+  create_colour_swatches();
 
   // 2. Materials: inline commons plus the configured catalog popout
   lv_obj_t *mat_sec = create_row(right_col);
@@ -613,35 +552,95 @@ void MmuPanel::create_edit_screen() {
   lv_obj_move_background(edit_panel_cont);
 }
 
-static std::string configured_backend() {
-  return Config::get_instance()->get<std::string>("/mmu/backend", "none");
+void MmuPanel::create_colour_swatches() {
+  lv_obj_clean(edit_swatches_row1);
+  lv_obj_clean(edit_swatches_row2);
+  lv_obj_t *colour_tray = lv_obj_get_parent(edit_swatches_row1);
+
+  // Clear ("") first when the backend supports it; the panel does not decide
+  // that, the backend does. Everything below indexes colour_swatch_hex, so a
+  // missing clear tile simply shifts the grid up by one. Rebuild on backend
+  // detection so a reconnect can switch vendors.
+  colour_swatch_hex.clear();
+  if (backend == NULL || backend->can_clear_colour()) colour_swatch_hex.push_back("");
+  for (const char *hex : COLOUR_PRESETS) colour_swatch_hex.push_back(hex);
+  // one colour short of two full rows: drop the last, rather than leave a hole
+  while ((colour_swatch_hex.size() + 1) % SWATCH_ROWS != 0) colour_swatch_hex.pop_back();
+  const size_t per_row = (colour_swatch_hex.size() + 1) / SWATCH_ROWS;
+
+  colour_swatch_btns.clear();
+  for (size_t c_idx = 0; c_idx < colour_swatch_hex.size(); c_idx++) {
+    const std::string &hex_str = colour_swatch_hex[c_idx];
+    lv_obj_t *parent_row = (c_idx < per_row) ? edit_swatches_row1 : edit_swatches_row2;
+
+    lv_obj_t *swatch = lv_btn_create(parent_row);
+    lv_obj_set_height(swatch, LV_PCT(100));
+    lv_obj_set_flex_grow(swatch, 1);
+    lv_obj_add_style(swatch, &styles().swatch, 0);
+    lv_obj_add_style(swatch, &styles().dim_disabled, LV_STATE_DISABLED);
+
+    if (hex_str.empty()) {
+      lv_obj_set_style_bg_color(swatch, col(RAISED), 0);
+      lv_obj_t *icon = lv_label_create(swatch);
+      lv_label_set_text(icon, LV_SYMBOL_CLOSE);
+      lv_obj_add_style(icon, &styles().dim_label, 0);
+      lv_obj_center(icon);
+    } else {
+      lv_color_t c;
+      parse_colour(hex_str, &c);
+      lv_obj_set_style_bg_color(swatch, c, 0);
+    }
+    lv_obj_add_event_cb(swatch, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
+    colour_swatch_btns.push_back(swatch);
+  }
+
+  // custom colour: opens the colour wheel popout
+  custom_colour_btn = lv_btn_create(edit_swatches_row2);
+  lv_obj_set_height(custom_colour_btn, LV_PCT(100));
+  lv_obj_set_flex_grow(custom_colour_btn, 1);
+  lv_obj_add_style(custom_colour_btn, &styles().swatch, 0);
+  lv_obj_add_style(custom_colour_btn, &styles().dim_disabled, LV_STATE_DISABLED);
+  lv_obj_set_style_bg_color(custom_colour_btn, col(RAISED), 0);
+  lv_obj_t *cc_icon = lv_label_create(custom_colour_btn);
+  lv_label_set_text(cc_icon, LV_SYMBOL_EDIT);
+  lv_obj_set_style_text_color(cc_icon, col(ICON), 0);  // a glyph, but an icon to the theme
+  lv_obj_center(cc_icon);
+  lv_obj_add_event_cb(custom_colour_btn, &MmuPanel::_handle_edit_action, LV_EVENT_CLICKED, this);
+
+  // A swatch is a square. Its width is its share of the row, so the row is
+  // given that as its height and the swatches -- full height, equal width --
+  // come out square. Measured rather than assumed: the row's width is whatever
+  // the tray leaves after its own padding.
+  lv_obj_update_layout(colour_tray);
+  const lv_coord_t swatch_row_w = lv_obj_get_content_width(edit_swatches_row1);
+  const lv_coord_t swatch_side =
+      (swatch_row_w - (lv_coord_t)(per_row - 1) * gap()) / (lv_coord_t)per_row;
+  for (lv_obj_t *row : {edit_swatches_row1, edit_swatches_row2}) {
+    lv_obj_set_height(row, swatch_side);
+  }
 }
 
 bool MmuPanel::enabled() {
-  const std::string id = configured_backend();
-  return !id.empty() && id != "none";
+  const char *value = std::getenv("HIDE_MMU");
+  if (value != nullptr) {
+    if (std::string(value) == "true") return false;
+    if (std::string(value) == "false") return true;
+  }
+  return !Config::get_instance()->get<bool>("/ui/hide_mmu", false);
 }
 
-// Only the backend named in the config is ever looked for; nothing is probed
-// dynamically.
 MmuBackend *MmuPanel::select_backend() {
   // runs on the websocket thread, and again on every klipper reconnect, so it
   // can race LVGL event callbacks reading the backend on the UI thread
   std::lock_guard<std::mutex> guard(lv_lock);
-  backend = NULL;
-  NotificationBanner::instance().clear(NotificationBanner::Source::Mmu);
-  dismissed_message.clear();
+  clear();
   if (!enabled()) return NULL;
 
-  const std::string id = configured_backend();
-  for (auto &b : backends) {
-    if (b.first != id) continue;
-    if (!b.second->detect()) {
-      LOG_INFO("MMU backend {} configured but not reported by klipper", b.second->vendor());
-      return NULL;
-    }
-    LOG_INFO("MMU backend: {}", b.second->vendor());
-    backend = b.second;
+  for (MmuBackend *b : backends) {
+    if (!b->detect()) continue;
+    LOG_INFO("MMU backend: {}", b->vendor());
+    backend = b;
+    if (edit_panel_cont != NULL) create_colour_swatches();
     backend->changed = [this]() {
       std::lock_guard<std::mutex> lock(lv_lock);
       if (cont == NULL) return;
@@ -651,7 +650,7 @@ MmuBackend *MmuPanel::select_backend() {
     return backend;
   }
 
-  LOG_INFO("unknown mmu backend '{}' in config", id);
+  LOG_INFO("no supported MMU backend reported by Klipper");
   return NULL;
 }
 
@@ -661,16 +660,16 @@ void MmuPanel::init_state() {
   populate();
 }
 
-// The backend went away on a reconnect. Drop back to an empty grid so the tab
-// cannot be left showing slots that no longer exist; refresh() empties the
-// neutral state whenever backend is NULL.
+// Drop the binding and any controls or messages from the previous session.
 void MmuPanel::clear() {
+  if (backend != NULL) backend->changed = nullptr;
+  backend = NULL;
+  NotificationBanner::instance().clear(NotificationBanner::Source::Mmu);
+  dismissed_message.clear();
   tool_map.close();
-  if (cont == NULL) return;
-  close_edit();
   current_page = 0;
   refresh();
-  populate();
+  if (cont != NULL) close_edit();
 }
 
 void MmuPanel::refresh() {

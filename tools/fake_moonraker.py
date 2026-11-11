@@ -123,7 +123,7 @@ def extra_ui_sections():
 
 
 def write_ui_config(out_path, base_path):
-    """grumpyscreen.cfg for this session: our port and backend, sim stand-ins
+    """grumpyscreen.cfg for this session: our port, sim stand-ins
     for every [commands] entry (so nothing touches the host), and sections for
     the extra hardware."""
     with open(base_path) as f:
@@ -144,8 +144,6 @@ def write_ui_config(out_path, base_path):
                 line = "port: %d" % port
             elif section == "moonraker" and key == "thumbnail_path":
                 line = "thumbnail_path: %s" % thumbs
-            elif section == "mmu" and key == "backend":
-                line = "backend: %s" % S.ARGS.backend
             elif section == "commands" and key in COMMANDS:
                 line = "%s: python3 tools/sim_hook.py %s --port %d" % (key, COMMANDS[key], port)
         out.append(line)

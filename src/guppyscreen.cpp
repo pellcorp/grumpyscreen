@@ -47,16 +47,15 @@ GuppyScreen::GuppyScreen()
   , main_panel(ws, lv_lock, spoolman_panel.get(), mmu_panel.get())
   , init_panel(main_panel, lv_lock)
 {
-  // the ids here are the values accepted by /mmu/backend
   if (mmu_panel == nullptr) {
     main_panel.create_panel();
     return;
   }
 #ifdef MMU_BACKEND_AFC
-  if (afc_backend != nullptr) mmu_panel->add_backend("afc", afc_backend.get());
+  if (afc_backend != nullptr) mmu_panel->add_backend(afc_backend.get());
 #endif
 #ifdef MMU_BACKEND_HH
-  if (hh_backend != nullptr) mmu_panel->add_backend("hh", hh_backend.get());
+  if (hh_backend != nullptr) mmu_panel->add_backend(hh_backend.get());
 #endif
   main_panel.create_panel();
 }

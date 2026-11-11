@@ -109,7 +109,7 @@ class MainPanel : public NotifyConsumer {
   LedPanel led_panel;
   lv_obj_t *tabview;
   lv_obj_t *main_tab;
-  // NULL when /mmu/backend is none; otherwise the tab exists from startup and
+  // NULL when MMU is hidden; otherwise the tab exists from startup and
   // its button stays disabled until the backend is detected
   lv_obj_t *mmu_tab;
   lv_obj_t *spoolman_tab;
