@@ -11,8 +11,6 @@ using namespace Theme;
 #include <algorithm>
 #include <string>
 
-LV_FONT_DECLARE(materialdesign_font_40);
-
 static constexpr int FULL_TAB_BAR_W = 60;
 static constexpr int COMPACT_TAB_BAR_W = 45;
 
@@ -24,11 +22,6 @@ static int tab_bar_w() {
 
 static int reclaimed_tab_bar_w() { return FULL_TAB_BAR_W - tab_bar_w(); }
 
-#define TOOLS_SYMBOL   u8"\U000F1064"
-#define HOME_SYMBOL    u8"\U000F02DC"
-#define CONSOLE_SYMBOL u8"\U000F018D"
-#define SPOOL_SYMBOL   u8"\U000F07DE"
-
 MainPanel::MainPanel(KWebSocketClient &websocket,
 		     std::mutex &lock,
 		     SpoolmanPanel *sm,
@@ -39,13 +32,13 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   , fan_panel(ws, lock)
   , led_panel(ws, lock)    
   , tabview(lv_tabview_create(lv_scr_act(), LV_DIR_LEFT, tab_bar_w()))
-  , main_tab(lv_tabview_add_tab(tabview, HOME_SYMBOL))
-  , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, SPOOL_SYMBOL) : NULL)
+  , main_tab(lv_tabview_add_tab(tabview, " "))
+  , mmu_tab(mmu != NULL ? lv_tabview_add_tab(tabview, " ") : NULL)
   , spoolman_tab(!SpoolmanPanel::hidden()
                      ? lv_tabview_add_tab(tabview, " ") : NULL)
-  , console_tab(lv_tabview_add_tab(tabview, CONSOLE_SYMBOL))
+  , console_tab(lv_tabview_add_tab(tabview, " "))
   , console_panel(ws, lock, console_tab)
-  , setting_tab(lv_tabview_add_tab(tabview, TOOLS_SYMBOL))
+  , setting_tab(lv_tabview_add_tab(tabview, " "))
   , setting_panel(websocket, lock, setting_tab)
   , main_cont(create_screen(main_tab))  // fills the tab: it is the page
   , print_status_panel(websocket, lock, main_cont)
@@ -235,30 +228,45 @@ static void scroll_begin_event(lv_event_t * e) {
   }
 }
 
-void MainPanel::_draw_spoolman_tab(lv_event_t *e) {
+const lv_img_dsc_t *MainPanel::tab_icon(uint16_t id) const {
+  auto is = [id](lv_obj_t *tab) { return tab != NULL && lv_obj_get_index(tab) == id; };
+  if (is(main_tab)) return Icons::NAV_HOME;
+  if (is(mmu_tab)) return Icons::NAV_SPOOL;
+  if (is(spoolman_tab)) return Icons::NAV_SPOOLMAN;
+  if (is(console_tab)) return Icons::NAV_CONSOLE;
+  if (is(setting_tab)) return Icons::NAV_TOOLS;
+  return NULL;
+}
+
+void MainPanel::_draw_tab_icon(lv_event_t *e) {
   auto *self = static_cast<MainPanel*>(lv_event_get_user_data(e));
   auto *part = static_cast<lv_obj_draw_part_dsc_t*>(lv_event_get_param(e));
-  if (part->part != LV_PART_ITEMS || part->id != lv_obj_get_index(self->spoolman_tab)) return;
+  if (part->part != LV_PART_ITEMS) return;
+  const auto *icon = self->tab_icon(part->id);
+  if (icon == NULL) return;
   // LVGL changes draw_area to the label bounds before DRAW_PART_END.
+  // Each button's BEGIN/END pair finishes before the next button is drawn.
   if (lv_event_get_code(e) == LV_EVENT_DRAW_PART_BEGIN) {
-    self->spoolman_tab_area = *part->draw_area;
-    // The icon font has no space glyph; hide the label's missing-glyph box.
+    self->tab_icon_area = *part->draw_area;
+    // The image replaces the tab's placeholder label.
     part->label_dsc->opa = LV_OPA_TRANSP;
     return;
   }
 
-  const auto &slot = self->spoolman_tab_area;
-  const auto *icon = Icons::SPOOLMAN_IMG;
+  const auto &slot = self->tab_icon_area;
+  // Ask the decoder so this also works with encoded image sources.
+  lv_img_header_t header;
+  if (lv_img_decoder_get_info(icon, &header) != LV_RES_OK || header.w == 0 || header.h == 0) return;
   const int size = std::max(1, std::min({40, lv_area_get_width(&slot) - 2 * gap(),
                                       lv_area_get_height(&slot) - 2 * gap()}));
-  const int zoom = size * LV_IMG_ZOOM_NONE / std::max(icon->header.w, icon->header.h);
-  const int width = icon->header.w * zoom / LV_IMG_ZOOM_NONE;
-  const int height = icon->header.h * zoom / LV_IMG_ZOOM_NONE;
+  const int zoom = size * LV_IMG_ZOOM_NONE / std::max(header.w, header.h);
+  const int width = header.w * zoom / LV_IMG_ZOOM_NONE;
+  const int height = header.h * zoom / LV_IMG_ZOOM_NONE;
   lv_area_t area;
   area.x1 = slot.x1 + (lv_area_get_width(&slot) - width) / 2;
   area.y1 = slot.y1 + (lv_area_get_height(&slot) - height) / 2;
-  area.x2 = area.x1 + icon->header.w - 1;
-  area.y2 = area.y1 + icon->header.h - 1;
+  area.x2 = area.x1 + header.w - 1;
+  area.y2 = area.y1 + header.h - 1;
 
   lv_draw_img_dsc_t image;
   lv_draw_img_dsc_init(&image);
@@ -304,23 +312,13 @@ void MainPanel::create_panel() {
   // floating bubble rather than part of the bar
   lv_obj_set_style_radius(tab_btns, 0, LV_PART_ITEMS);
   lv_obj_set_style_bg_opa(tab_btns, LV_OPA_TRANSP, LV_PART_ITEMS);
-  lv_obj_set_style_text_color(tab_btns, col(TEXT), LV_PART_ITEMS);
-  // the selected tab is the grey slot with the accent-coloured glyph it has
-  // always been (LVGL's tabview paints a checked tab's text with the accent)
-  // a wash of grey rather than a solid slab, which is the weight it has always
-  // had behind the selected glyph
+  // The selected tab keeps its grey wash; the draw callback colours the icon.
   lv_obj_set_style_bg_opa(tab_btns, LV_OPA_20, LV_STATE_CHECKED | LV_PART_ITEMS);
   lv_obj_set_style_bg_color(tab_btns, col(SELECTED), LV_STATE_CHECKED | LV_PART_ITEMS);
-  lv_obj_set_style_text_color(tab_btns, theme_primary(), LV_STATE_CHECKED | LV_PART_ITEMS);
   lv_obj_set_style_outline_width(tab_btns, 0, LV_PART_ITEMS | LV_STATE_FOCUS_KEY);
   lv_obj_set_style_border_side(tab_btns, 0, LV_PART_ITEMS | LV_STATE_CHECKED);
-  // on the items, not the bar: the shared key style sets a text font on the
-  // items and would otherwise win over an inherited one
-  lv_obj_set_style_text_font(tab_btns, &materialdesign_font_40, LV_PART_ITEMS);
-  // tab buttons are btnmatrix glyphs, not images, so they cannot wear icon_disabled;
-  // grey them with the same colour it recolours disabled icons with
-  lv_obj_set_style_text_color(tab_btns, col(DISABLED),
-                              LV_PART_ITEMS | LV_STATE_DISABLED);
+  lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_tab_icon, LV_EVENT_DRAW_PART_BEGIN, this);
+  lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_tab_icon, LV_EVENT_DRAW_PART_END, this);
 
   // The page is the theme's background everywhere: the screen, the tabview and
   // each tab. Left alone they paint LVGL's own dark card grey, which only
@@ -338,8 +336,6 @@ void MainPanel::create_panel() {
 
   if (spoolman_tab != NULL) {
     lv_btnmatrix_set_btn_ctrl(tab_btns, lv_obj_get_index(spoolman_tab), LV_BTNMATRIX_CTRL_DISABLED);
-    lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_spoolman_tab, LV_EVENT_DRAW_PART_BEGIN, this);
-    lv_obj_add_event_cb(tab_btns, &MainPanel::_draw_spoolman_tab, LV_EVENT_DRAW_PART_END, this);
   }
 
   if (mmu_tab != NULL) {
