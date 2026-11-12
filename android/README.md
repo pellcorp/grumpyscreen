@@ -71,8 +71,9 @@ reference signing secrets or the release environment.
   Connect also reloads configuration when choosing the current printer.
   Opening or returning to the app shows the printer list. The selected
   printer is checked using Moonraker's `/server/info`; Connect is enabled
-  only once it shows online. Its status is checked again while the list is
-  open. Other saved printers are checked when selected. Typed addresses
+  only once it shows online. Offline printers are checked again while the
+  list is open; checks stop once the selected printer is online. Other
+  saved printers are checked when selected. Typed addresses
   are checked the same way. Klipper can be down or restarting as long as
   Moonraker responds.
   Long-press a saved printer to forget it. The same dialog can make the app
@@ -88,14 +89,17 @@ reference signing secrets or the release environment.
   and settings are kept. Android may ask you to allow installs from your
   browser or file manager. GrumpyScreen does not request permission to install
   apps. There are no automatic update checks.
-* Before opening the native UI, the app downloads
+* Connect downloads the configuration while keeping the printer list open.
+  The button shows **Connecting…** until the configuration is ready, then
+  opens the native UI. The app downloads
   `/server/files/config/grumpyscreen.ini` from the selected Moonraker host and
   port. Put `grumpyscreen.ini` in the printer's configuration directory and
   edit it through Fluidd or Mainsail. It is an override over the APK's bundled
   `grumpyscreen.cfg`, so it only needs the settings you want to change.
   A `[theme]` also styles the app's printer dialog.
   If the file is missing (HTTP 404), the bundled defaults are used. Other
-  download errors offer Retry or a different printer before the UI starts.
+  download errors appear in the printer list, where you can press Connect
+  to retry or select a different printer before the UI starts.
   Each connection downloads a fresh copy; the session copy in the app cache
   is never reused for a new connection or another printer.
 * Android has no local GrumpyScreen settings or Settings subtab. Existing
