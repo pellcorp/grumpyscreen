@@ -9,7 +9,9 @@
 #endif
 #include "logger.h"
 #include "state.h"
+#if defined(GUPPY_CALIBRATE) || defined(GUPPY_FBDEV)
 #include <fstream>
+#endif
 #ifdef GUPPY_SDL
 #include <cstdlib>
 #endif
