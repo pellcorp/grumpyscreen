@@ -37,8 +37,6 @@ Point the screen's `[moonraker]` `host` and `port` at it, and set `thumbnail_pat
 | `SIM_FANS` | `1` | How many of `grumpyscreen.cfg`'s fans exist (1-7) |
 | `SIM_LEDS` | `1` | How many of its output_pin LEDs exist (0-5) |
 | `SIM_SPOOLMAN` | `push` | `off`, `readonly`, `push` or `pull` |
-| `HIDE_SPOOLMAN` | Config value | `true` hides the global Spoolman nav tab; `false` shows it. Overrides the config; MMU Spoolman integration stays available. |
-| `HIDE_MMU` | Config value | `true` hides MMU navigation and disables MMU integration; `false` shows the button, enabled when AFC or Happy Hare is detected. Overrides `[ui] hide_mmu`. |
 | `SIM_PRINTING` | `0` | `1` starts `quick_cube.gcode`, or name a file |
 | `SIM_ARGS` | | Any `fake_moonraker.py` flag, see below |
 | `SIM_WIFI` | `1` | `0` runs without the fake wpa_supplicant |
@@ -46,15 +44,18 @@ Point the screen's `[moonraker]` `host` and `port` at it, and set `thumbnail_pat
 | `SIM_PORT` | `7125` | Moonraker port |
 | `SIM_BUILD` | | Build folder to run, e.g. `build/sdl` |
 | `SIM_CFG_SRC` | `grumpyscreen.cfg` | Config the session config is made from |
+| `SIM_CFG_OVERRIDE` | | Override file copied into the session |
 | `SIM_KEEP` | `0` | `1` keeps other UIs running, for side-by-side ports |
 
-Run `HIDE_SPOOLMAN=true ./sim.sh` to test with the global Spoolman tab hidden. The same environment variable works when launching GrumpyScreen directly. Unset or invalid values follow the config.
+Set `[ui] hide_spoolman: true` in the configuration to hide the global
+Spoolman tab; MMU Spoolman integration stays available. To try visibility
+settings with the simulator, put them in an override file and run
+`SIM_CFG_OVERRIDE=/path/to/grumpyscreen.ini ./sim.sh`.
 
 MMU detection needs no screen backend setting: `SIM_BACKEND=afc` and
 `SIM_BACKEND=hh` enable its navigation button automatically; `SIM_BACKEND=none`
-leaves it visible and disabled. Use `HIDE_MMU=true ./sim.sh` to hide it entirely.
-`HIDE_MMU=false` overrides `[ui] hide_mmu: true`; unset or invalid values use
-the config, just like `HIDE_SPOOLMAN`.
+leaves it visible and disabled. Set `[ui] hide_mmu: true` to hide it entirely
+and disable MMU integration. Both visibility settings default to `false`.
 
 Useful `SIM_ARGS` flags (`python3 tools/fake_moonraker.py --help` lists all):
 

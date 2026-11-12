@@ -11,11 +11,6 @@
 using namespace Theme;
 
 bool SpoolmanPanel::hidden() {
-  const char *value = std::getenv("HIDE_SPOOLMAN");
-  if (value != nullptr) {
-    if (std::string(value) == "true") return true;
-    if (std::string(value) == "false") return false;
-  }
   return Config::get_instance()->get<bool>("/ui/hide_spoolman", false);
 }
 

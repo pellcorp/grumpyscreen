@@ -211,9 +211,8 @@ To hide the button and disable MMU integration entirely, set:
 hide_mmu: true
 ```
 
-`hide_mmu` defaults to `false`. `HIDE_MMU=true|false` overrides the config;
-unset or invalid environment values follow the config. Hidden MMU support
-allocates no panel or backend and performs no detection. The old `[mmu] backend`
+`hide_mmu` defaults to `false` and is controlled by the configuration. Hidden
+MMU support allocates no panel or backend and performs no detection. The old `[mmu] backend`
 setting is ignored; replace `backend: none` with `[ui] hide_mmu: true` to keep
 MMU support disabled. `[mmu] materials` still configures the material catalog.
 

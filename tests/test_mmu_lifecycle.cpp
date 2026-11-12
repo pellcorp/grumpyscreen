@@ -5,7 +5,6 @@
 
 #include <cassert>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <unistd.h>
@@ -29,21 +28,24 @@ static lv_obj_t *main_tabview() {
 
 static void test_visibility_config() {
   auto *config = Config::get_instance();
-  unsetenv("HIDE_MMU");
   assert(config->load("grumpyscreen.cfg"));
   assert(MmuPanel::enabled());
+  assert(!SpoolmanPanel::hidden());
 
   const auto path = "/tmp/grumpy-mmu-config-" + std::to_string(getpid()) + ".cfg";
-  {
-    std::ofstream out(path);
-    out << "[ui]\nhide_mmu: true\n";
+  // Both visibility options are controlled independently by the override.
+  for (bool hide_mmu : {false, true}) {
+    for (bool hide_spoolman : {false, true}) {
+      {
+        std::ofstream out(path);
+        out << "[ui]\nhide_mmu: " << (hide_mmu ? "true" : "false")
+            << "\nhide_spoolman: " << (hide_spoolman ? "true" : "false") << '\n';
+      }
+      assert(config->load_override(path));
+      assert(MmuPanel::enabled() == !hide_mmu);
+      assert(SpoolmanPanel::hidden() == hide_spoolman);
+    }
   }
-  assert(config->load_override(path));
-  assert(!MmuPanel::enabled());
-  setenv("HIDE_MMU", "false", 1);
-  assert(MmuPanel::enabled());
-  setenv("HIDE_MMU", "invalid", 1);
-  assert(!MmuPanel::enabled());
 
   // Legacy backend settings no longer select a driver or hide the tab.
   {
@@ -51,15 +53,11 @@ static void test_visibility_config() {
     out << "[mmu]\nbackend: none\n";
   }
   assert(config->load(path));
-  unsetenv("HIDE_MMU");
   assert(MmuPanel::enabled());
-  setenv("HIDE_MMU", "true", 1);
-  assert(!MmuPanel::enabled());
+  assert(!SpoolmanPanel::hidden());
   assert(config->load("grumpyscreen.cfg"));
-  assert(!MmuPanel::enabled());
-  setenv("HIDE_MMU", "invalid", 1);
   assert(MmuPanel::enabled());
-  unsetenv("HIDE_MMU");
+  assert(!SpoolmanPanel::hidden());
   std::remove(path.c_str());
 }
 
@@ -84,11 +82,15 @@ static void load_printer(const char *object) {
 
 int main(int argc, char **argv) {
   test_visibility_config();
-  unsetenv("HIDE_SPOOLMAN");
   const bool hidden = argc > 1 && std::strcmp(argv[1], "--hidden") == 0;
   if (hidden) {
-    setenv("HIDE_MMU", "true", 1);
-    setenv("HIDE_SPOOLMAN", "true", 1);
+    const auto path = "/tmp/grumpy-hidden-config-" + std::to_string(getpid()) + ".cfg";
+    {
+      std::ofstream out(path);
+      out << "[ui]\nhide_mmu: true\nhide_spoolman: true\n";
+    }
+    assert(Config::get_instance()->load_override(path));
+    std::remove(path.c_str());
   }
 
   lv_init();
