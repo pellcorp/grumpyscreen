@@ -186,6 +186,12 @@ final class PrinterScanner {
         }
     }
 
+    /** Reachable Moonraker counts as online even while Klipper is restarting. */
+    static boolean isOnline(String host, int port) {
+        JSONObject server = jsonResult(httpGet(host, port, "/server/info", 2000));
+        return server != null && (server.has("klippy_state") || server.has("moonraker_version"));
+    }
+
     private void report(Printer p) {
         main.post(() -> {
             if (stopped || !seen.add(p.host + ":" + p.port)) {
@@ -222,6 +228,10 @@ final class PrinterScanner {
             String resp = buf.toString("UTF-8");
             int split = resp.indexOf("\r\n\r\n");
             if (!resp.startsWith("HTTP/") || split < 0) {
+                return null;
+            }
+            String[] status = resp.substring(0, resp.indexOf("\r\n")).split(" ", 3);
+            if (status.length < 2 || !"200".equals(status[1])) {
                 return null;
             }
             return resp.substring(split + 4);
