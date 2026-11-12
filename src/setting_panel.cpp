@@ -1,15 +1,16 @@
 #include "setting_panel.h"
 #include "config.h"
 #include "logger.h"
+#ifndef OS_ANDROID
 #include "subprocess.hpp"
+#endif
 #include "simple_dialog.h"
 #include "icons.h"
 #include "theme.h"
 
-#include <experimental/filesystem>
 #include <vector>
 
-namespace fs = std::experimental::filesystem;
+#ifndef OS_ANDROID
 namespace sp = subprocess;
 
 struct deferred_cmd_ctx {
@@ -24,7 +25,6 @@ static constexpr uint32_t DEFERRED_COMMAND_DELAY_MS = 500;
 // The factory reset dialog is deliberately left up longer before we block.
 static constexpr uint32_t FACTORY_RESET_DELAY_MS = 5000;
 
-#ifndef OS_ANDROID
 static constexpr int32_t DISPLAY_SLEEP_VALUES[] = {-1, 60, 300, 600, 1800};
 static const char *DISPLAY_SLEEP_MAP[] = {"Never", "1 min", "5 min", "10 min", "30 min", ""};
 
@@ -41,8 +41,6 @@ static WifiPanelOptions embedded_wifi_options(lv_obj_t *parent) {
   opts.flush = true;
   return opts;
 }
-#endif
-
 static int call_command(const std::string &cmd) {
     try {
         return sp::call(cmd);
@@ -85,6 +83,7 @@ static void run_command_deferred(lv_obj_t * mbox,
     lv_timer_t * timer = lv_timer_create(run_deferred_command_cb, delay_ms, ctx);
     lv_timer_set_repeat_count(timer, 1);
 }
+#endif
 
 static void layout_tiles(lv_obj_t *cont, const std::vector<ButtonContainer *> &tiles) {
   static const size_t cols = 4;
@@ -144,8 +143,8 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
         "Restart Klipper", "Do you want to restart klipper?", {"Back", "Restart Klipper"})
   , restart_firmware_btn(actions_cont, Icons::FIRMWARE_IMG, "Firmware\nRestart", &SettingPanel::_handle_callback, this,
         "Firmware Restart", "Do you want to perform a firmware restart?", {"Back", "Firmware Restart"})
-  , guppy_restart_btn(actions_cont, Icons::GUI_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
 #ifndef OS_ANDROID
+  , guppy_restart_btn(actions_cont, Icons::GUI_IMG, "Restart GUI", &SettingPanel::_handle_callback, this)
   // The app has no use for the printer-side tools: it cannot zip the
   // printer's logs, and a phone has no stock firmware to switch a printer to
   , support_zip_btn(actions_cont, Icons::SUPPORT_ZIP_IMG, "Create\nSupport ZIP", &SettingPanel::_handle_callback, this)
@@ -269,8 +268,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 
 #ifdef OS_ANDROID
   // The app's tools are the same on every printer: they all go through Moonraker
-  layout_tiles(actions_cont, {&restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn,
-                              &shutdown_host_btn});
+  layout_tiles(actions_cont, {&restart_klipper_btn, &restart_firmware_btn, &shutdown_host_btn});
 #else
   // Optional tiles only appear with a command behind them; the grid is built
   // from what is left, four across, so a hidden tile never leaves a hole.
@@ -289,7 +287,7 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #ifdef COSMOS
   action_tiles.push_back(&update_btn);
 #else
-  action_tiles.push_back(&shutdown_host_btn);  // through Moonraker
+  action_tiles.push_back(&shutdown_host_btn);
 #endif
 
   layout_tiles(actions_cont, action_tiles);
@@ -418,17 +416,15 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       if (sent < 0) failed();  // no connection to Moonraker
     } else if (btn == restart_firmware_btn.get_container()) {
       ws.send_jsonrpc("printer.firmware_restart");
+#ifndef OS_ANDROID
     } else if (btn == guppy_restart_btn.get_container()) {
-#ifdef OS_ANDROID
-      android_restart_app();
-      return;
-#endif
       Config *conf = Config::get_instance();
       auto restart_command = conf->get<std::string>("/commands/gui_restart_cmd");
       auto ret = call_command(restart_command);
       if (ret != 0) {
         create_simple_dialog(lv_scr_act(), "Restart GUI Failed", "Failed to restart GUI!", true, true);
       }
+#endif
 #ifdef COSMOS
     } else if (btn == update_btn.get_container()) {
       // Moonraker runs the update and reports its progress to every UI.

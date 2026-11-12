@@ -274,10 +274,6 @@ void android_place_menu(int width, int height) {
   place_menu();
 }
 
-void android_restart_app() {
-  call_activity("restartFromNative", "()V");
-}
-
 LV_FONT_DECLARE(dejavusans_mono_14);
 LV_FONT_DECLARE(console_mono_16);
 LV_FONT_DECLARE(console_mono_18);

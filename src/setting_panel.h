@@ -73,8 +73,8 @@ class SettingPanel {
 
   ButtonContainer restart_klipper_btn;
   ButtonContainer restart_firmware_btn;
-  ButtonContainer guppy_restart_btn;
 #ifndef OS_ANDROID
+  ButtonContainer guppy_restart_btn;
   ButtonContainer support_zip_btn;
   ButtonContainer switch_to_stock_btn;
   ButtonContainer factory_reset_btn;

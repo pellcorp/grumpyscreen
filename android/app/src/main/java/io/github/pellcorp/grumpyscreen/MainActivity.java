@@ -219,12 +219,6 @@ public class MainActivity extends Activity {
         getWindow().setAttributes(lp);
     }
 
-    /** Settings, Restart GUI: start over in a fresh process. */
-    @SuppressWarnings("unused")
-    void restartFromNative() {
-        runOnUiThread(() -> RestartActivity.restart(this));
-    }
-
     private void showPrinterDialog(boolean firstRun) {
         if (printerDialog != null && printerDialog.isShowing()) return;
         // re-read each time: the user may have changed the theme in their override

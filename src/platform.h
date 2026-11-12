@@ -7,8 +7,6 @@
 #endif
 
 #ifdef OS_ANDROID
-// Restarts the app: the Android "Restart GUI".
-void android_restart_app();
 // The size to draw the nav bar's icons (nav_*) at, before any is drawn
 // (android/app/src/main/cpp/grumpy_icons.c).
 extern "C" void android_set_nav_icon_px(int px);
