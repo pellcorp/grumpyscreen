@@ -186,15 +186,16 @@ bool load_config(const Paths &p) {
     LOG_ERROR("Failed to load {}", p.config);
     return false;
   }
-  // The printer to talk to, written by the app from what the user entered.
-  // It is loaded as an override so it can only replace keys the bundled
-  // config already has.
+  // The selected printer's grumpyscreen.ini was downloaded before the surface
+  // was created. It is the only user config; Android has no writable settings.
+  if (fs::exists(p.override_cfg) && !conf->load_override(p.override_cfg)) {
+    LOG_ERROR("Failed to load printer config {}", p.override_cfg);
+    return false;
+  }
+  // Apply the selected address and Android's thumbnail cache last: a printer's
+  // INI may contain localhost or paths that only exist on the printer host.
   if (fs::exists(p.moonraker) && !conf->load_override(p.moonraker)) {
     LOG_ERROR("Failed to load {}", p.moonraker);
-  }
-  // Settings changed in the UI are written here.
-  if (fs::exists(p.override_cfg) && !conf->load_override(p.override_cfg)) {
-    LOG_ERROR("Failed to load override config {}", p.override_cfg);
   }
   conf->set_override_path(p.override_cfg);
   return true;
@@ -311,6 +312,11 @@ Java_io_github_pellcorp_grumpyscreen_GrumpyNative_setActivity(JNIEnv *env, jclas
   std::lock_guard<std::mutex> g(activity_lock);
   if (activity != nullptr) env->DeleteGlobalRef(activity);
   activity = a != nullptr ? env->NewGlobalRef(a) : nullptr;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_io_github_pellcorp_grumpyscreen_GrumpyNative_isStarted(JNIEnv *, jclass) {
+  return started.load() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL

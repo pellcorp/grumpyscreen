@@ -119,17 +119,19 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   , tabview(lv_tabview_create(cont, LV_DIR_TOP, Theme::scale_r(36)))
   , actions_tab(lv_tabview_add_tab(tabview, "Tools"))
 #ifndef OS_ANDROID
-  // (Android manages the device's wifi itself: no Network tab there)
+  // Android manages wifi itself and reads settings from the printer's INI.
   , wifi_tab(lv_tabview_add_tab(tabview, "Network"))
-#endif
   , settings_tab(lv_tabview_add_tab(tabview, "Settings"))
+#endif
   , about_tab(lv_tabview_add_tab(tabview, "About"))
   , actions_cont(Theme::create_screen(actions_tab))
+#ifndef OS_ANDROID
   , settings_cont(Theme::create_screen(settings_tab))
+#endif
   , about_cont(Theme::create_screen(about_tab))
+#ifndef OS_ANDROID
   , emergency_prompt_switch(nullptr)
   , emergency_stop_warning(nullptr)
-#ifndef OS_ANDROID
   , sleep_timeout_selector(nullptr)
   , sleep_timeout_warning(nullptr)
 #endif
@@ -174,7 +176,9 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
 #ifndef OS_ANDROID
   lv_obj_set_style_pad_all(wifi_tab, 0, 0);
 #endif
+#ifndef OS_ANDROID
   lv_obj_set_style_pad_all(settings_tab, 0, 0);
+#endif
   lv_obj_set_style_pad_all(about_tab, 0, 0);
   Theme::style_embedded_tabview(tabview);
 
@@ -195,6 +199,8 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   add_about_line(about_panel, std::string("Branch: ") + GUPPYSCREEN_BRANCH);
   add_about_line(about_panel, std::string("Version: ") + GUPPYSCREEN_VERSION);
 
+#ifndef OS_ANDROID
+  // Android configuration is edited in the printer's grumpyscreen.ini.
   lv_obj_t *settings_panel = lv_obj_create(settings_cont);
   lv_obj_clear_flag(settings_panel, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_add_style(settings_panel, &Theme::styles().panel, 0);
@@ -241,7 +247,6 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
   lv_obj_set_style_text_color(emergency_stop_warning, Theme::col(Theme::DANGER), 0);
   refresh_emergency_stop_warning();
 
-#ifndef OS_ANDROID
   add_about_line(settings_panel, "Screen timeout", true);
   sleep_timeout_selector = lv_btnmatrix_create(settings_panel);
   lv_obj_set_size(sleep_timeout_selector, LV_PCT(100), Theme::touch_h());
@@ -324,6 +329,7 @@ void SettingPanel::_tabview_event_cb(lv_event_t *event) {
   }
 }
 
+#ifndef OS_ANDROID
 void SettingPanel::_setting_changed_cb(lv_event_t *event) {
   static_cast<SettingPanel *>(lv_event_get_user_data(event))->setting_changed(event);
 }
@@ -342,7 +348,6 @@ void SettingPanel::setting_changed(lv_event_t *event) {
       else
         lv_obj_clear_state(emergency_prompt_switch, LV_STATE_CHECKED);
     }
-#ifndef OS_ANDROID
   } else if (target == sleep_timeout_selector) {
     const uint32_t selected = lv_btnmatrix_get_selected_btn(sleep_timeout_selector);
     if (selected < sizeof(DISPLAY_SLEEP_VALUES) / sizeof(DISPLAY_SLEEP_VALUES[0])) {
@@ -355,7 +360,6 @@ void SettingPanel::setting_changed(lv_event_t *event) {
         lv_btnmatrix_set_btn_ctrl(sleep_timeout_selector, old_idx, LV_BTNMATRIX_CTRL_CHECKED);
       }
     }
-#endif
   }
 
   if (!saved) {
@@ -364,12 +368,9 @@ void SettingPanel::setting_changed(lv_event_t *event) {
   }
 
   if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
-#ifndef OS_ANDROID
   if (target == sleep_timeout_selector) refresh_sleep_timeout_warning();
-#endif
 }
 
-#ifndef OS_ANDROID
 void SettingPanel::refresh_sleep_timeout_warning() {
   if (Config::get_instance()->get<int32_t>("/ui/display_sleep_sec") == -1) {
     lv_obj_clear_flag(sleep_timeout_warning, LV_OBJ_FLAG_HIDDEN);
@@ -377,7 +378,6 @@ void SettingPanel::refresh_sleep_timeout_warning() {
     lv_obj_add_flag(sleep_timeout_warning, LV_OBJ_FLAG_HIDDEN);
   }
 }
-#endif
 
 void SettingPanel::refresh_emergency_stop_warning() {
   if (lv_obj_has_state(emergency_prompt_switch, LV_STATE_CHECKED)) {
@@ -386,6 +386,7 @@ void SettingPanel::refresh_emergency_stop_warning() {
     lv_obj_clear_flag(emergency_stop_warning, LV_OBJ_FLAG_HIDDEN);
   }
 }
+#endif
 
 void SettingPanel::refresh_active_tab() {
 #ifndef OS_ANDROID
