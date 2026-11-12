@@ -47,6 +47,10 @@ class SliderContainer {
   void set_range(int min_range, int max_range);
 
   void update_value(int value);
+  // greyed out and not tappable: a fan Klipper drives itself
+  void set_enabled(bool enabled);
+  // shown after the value, such as a fan's RPM; empty for none
+  void set_suffix(const std::string &text);
 
   void handle_value_update(lv_event_t *event);
 
@@ -66,6 +70,9 @@ class SliderContainer {
   lv_obj_t *slider_value;
   ButtonContainer max_btn;
   std::string unit;
+  std::string suffix;
+  int value = 0;
+  void show_value();
 };
 
 #endif // __SLIDER_CONTAINER_H__

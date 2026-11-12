@@ -221,6 +221,7 @@ def parse_args(argv=None):
     g.add_argument("--leds", type=int, default=1, help="how many of grumpyscreen.cfg's output_pin leds exist (0-%d)" % len(K.LED_IDS))
     g.add_argument("--rgb-led", action="store_true", help="add [led chamber_light] (colour_data, SET_LED)")
     g.add_argument("--heater-fans", action="store_true", help="add heater_fan hotend_fan + controller_fan mcu_fan")
+    g.add_argument("--fan-rpm", action="store_true", help="fans report rpm (a tachometer on each)")
     g.add_argument("--chamber-heater", action="store_true", help="add heater_generic chamber_heater")
     g.add_argument("--speed", type=float, default=20.0, help="print clock speed-up over real time")
     g.add_argument("--idle-timeout", type=float, default=600.0, help="klipper idle_timeout seconds")

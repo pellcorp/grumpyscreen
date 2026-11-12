@@ -135,7 +135,8 @@ def build_objects(keep=()):
         if kind == "output_pin":
             STATE[sec] = {"value": 0.0}
         elif kind in ("fan", "fan_generic", "heater_fan", "controller_fan"):
-            STATE[sec] = {"speed": 0.0, "rpm": None}
+            # --fan-rpm: a tachometer on each, so klipper reports rpm, not None
+            STATE[sec] = {"speed": 0.0, "rpm": 0.0 if S.ARGS.fan_rpm else None}
         elif kind == "led":
             STATE[sec] = {"color_data": [[0.0, 0.0, 0.0, 0.0]]}
     for m in MACROS:
@@ -582,6 +583,13 @@ async def physics():
                 idle = time.monotonic() - MOTION.last_active
                 STATE[sec]["speed"] = c["fan_speed"] if busy or idle < c["idle_timeout"] else 0.0
                 diff[sec] = STATE[sec]
+        # a tachometer reads about 6000 RPM at full speed, a little off each tick
+        for sec, st in STATE.items():
+            if isinstance(st, dict) and st.get("rpm") is not None:
+                rpm = round(st["speed"] * 6000 * random.uniform(0.98, 1.02)) if st["speed"] else 0.0
+                if rpm != st["rpm"]:
+                    st["rpm"] = rpm
+                    diff[sec] = st
         it = STATE["idle_timeout"]
         if SD.active():
             it["printing_time"] = round(it["printing_time"] + 1, 1)

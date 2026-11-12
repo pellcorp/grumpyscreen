@@ -5,7 +5,32 @@
 #include "theme.h"
 #include "icons.h"
 
+#include <cmath>
+
 using namespace Theme;
+
+// Klipper takes speed commands only for these. heater_fan and controller_fan
+// follow their heater or steppers, so their rows show the speed but are greyed.
+bool FanPanel::controllable(const std::string &key) {
+  return key == "fan" || key.rfind("fan_generic ", 0) == 0 || key.rfind("output_pin ", 0) == 0;
+}
+
+// speed (value for output_pin fans) and, if the fan has a tachometer, its RPM
+static void show_fan(SliderContainer &row, const json &status) {
+  if (!status.is_object()) return;
+  for (const char *field : {"value", "speed"}) {
+    auto it = status.find(field);
+    if (it != status.end() && it->is_number()) {
+      row.update_value(static_cast<int>(it->template get<double>() * 100));
+    }
+  }
+  auto rpm = status.find("rpm");
+  if (rpm != status.end()) {
+    row.set_suffix(rpm->is_number()
+                   ? fmt::format("{} RPM", std::lround(rpm->template get<double>()))
+                   : std::string());
+  }
+}
 
 FanPanel::FanPanel(KWebSocketClient &websocket_client, std::mutex &lock)
   : NotifyConsumer(lock)
@@ -47,18 +72,8 @@ FanPanel::~FanPanel() {
 void FanPanel::consume(json &j) {
   std::lock_guard<std::mutex> lock(lv_lock);
   for (auto &f : fans) {
-    // hack for output_pin fans
-    auto fan_value = j[json::json_pointer(fmt::format("/params/0/{}/value", f.first))];
-    if (!fan_value.is_null()) {
-      int v = static_cast<int>(fan_value.template get<double>() * 100);
-      f.second->update_value(v);
-    }
-
-    fan_value = j[json::json_pointer(fmt::format("/params/0/{}/speed", f.first))];
-    if (!fan_value.is_null()) {
-      int v = static_cast<int>(fan_value.template get<double>() * 100);
-      f.second->update_value(v);
-    }
+    const json::json_pointer ptr(fmt::format("/params/0/{}", f.first));
+    if (j.contains(ptr)) show_fan(*f.second, j[ptr]);
   }
 }
 
@@ -81,8 +96,10 @@ void FanPanel::create_fans(json &f) {
       fan_cb = &FanPanel::_handle_fan_update_generic;
     }
     // a row is as tall as its controls: rows start at the top, one gap apart
-    fans.insert({key, std::make_shared<SliderContainer>(fans_cont, display_name.c_str(), Icons::CANCEL, "Off",
-						  Icons::FAN_ON, "Max", fan_cb, this, "%")});
+    auto row = std::make_shared<SliderContainer>(fans_cont, display_name.c_str(), Icons::CANCEL, "Off",
+                                                 Icons::FAN_ON, "Max", fan_cb, this, "%");
+    if (!controllable(key)) row->set_enabled(false);
+    fans.insert({key, row});
   }
 
   // Any number of rows, any screen size: build them, then let the scroller
@@ -96,22 +113,10 @@ void FanPanel::create_fans(json &f) {
 
 void FanPanel::foreground() {
   for (auto &f : fans) {
-    // hack for output_pin fans
-    auto fan_value = State::get_instance()
-      ->get_data(json::json_pointer(fmt::format("/printer_state/{}/value", f.first)));
-    if (!fan_value.is_null()) {
-      int v = static_cast<int>(fan_value.template get<double>() * 100);
-      f.second->update_value(v);
-    }
-
-    fan_value = State::get_instance()
-      ->get_data(json::json_pointer(fmt::format("/printer_state/{}/speed", f.first)));
-    if (!fan_value.is_null()) {
-      int v = static_cast<int>(fan_value.template get<double>() * 100);
-      f.second->update_value(v);
-    }
+    show_fan(*f.second, State::get_instance()
+             ->get_data(json::json_pointer(fmt::format("/printer_state/{}", f.first))));
   }
-  
+
   lv_obj_move_foreground(fanpanel_cont);
 }
 
@@ -126,6 +131,7 @@ void FanPanel::handle_callback(lv_event_t *event) {
   } else if (btn == all_off_btn.get_container() || btn == all_on_btn.get_container()) {
     const bool on = btn == all_on_btn.get_container();
     for (auto &f : fans) {
+      if (!controllable(f.first)) continue;
       ws.gcode_script(fan_gcode(f.first, on ? 1.0 : 0.0));
       f.second->update_value(on ? 100 : 0);
     }
