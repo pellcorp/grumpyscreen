@@ -66,8 +66,8 @@ reference signing secrets or the release environment.
   hostname. A printer elsewhere can still be typed in (`host`, `host:port` or
   a pasted `http://host:7125/` all work).
 * The **☰** at the top of the left navigation (or Back) opens the printer list.
-  The menu button is available on every tab and hides when a full-screen panel
-  replaces the navigation; dialogs do not change its visibility.
+  The menu button is available on every tab and hides while a full-screen panel
+  or prompt is open. Other dialogs do not change its visibility.
   Every printer you have connected to is remembered by
   name, the search runs again, and choosing one and Connect switches to it (the
   app restarts itself).

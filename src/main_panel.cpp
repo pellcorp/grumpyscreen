@@ -160,7 +160,8 @@ bool MainPanel::printer_menu_visible() {
   const int main_index = lv_obj_get_index(tabview);
   for (auto *panel : {homing_panel.get_container(), extruder_panel.get_container(),
                       fan_panel.get_container(), led_panel.get_container(),
-                      print_panel.get_container(), print_status_panel.get_container()}) {
+                      print_panel.get_container(), print_status_panel.get_container(),
+                      prompt_panel.get_container()}) {
     if (lv_obj_get_index(panel) > main_index) {
       return false;
     }

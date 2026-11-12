@@ -27,7 +27,9 @@ class PromptPanel : public NotifyConsumer {
         void handle_macro_response(json &j);
         void consume(json &j);
 
-        lv_obj_t *get_container();
+#ifdef OS_ANDROID
+        lv_obj_t *get_container() { return prompt_cont; }
+#endif
         void handle_callback(lv_event_t *event);
         void handle_step(lv_event_t *event);
 
