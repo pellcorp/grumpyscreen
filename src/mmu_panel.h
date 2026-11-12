@@ -37,7 +37,7 @@ class MmuPanel : public NotifyConsumer {
 
   // Probe compiled-in backends in registration order when Klipper connects.
   void add_backend(MmuBackend *b) { backends.push_back(b); }
-  // HIDE_MMU overrides /ui/hide_mmu; visible by default.
+  // /ui/hide_mmu controls visibility; visible by default.
   static bool enabled();
   // Detect a supported backend; NULL keeps the navigation button disabled.
   MmuBackend *select_backend();

@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
 
 // every size, colour, shared style and widget factory this panel draws with
 using namespace Theme;
@@ -621,11 +620,6 @@ void MmuPanel::create_colour_swatches() {
 }
 
 bool MmuPanel::enabled() {
-  const char *value = std::getenv("HIDE_MMU");
-  if (value != nullptr) {
-    if (std::string(value) == "true") return false;
-    if (std::string(value) == "false") return true;
-  }
   return !Config::get_instance()->get<bool>("/ui/hide_mmu", false);
 }
 
