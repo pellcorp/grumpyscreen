@@ -65,9 +65,10 @@ reference signing secrets or the release environment.
   the device itself, and lists only hosts that answer like Moonraker, by
   hostname. A printer elsewhere can still be typed in (`host`, `host:port` or
   a pasted `http://host:7125/` all work).
-* The **☰** at the top left of the main panel (or Back) opens the printer list.
-  The menu button is shown only on the main panel; dialogs do not change its
-  visibility. Every printer you have connected to is remembered by
+* The **☰** at the top of the left navigation (or Back) opens the printer list.
+  The menu button is available on every tab and hides when a full-screen panel
+  replaces the navigation; dialogs do not change its visibility.
+  Every printer you have connected to is remembered by
   name, the search runs again, and choosing one and Connect switches to it (the
   app restarts itself).
   Connect also reloads configuration when choosing the current printer.
