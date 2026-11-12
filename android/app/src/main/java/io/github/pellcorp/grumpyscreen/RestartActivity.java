@@ -26,6 +26,7 @@ public class RestartActivity extends Activity {
         }
         Intent intent = new Intent(from, RestartActivity.class);
         intent.putExtra(EXTRA_PID, Process.myPid());
+        intent.putExtra(MainActivity.EXTRA_CONNECT, true);
         intent.putExtra(MainActivity.EXTRA_CONFIG, config);
         intent.putExtra(EXTRA_TOKEN, token);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -48,7 +49,8 @@ public class RestartActivity extends Activity {
         super.onCreate(savedInstanceState);
         Process.killProcess(getIntent().getIntExtra(EXTRA_PID, -1));
         Intent main = new Intent(this, MainActivity.class);
-        main.putExtra(MainActivity.EXTRA_CONNECT, true);
+        main.putExtra(MainActivity.EXTRA_CONNECT,
+                getIntent().getBooleanExtra(MainActivity.EXTRA_CONNECT, false));
         main.putExtra(MainActivity.EXTRA_CONFIG, getIntent().getByteArrayExtra(MainActivity.EXTRA_CONFIG));
         main.putExtra(EXTRA_TOKEN, getIntent().getStringExtra(EXTRA_TOKEN));
         main.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

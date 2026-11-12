@@ -103,25 +103,31 @@ public class MainActivity extends Activity {
         byte[] printerConfig = getIntent().getByteArrayExtra(EXTRA_CONFIG);
         getIntent().removeExtra(EXTRA_CONNECT);
         getIntent().removeExtra(EXTRA_CONFIG);
-        if (connect && saved.hasCurrent() && savedInstanceState == null) {
+        if (GrumpyNative.isStarted() || (connect && saved.hasCurrent() && savedInstanceState == null)) {
             try {
-                installPrinterConfig(printerConfig);
+                // Activity recreation reattaches the running UI and keeps
+                // the configuration already loaded for this session.
+                if (!GrumpyNative.isStarted()) {
+                    installPrinterConfig(printerConfig);
+                }
                 startUi();
             } catch (IOException e) {
                 Log.w(TAG, "unable to prepare printer configuration", e);
-                showPrinterDialog(true);
+                showInitialPrinters();
                 Toast.makeText(this, "Unable to prepare printer configuration: " + e.getMessage(),
                         Toast.LENGTH_LONG).show();
             }
         } else {
-            showPrinterDialog(true);
+            showInitialPrinters();
         }
     }
 
     @Override
     protected void onRestart() {
         super.onRestart();
-        showPrinterDialog(true);
+        if (!started) {
+            showPrinterDialog(true);
+        }
     }
 
     @Override
@@ -132,6 +138,14 @@ public class MainActivity extends Activity {
             printerDialog.dismiss();
         }
         super.onStop();
+    }
+
+    private void showInitialPrinters() {
+        GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
+        View background = new View(this);
+        background.setBackgroundColor(GrumpyTheme.opaque(theme.bg));
+        setContentView(background);
+        showPrinterDialog(true);
     }
 
     @Override
@@ -220,7 +234,9 @@ public class MainActivity extends Activity {
     }
 
     private void startUi() throws IOException {
-        writeMoonrakerConfig(saved.currentHost(), saved.currentPort());
+        if (!GrumpyNative.isStarted()) {
+            writeMoonrakerConfig(saved.currentHost(), saved.currentPort());
+        }
         started = true;
         preferHighestRefreshRate();
         getSystemService(DisplayManager.class).registerDisplayListener(displayListener, null);
