@@ -32,11 +32,21 @@ static lv_obj_t *button_row(lv_obj_t *parent, lv_flex_align_t align) {
 // what colour it is. A default button keeps the flat button look.
 static void colour_prompt_btn(lv_obj_t *btn, const std::string &type) {
   lv_color_t c;
-  if (type == "primary") c = theme_primary();
-  else if (type == "secondary") c = theme_secondary();
-  else if (type == "info" || type == "warning") c = col(WARNING);
-  else if (type == "error") c = col(DANGER);
-  else return;
+  if (type == "primary") {
+    c = theme_primary();
+  }
+  else if (type == "secondary") {
+    c = theme_secondary();
+  }
+  else if (type == "info" || type == "warning") {
+    c = col(WARNING);
+  }
+  else if (type == "error") {
+    c = col(DANGER);
+  }
+  else {
+    return;
+  }
   lv_obj_set_style_bg_color(btn, c, 0);
   lv_obj_set_style_text_color(btn, col(ON_PRIMARY), 0);
 }
@@ -150,7 +160,9 @@ void PromptPanel::show_banner(const std::string &text, bool error) {
 // M117: an empty message clears it, and an error on screen is not replaced.
 void PromptPanel::update_display_message(const std::string &message) {
   auto &banner = NotificationBanner::instance();
-  if (banner.visible(NotificationBanner::Source::Klipper)) return;
+  if (banner.visible(NotificationBanner::Source::Klipper)) {
+    return;
+  }
   show_banner(message, false);
 }
 

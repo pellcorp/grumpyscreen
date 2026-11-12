@@ -88,7 +88,9 @@ void FanPanel::create_fans(json &f) {
   // Any number of rows, any screen size: build them, then let the scroller
   // measure whether they overflow; no row height or count is guessed anywhere
   const lv_coord_t row_h = SliderContainer::row_height(fans.size());
-  for (auto &r : fans) r.second->set_height(row_h);
+  for (auto &r : fans) {
+    r.second->set_height(row_h);
+  }
   refresh_scroll(fans_cont);
 }
 
@@ -135,8 +137,12 @@ void FanPanel::handle_callback(lv_event_t *event) {
 
 std::string FanPanel::fan_gcode(const std::string &key, double fraction) {
   const std::string name = KUtils::get_obj_name(key);
-  if (key == "fan") return fmt::format("M106 S{}", fraction * 255);
-  if (key.rfind("output_pin ", 0) == 0) return fmt::format("SET_PIN PIN={} VALUE={}", name, fraction * 255);
+  if (key == "fan") {
+    return fmt::format("M106 S{}", fraction * 255);
+  }
+  if (key.rfind("output_pin ", 0) == 0) {
+    return fmt::format("SET_PIN PIN={} VALUE={}", name, fraction * 255);
+  }
   return fmt::format("SET_FAN_SPEED FAN={} SPEED={}", name, fraction);
 }
 

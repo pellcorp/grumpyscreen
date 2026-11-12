@@ -41,10 +41,14 @@ class KWebSocketClient : public hv::WebSocketClient {
   // Klipper splits extended gcode parameters with shlex, so a value containing
   // whitespace, a comment character or a quote has to be quoted to survive
   static std::string quote_arg(const std::string &value) {
-    if (value.find_first_of(" \t#;'\"") == std::string::npos) return value;
+    if (value.find_first_of(" \t#;'\"") == std::string::npos) {
+      return value;
+    }
     std::string out = "\"";
     for (char c : value) {
-      if (c != '"' && c != '\\') out += c;  // shlex would eat these, drop them
+      if (c != '"' && c != '\\') {
+        out += c;
+      }  // shlex would eat these, drop them
     }
     return out + "\"";
   }

@@ -1,0 +1,28 @@
+name: code quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  braces:
+    name: Braces
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+        cache: pip
+        cache-dependency-path: tools/requirements-braces.txt
+    - name: install syntax parsers
+      run: python -m pip install -r tools/requirements-braces.txt
+    - name: test braces checker
+      run: python -m unittest discover -s tools -p 'test_check_braces.py'
+    - name: require braces
+      run: python tools/check_braces.py

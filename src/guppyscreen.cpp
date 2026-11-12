@@ -72,10 +72,14 @@ GuppyScreen::GuppyScreen()
     return;
   }
 #ifdef MMU_BACKEND_AFC
-  if (afc_backend != nullptr) mmu_panel->add_backend(afc_backend.get());
+  if (afc_backend != nullptr) {
+    mmu_panel->add_backend(afc_backend.get());
+  }
 #endif
 #ifdef MMU_BACKEND_HH
-  if (hh_backend != nullptr) mmu_panel->add_backend(hh_backend.get());
+  if (hh_backend != nullptr) {
+    mmu_panel->add_backend(hh_backend.get());
+  }
 #endif
   main_panel.create_panel();
 }
@@ -297,8 +301,12 @@ void GuppyScreen::loop() {
     const uint32_t max_wait = LV_DISP_DEF_REFR_PERIOD;
 #endif
     uint32_t wait_ms = time_till_next;
-    if (wait_ms < 1) wait_ms = 1;
-    else if (wait_ms > max_wait) wait_ms = max_wait;
+    if (wait_ms < 1) {
+      wait_ms = 1;
+    }
+    else if (wait_ms > max_wait) {
+      wait_ms = max_wait;
+    }
     usleep(wait_ms * 1000);
   }
 }
@@ -329,7 +337,9 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
   // style on top for a genuinely different role (the console log is a panel).
   // Screens are skipped: the first one is created before there is an active
   // screen to read the primary colour from, and styles() would hang on it.
-  if (lv_obj_get_parent(obj) == NULL) return;
+  if (lv_obj_get_parent(obj) == NULL) {
+    return;
+  }
   Theme::Styles &s = Theme::styles();
   // every text button is the stock grey button; LVGL's own theme, this one's
   // parent, darkens it under a finger and greys it out when disabled
@@ -395,7 +405,9 @@ void GuppyScreen::new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj) {
     lv_obj_add_style(obj, &s.groove, LV_PART_MAIN);
     lv_obj_add_style(obj, &s.fill, LV_PART_INDICATOR);
     lv_obj_add_style(obj, &s.knob, LV_PART_KNOB);
-    if (lv_obj_check_type(obj, &lv_slider_class)) lv_obj_add_style(obj, &s.slider, LV_PART_MAIN);
+    if (lv_obj_check_type(obj, &lv_slider_class)) {
+      lv_obj_add_style(obj, &s.slider, LV_PART_MAIN);
+    }
   }
 }
 

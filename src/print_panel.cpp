@@ -421,12 +421,16 @@ void PrintPanel::handle_print_callback(lv_event_t *event) {
   lv_event_code_t code = lv_event_get_code(event);
   if (code == LV_EVENT_CLICKED && cur_file != NULL) {
     const std::string path = cur_file->full_path;
-    if (mmu == NULL) return start_print(path);
+    if (mmu == NULL) {
+      return start_print(path);
+    }
     // with an MMU, map the file's tools first; fetch the metadata if Print
     // beat it, or the mapping would be skipped
     auto map_or_print = [this, path](const json &metadata) {
       const std::string name = path.substr(path.rfind('/') + 1);  // npos + 1 is 0
-      if (!mmu->open_tool_map(metadata, name, [this, path]() { start_print(path); })) start_print(path);
+      if (!mmu->open_tool_map(metadata, name, [this, path]() { start_print(path); })) {
+        start_print(path);
+      }
     };
     if (cur_file->contains_metadata()) {
       map_or_print(cur_file->metadata);

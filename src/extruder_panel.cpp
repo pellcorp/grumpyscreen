@@ -188,7 +188,9 @@ ExtruderPanel::ExtruderPanel(KWebSocketClient &websocket_client,
   ButtonContainer *all_tiles[] = {&load_btn, &unload_btn, &extrude_btn, &retract_btn,
                                   &load_cooldown_btn, &load_back_btn,
                                   &extrude_cooldown_btn, &extrude_back_btn};
-  for (ButtonContainer *b : all_tiles) b->use_plain();
+  for (ButtonContainer *b : all_tiles) {
+    b->use_plain();
+  }
 
   // Cooldown and Back divide each page's right-hand column evenly.
   for (lv_obj_t *right_col : {load_right_col, extrude_right_col}) {
@@ -261,8 +263,12 @@ void ExtruderPanel::background() {
 // "extruder" is T0, "extruderN" is TN
 static int extruder_tool(const std::string &name) {
   const std::string digits = name.substr(std::string("extruder").size());
-  if (digits.empty()) return 0;
-  if (!std::all_of(digits.begin(), digits.end(), [](unsigned char c) { return std::isdigit(c) != 0; })) return -1;
+  if (digits.empty()) {
+    return 0;
+  }
+  if (!std::all_of(digits.begin(), digits.end(), [](unsigned char c) { return std::isdigit(c) != 0; })) {
+    return -1;
+  }
   return std::stoi(digits);
 }
 
@@ -275,7 +281,9 @@ void ExtruderPanel::refresh_extruders() {
     extruders = found;
     std::string options;
     for (const std::string &name : extruders) {
-      if (!options.empty()) options += '\n';
+      if (!options.empty()) {
+        options += '\n';
+      }
       options += fmt::format("T{}", extruder_tool(name));
     }
     for (lv_obj_t *dd : {load_extruder_dd, extrude_extruder_dd}) {
@@ -284,8 +292,12 @@ void ExtruderPanel::refresh_extruders() {
     active_extruder.clear();  // relabel the readouts for the new count
   }
   for (lv_obj_t *dd : {load_extruder_dd, extrude_extruder_dd}) {
-    if (extruders.size() > 1) lv_obj_clear_flag(dd, LV_OBJ_FLAG_HIDDEN);
-    else lv_obj_add_flag(dd, LV_OBJ_FLAG_HIDDEN);
+    if (extruders.size() > 1) {
+      lv_obj_clear_flag(dd, LV_OBJ_FLAG_HIDDEN);
+    }
+    else {
+      lv_obj_add_flag(dd, LV_OBJ_FLAG_HIDDEN);
+    }
   }
 
   json &active = State::get_instance()->get_data("/printer_state/toolhead/extruder"_json_pointer);
@@ -301,7 +313,9 @@ void ExtruderPanel::set_active_extruder(const std::string &name) {
       lv_dropdown_set_selected(dd, std::distance(extruders.begin(), it));
     }
   }
-  if (name.empty() || name == active_extruder) return;
+  if (name.empty() || name == active_extruder) {
+    return;
+  }
   active_extruder = name;
   const std::string label = extruders.size() > 1
       ? fmt::format("Extruder T{}", extruder_tool(name)) : "Extruder";
@@ -309,15 +323,21 @@ void ExtruderPanel::set_active_extruder(const std::string &name) {
   for (SensorContainer *sensor : {&load_extruder_temp, &extrude_extruder_temp}) {
     sensor->set_id(name, label.c_str());
     if (state.is_object()) {
-      if (state["target"].is_number()) sensor->update_target(state["target"].template get<int>());
-      if (state["temperature"].is_number()) sensor->update_value(state["temperature"].template get<int>());
+      if (state["target"].is_number()) {
+        sensor->update_target(state["target"].template get<int>());
+      }
+      if (state["temperature"].is_number()) {
+        sensor->update_value(state["temperature"].template get<int>());
+      }
     }
   }
 }
 
 void ExtruderPanel::handle_extruder_select(lv_event_t *e) {
   uint32_t idx = lv_dropdown_get_selected(lv_event_get_target(e));
-  if (idx >= extruders.size()) return;
+  if (idx >= extruders.size()) {
+    return;
+  }
   const std::string &name = extruders[idx];
   const int tool = extruder_tool(name);
   // a multi toolhead picks the head up with its T macro; otherwise only the

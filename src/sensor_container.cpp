@@ -120,8 +120,12 @@ lv_obj_t *SensorContainer::get_sensor() {
 }
 
 void SensorContainer::set_enabled(bool enabled) {
-  if (enabled) lv_obj_clear_state(sensor_cont, LV_STATE_DISABLED);
-  else lv_obj_add_state(sensor_cont, LV_STATE_DISABLED);
+  if (enabled) {
+    lv_obj_clear_state(sensor_cont, LV_STATE_DISABLED);
+  }
+  else {
+    lv_obj_add_state(sensor_cont, LV_STATE_DISABLED);
+  }
 }
 
 void SensorContainer::update_target(int new_target) {
@@ -174,7 +178,9 @@ void SensorContainer::handle_edit(lv_event_t *e) {
     double max_temp = std::numeric_limits<double>::max();
     // configfile settings key sections in lower case, the object name keeps its case
     std::string section;
-    for (char c : id) section.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    for (char c : id) {
+      section.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
     if (settings.contains(section)) {
       min_temp = settings[section].value("min_temp", min_temp);
       max_temp = settings[section].value("max_temp", max_temp);

@@ -131,14 +131,17 @@ namespace KUtils {
 
     std::ostringstream os;
 
-    if (p.tm_yday > 0)
+    if (p.tm_yday > 0) {
       os << p.tm_yday << "d ";
+    }
 
-    if (p.tm_hour > 0)
+    if (p.tm_hour > 0) {
       os << p.tm_hour << "h ";
+    }
 
-    if (p.tm_min > 0)
+    if (p.tm_min > 0) {
       os << p.tm_min << "m ";
+    }
 
     os << p.tm_sec << "s";
     

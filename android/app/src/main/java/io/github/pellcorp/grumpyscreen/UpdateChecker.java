@@ -70,11 +70,17 @@ final class UpdateChecker {
      */
     static boolean isNewer(String candidate, String current) {
         int[] newer = parseTag(candidate);
-        if (newer == null) return false;
+        if (newer == null) {
+            return false;
+        }
         int[] older = parseTag(current);
-        if (older == null) return true;
+        if (older == null) {
+            return true;
+        }
         for (int i = 0; i < newer.length; i++) {
-            if (newer[i] != older[i]) return newer[i] > older[i];
+            if (newer[i] != older[i]) {
+                return newer[i] > older[i];
+            }
         }
         return false;
     }
@@ -85,9 +91,13 @@ final class UpdateChecker {
     }
 
     private static int[] parseTag(String version) {
-        if (version == null) return null;
+        if (version == null) {
+            return null;
+        }
         Matcher m = RELEASE_TAG.matcher(version.trim());
-        if (!m.matches()) return null;
+        if (!m.matches()) {
+            return null;
+        }
         try {
             return new int[]{Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
                     Integer.parseInt(m.group(3)), Integer.parseInt(m.group(4))};
@@ -99,12 +109,18 @@ final class UpdateChecker {
     private static Release parse(JSONObject json) {
         String tag = json.optString("tag_name", "").trim();
         JSONArray assets = json.optJSONArray("assets");
-        if (!isReleaseVersion(tag) || assets == null) return null;
+        if (!isReleaseVersion(tag) || assets == null) {
+            return null;
+        }
         for (int i = 0; i < assets.length(); i++) {
             JSONObject asset = assets.optJSONObject(i);
-            if (asset == null || !APK_NAME.equals(asset.optString("name", ""))) continue;
+            if (asset == null || !APK_NAME.equals(asset.optString("name", ""))) {
+                continue;
+            }
             String url = asset.optString("browser_download_url", "");
-            if (!url.startsWith("https://")) return null;
+            if (!url.startsWith("https://")) {
+                return null;
+            }
             return new Release(tag);
         }
         return null;
@@ -150,7 +166,9 @@ final class UpdateChecker {
         int n;
         while ((n = in.read(buf)) > 0) {
             out.write(buf, 0, n);
-            if (out.size() > MAX_JSON_BYTES) throw new IOException("GitHub's answer is too large.");
+            if (out.size() > MAX_JSON_BYTES) {
+                throw new IOException("GitHub's answer is too large.");
+            }
         }
         return out.toString(StandardCharsets.UTF_8.name());
     }

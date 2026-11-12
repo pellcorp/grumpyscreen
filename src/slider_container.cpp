@@ -118,7 +118,9 @@ void SliderContainer::set_height(lv_coord_t h) {
   // explicit, not a percentage: a percent child of a row whose height was set
   // after it was built stays at its first, empty, size
   const lv_coord_t inner = h - 2 * gap() - 2 * lv_obj_get_style_border_width(cont, 0);
-  for (ButtonContainer *b : {&off_btn, &max_btn}) lv_obj_set_height(b->get_container(), inner);
+  for (ButtonContainer *b : {&off_btn, &max_btn}) {
+    lv_obj_set_height(b->get_container(), inner);
+  }
 }
 
 lv_obj_t *SliderContainer::get_slider() {

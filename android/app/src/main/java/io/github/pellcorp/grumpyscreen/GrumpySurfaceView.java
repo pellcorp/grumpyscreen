@@ -37,7 +37,9 @@ public class GrumpySurfaceView extends SurfaceView implements SurfaceHolder.Call
         // turn, or a second if the screen never does.
         if (!started && width < height) {
             postDelayed(() -> {
-                if (started || !holder.getSurface().isValid()) return;
+                if (started || !holder.getSurface().isValid()) {
+                    return;
+                }
                 android.graphics.Rect r = holder.getSurfaceFrame();
                 deliver(holder, r.width(), r.height());
             }, 1000);
@@ -48,7 +50,9 @@ public class GrumpySurfaceView extends SurfaceView implements SurfaceHolder.Call
 
     private void deliver(SurfaceHolder holder, int width, int height) {
         started = true;
-        if (getDisplay() != null) GrumpyNative.setRefreshRate(getDisplay().getRefreshRate());
+        if (getDisplay() != null) {
+            GrumpyNative.setRefreshRate(getDisplay().getRefreshRate());
+        }
         GrumpyNative.surfaceChanged(holder.getSurface(), width, height,
                 configFile.getAbsolutePath(), moonrakerFile.getAbsolutePath(),
                 overrideFile.getAbsolutePath());

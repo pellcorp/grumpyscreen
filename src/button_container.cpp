@@ -113,7 +113,9 @@ int ButtonContainer::float_w() { return scale_w(76); }
 // is free on the layout passes that do not resize the tile.
 void ButtonContainer::fit_icon() {
   const lv_img_dsc_t *src = static_cast<const lv_img_dsc_t *>(lv_img_get_src(btn));
-  if (src == NULL || lv_img_src_get_type(src) != LV_IMG_SRC_VARIABLE) return;
+  if (src == NULL || lv_img_src_get_type(src) != LV_IMG_SRC_VARIABLE) {
+    return;
+  }
   lv_coord_t avail_h = lv_obj_get_content_height(btn_cont);
   if (!lv_obj_has_flag(label, LV_OBJ_FLAG_HIDDEN)) {
     avail_h -= lv_obj_get_height(label) + lv_obj_get_style_pad_row(btn_cont, 0);
@@ -188,7 +190,9 @@ void ButtonContainer::set_prompt_condition(std::function<bool()> condition) {
 
 void ButtonContainer::set_image(const void *img) {
   // Setting the same source still redraws the button
-  if (lv_img_get_src(btn) == img) return;
+  if (lv_img_get_src(btn) == img) {
+    return;
+  }
   lv_img_set_src(btn, img);
 }
 

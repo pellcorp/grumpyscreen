@@ -41,7 +41,9 @@ void WpaEvent::stop() {
 }
 
 void WpaEvent::reconnect() {
-  if (!isRunning()) return;
+  if (!isRunning()) {
+    return;
+  }
 
   // Always defer this: restart_wifi() is normally called from inside the
   // monitor's read callback, where tearing down that same hio is unsafe.
@@ -96,12 +98,16 @@ void WpaEvent::close_connections() {
 }
 
 void WpaEvent::schedule_reconnect() {
-  if (reconnect_scheduled || !isRunning()) return;
+  if (reconnect_scheduled || !isRunning()) {
+    return;
+  }
 
   reconnect_scheduled = true;
   loop()->setTimeout(500, [this](hv::TimerID) {
     reconnect_scheduled = false;
-    if (mon_conn == NULL) init_wpa();
+    if (mon_conn == NULL) {
+      init_wpa();
+    }
   });
 }
 

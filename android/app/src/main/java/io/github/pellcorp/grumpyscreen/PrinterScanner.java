@@ -94,7 +94,9 @@ final class PrinterScanner {
         if (self != null) {
             byte[] a = self.getAddress();
             String prefix = (a[0] & 0xff) + "." + (a[1] & 0xff) + "." + (a[2] & 0xff) + ".";
-            for (int i = 1; i < 255; i++) targets.add(prefix + i);
+            for (int i = 1; i < 255; i++) {
+                targets.add(prefix + i);
+            }
             Log.i(TAG, "scanning " + prefix + "0/24 for Moonraker on port " + DEFAULT_PORT);
         } else {
             Log.i(TAG, "no IPv4 network; only checking this device and mDNS");
@@ -104,10 +106,14 @@ final class PrinterScanner {
         final int total = targets.size();
         for (String host : targets) {
             pool.execute(() -> {
-                if (!stopped) probe(host, DEFAULT_PORT, null);
+                if (!stopped) {
+                    probe(host, DEFAULT_PORT, null);
+                }
                 if (left.decrementAndGet() == 0) {
                     main.post(() -> {
-                        if (!stopped) listener.onFinished(total);
+                        if (!stopped) {
+                            listener.onFinished(total);
+                        }
                     });
                 }
             });
@@ -116,7 +122,9 @@ final class PrinterScanner {
 
     void stop() {
         stopped = true;
-        if (pool != null) pool.shutdownNow();
+        if (pool != null) {
+            pool.shutdownNow();
+        }
         if (nsd != null && discovery != null) {
             try {
                 nsd.stopServiceDiscovery(discovery);
@@ -130,13 +138,19 @@ final class PrinterScanner {
     /** The device's IPv4 address on the active network (wifi or ethernet). */
     private Inet4Address localIpv4() {
         ConnectivityManager cm = context.getSystemService(ConnectivityManager.class);
-        if (cm == null) return null;
+        if (cm == null) {
+            return null;
+        }
         Network net = cm.getActiveNetwork();
         LinkProperties lp = net == null ? null : cm.getLinkProperties(net);
-        if (lp == null) return null;
+        if (lp == null) {
+            return null;
+        }
         for (LinkAddress la : lp.getLinkAddresses()) {
             InetAddress addr = la.getAddress();
-            if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) return (Inet4Address) addr;
+            if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                return (Inet4Address) addr;
+            }
         }
         return null;
     }
@@ -153,14 +167,18 @@ final class PrinterScanner {
         } else {
             JSONObject server = jsonResult(httpGet(host, port, "/server/info"));
             if (server == null || !(server.has("klippy_state") || server.has("moonraker_version"))) {
-                if (info == null) return;
+                if (info == null) {
+                    return;
+                }
             }
         }
         report(new Printer(host, port, name));
     }
 
     private static JSONObject jsonResult(String body) {
-        if (body == null) return null;
+        if (body == null) {
+            return null;
+        }
         try {
             return new JSONObject(body).optJSONObject("result");
         } catch (Exception e) {
@@ -170,7 +188,9 @@ final class PrinterScanner {
 
     private void report(Printer p) {
         main.post(() -> {
-            if (stopped || !seen.add(p.host + ":" + p.port)) return;
+            if (stopped || !seen.add(p.host + ":" + p.port)) {
+                return;
+            }
             listener.onFound(p);
         });
     }
@@ -196,10 +216,14 @@ final class PrinterScanner {
             ByteArrayOutputStream buf = new ByteArrayOutputStream();
             byte[] chunk = new byte[4096];
             int n;
-            while ((n = in.read(chunk)) > 0 && buf.size() < 256 * 1024) buf.write(chunk, 0, n);
+            while ((n = in.read(chunk)) > 0 && buf.size() < 256 * 1024) {
+                buf.write(chunk, 0, n);
+            }
             String resp = buf.toString("UTF-8");
             int split = resp.indexOf("\r\n\r\n");
-            if (!resp.startsWith("HTTP/") || split < 0) return null;
+            if (!resp.startsWith("HTTP/") || split < 0) {
+                return null;
+            }
             return resp.substring(split + 4);
         } catch (Exception e) {
             return null;
@@ -209,7 +233,9 @@ final class PrinterScanner {
     @SuppressWarnings("deprecation")
     private void startMdns() {
         nsd = context.getSystemService(NsdManager.class);
-        if (nsd == null) return;
+        if (nsd == null) {
+            return;
+        }
         discovery = new NsdManager.DiscoveryListener() {
             @Override public void onStartDiscoveryFailed(String type, int code) {
                 Log.i(TAG, "mDNS discovery unavailable (" + code + ")");
@@ -221,14 +247,18 @@ final class PrinterScanner {
 
             @Override
             public void onServiceFound(NsdServiceInfo info) {
-                if (stopped) return;
+                if (stopped) {
+                    return;
+                }
                 nsd.resolveService(info, new NsdManager.ResolveListener() {
                     @Override public void onResolveFailed(NsdServiceInfo i, int code) {}
 
                     @Override
                     public void onServiceResolved(NsdServiceInfo i) {
                         InetAddress addr = i.getHost();
-                        if (addr == null || stopped || pool.isShutdown()) return;
+                        if (addr == null || stopped || pool.isShutdown()) {
+                            return;
+                        }
                         String host = addr.getHostAddress();
                         int port = i.getPort() > 0 ? i.getPort() : DEFAULT_PORT;
                         String name = i.getServiceName();

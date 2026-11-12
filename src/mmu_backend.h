@@ -132,10 +132,16 @@ class MmuBackend {
   // names of the slots holding spool_id, ", " separated
   std::string lanes_with_spool(int spool_id) const {
     std::string out;
-    if (!spoolman || spool_id < 0) return out;
+    if (!spoolman || spool_id < 0) {
+      return out;
+    }
     for (const auto &s : slots) {
-      if (s.spool_id != spool_id) continue;
-      if (!out.empty()) out += ", ";
+      if (s.spool_id != spool_id) {
+        continue;
+      }
+      if (!out.empty()) {
+        out += ", ";
+      }
       out += s.name;
     }
     return out;

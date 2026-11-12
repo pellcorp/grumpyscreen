@@ -5,7 +5,9 @@
 #include <cmath>
 
 std::string mmu_normalise_hex(const std::string &colour) {
-  if (colour.empty() || colour == "NONE") return "";
+  if (colour.empty() || colour == "NONE") {
+    return "";
+  }
   std::string s = colour[0] == '#' ? colour.substr(1) : colour;
   std::transform(s.begin(), s.end(), s.begin(), ::toupper);
   return s;
@@ -20,7 +22,9 @@ bool mmu_same_material(const std::string &a, const std::string &b) {
 
 static bool hex_rgb(const std::string &colour, int rgb[3]) {
   const std::string hex = mmu_normalise_hex(colour);
-  if (hex.size() < 6) return false;
+  if (hex.size() < 6) {
+    return false;
+  }
   try {
     const unsigned long v = std::stoul(hex.substr(0, 6), nullptr, 16);
     rgb[0] = (v >> 16) & 0xFF;
@@ -55,7 +59,9 @@ static void lab(const int rgb[3], double out[3]) {
 
 double mmu_colour_distance(const std::string &a, const std::string &b) {
   int x[3], y[3];
-  if (!hex_rgb(a, x) || !hex_rgb(b, y)) return -1;
+  if (!hex_rgb(a, x) || !hex_rgb(b, y)) {
+    return -1;
+  }
   double p[3], q[3];
   lab(x, p);
   lab(y, q);
@@ -73,8 +79,12 @@ int mmu_slot_for_tool(const std::vector<MmuSlot> &slots, int tool) {
     // whole entries of "T0,T1", so T1 never matches T10
     std::string entry;
     for (char ch : slots[i].map + ",") {
-      if (ch != ',') { if (ch != ' ') entry += ch; continue; }
-      if (mmu_same_material(entry, want)) return (int)i;
+      if (ch != ',') { if (ch != ' ') {
+        entry += ch;
+      } continue; }
+      if (mmu_same_material(entry, want)) {
+        return (int)i;
+      }
       entry.clear();
     }
   }
@@ -83,9 +93,13 @@ int mmu_slot_for_tool(const std::vector<MmuSlot> &slots, int tool) {
 
 std::vector<int> mmu_slots_with_spool(const std::vector<MmuSlot> &slots, int spool_id) {
   std::vector<int> out;
-  if (spool_id < 0) return out;
+  if (spool_id < 0) {
+    return out;
+  }
   for (size_t i = 0; i < slots.size(); i++) {
-    if (slots[i].spool_id == spool_id) out.push_back((int)i);
+    if (slots[i].spool_id == spool_id) {
+      out.push_back((int)i);
+    }
   }
   return out;
 }
@@ -95,19 +109,27 @@ std::vector<int> mmu_slots_with_spool(const std::vector<MmuSlot> &slots, int spo
 static std::vector<std::string> string_list(const json &j) {
   std::vector<std::string> out;
   if (j.is_array()) {
-    for (const auto &v : j) out.push_back(v.is_string() ? v.template get<std::string>() : "");
+    for (const auto &v : j) {
+      out.push_back(v.is_string() ? v.template get<std::string>() : "");
+    }
     return out;
   }
-  if (!j.is_string()) return out;
+  if (!j.is_string()) {
+    return out;
+  }
   const std::string s = j.template get<std::string>();
   if (s.size() >= 2 && s.front() == '[' && s.back() == ']') {
     const json parsed = json::parse(s, nullptr, false);
-    if (parsed.is_array()) return string_list(parsed);
+    if (parsed.is_array()) {
+      return string_list(parsed);
+    }
   }
   size_t start = 0;
   while (start <= s.size()) {
     size_t end = s.find(';', start);
-    if (end == std::string::npos) end = s.size();
+    if (end == std::string::npos) {
+      end = s.size();
+    }
     std::string v = s.substr(start, end - start);
     v.erase(0, v.find_first_not_of(" \t\""));
     v.erase(v.find_last_not_of(" \t\"") + 1);
@@ -120,17 +142,25 @@ static std::vector<std::string> string_list(const json &j) {
 std::vector<MmuFileTool> mmu_file_tools(const json &metadata) {
   std::vector<MmuFileTool> out;
   const auto res = metadata.find("result");
-  if (res == metadata.end() || !res->is_object()) return out;
+  if (res == metadata.end() || !res->is_object()) {
+    return out;
+  }
 
   const auto w = res->find("filament_weights");
-  if (w == res->end() || !w->is_array()) return out;
+  if (w == res->end() || !w->is_array()) {
+    return out;
+  }
 
   // extruder_colors for slicers that write no filament_colors
   std::vector<std::string> colours;
   for (const char *key : {"filament_colors", "extruder_colors"}) {
     const auto c = res->find(key);
-    if (c != res->end()) colours = string_list(*c);
-    if (!colours.empty()) break;
+    if (c != res->end()) {
+      colours = string_list(*c);
+    }
+    if (!colours.empty()) {
+      break;
+    }
   }
   const auto t = res->find("filament_type");
   const std::vector<std::string> types = t != res->end() ? string_list(*t)
@@ -138,12 +168,18 @@ std::vector<MmuFileTool> mmu_file_tools(const json &metadata) {
 
   for (size_t i = 0; i < w->size(); i++) {
     const json &g = (*w)[i];
-    if (!g.is_number() || g.template get<double>() <= 0) continue;
+    if (!g.is_number() || g.template get<double>() <= 0) {
+      continue;
+    }
     MmuFileTool tool;
     tool.tool = (int)i;
     tool.grams = g.template get<double>();
-    if (i < colours.size()) tool.colour = mmu_normalise_hex(colours[i]);
-    if (i < types.size()) tool.material = types[i];
+    if (i < colours.size()) {
+      tool.colour = mmu_normalise_hex(colours[i]);
+    }
+    if (i < types.size()) {
+      tool.material = types[i];
+    }
     out.push_back(tool);
   }
   return out;

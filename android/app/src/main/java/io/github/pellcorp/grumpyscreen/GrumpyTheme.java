@@ -45,7 +45,9 @@ final class GrumpyTheme {
 
     GrumpyTheme(Context context, File... configs) {
         Map<String, Integer> c = new HashMap<>();
-        for (File f : configs) readTheme(f, c);
+        for (File f : configs) {
+            readTheme(f, c);
+        }
         bg = c.getOrDefault("bg_colour", 0x282B30);
         surface = c.getOrDefault("surface_colour", bg);
         raised = c.getOrDefault("raised_colour", 0x2F3237);
@@ -74,23 +76,31 @@ final class GrumpyTheme {
 
     /** Later files win, as the override does over the main config. */
     private static void readTheme(File f, Map<String, Integer> out) {
-        if (f == null || !f.exists()) return;
+        if (f == null || !f.exists()) {
+            return;
+        }
         try (BufferedReader r = new BufferedReader(new FileReader(f))) {
             boolean inTheme = false;
             String line;
             while ((line = r.readLine()) != null) {
                 String t = line.trim();
-                if (t.isEmpty() || t.startsWith("#") || t.startsWith(";")) continue;
+                if (t.isEmpty() || t.startsWith("#") || t.startsWith(";")) {
+                    continue;
+                }
                 if (t.startsWith("[")) {
                     inTheme = t.equals("[theme]");
                     continue;
                 }
                 int sep = t.indexOf(':') >= 0 ? t.indexOf(':') : t.indexOf('=');
-                if (!inTheme || sep < 0) continue;
+                if (!inTheme || sep < 0) {
+                    continue;
+                }
                 String key = t.substring(0, sep).trim();
                 String val = t.substring(sep + 1).trim();
                 int hash = val.indexOf('#');
-                if (hash >= 0) val = val.substring(0, hash).trim();
+                if (hash >= 0) {
+                    val = val.substring(0, hash).trim();
+                }
                 try {
                     out.put(key, Integer.decode(val) & 0xFFFFFF);
                 } catch (NumberFormatException ignored) {
@@ -123,7 +133,9 @@ final class GrumpyTheme {
         GradientDrawable d = new GradientDrawable();
         d.setColor(fill);
         d.setCornerRadius(dp(radiusDp));
-        if (strokeColour != 0) d.setStroke(dp(1.5f), strokeColour);
+        if (strokeColour != 0) {
+            d.setStroke(dp(1.5f), strokeColour);
+        }
         return d;
     }
 
@@ -181,7 +193,9 @@ final class GrumpyTheme {
                 new int[]{alpha(textDim, 0x90), opaque(accent ? onPrimary : text)}));
         b.setPadding(dp(18), dp(10), dp(18), dp(10));
         // no square system focus box over the rounded button
-        if (android.os.Build.VERSION.SDK_INT >= 26) b.setDefaultFocusHighlightEnabled(false);
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            b.setDefaultFocusHighlightEnabled(false);
+        }
         b.setMinHeight(dp(44));
         b.setMinimumHeight(dp(44));
         return b;
@@ -261,7 +275,9 @@ final class GrumpyTheme {
             b.setOnClickListener(onClick);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            if (buttons.getChildCount() > 0) lp.leftMargin = dp(10);
+            if (buttons.getChildCount() > 0) {
+                lp.leftMargin = dp(10);
+            }
             buttons.addView(b, lp);
             return b;
         }

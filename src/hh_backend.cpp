@@ -19,11 +19,21 @@ static constexpr auto WEIGHT_REFRESH = std::chrono::minutes(5);
 // HH has no action of its own for a toolchange -- it runs through Unloading
 // and Loading -- so a pending next_tool is what says "swapping".
 static MmuActivity hh_activity(const std::string &action, bool changing, bool faulted) {
-  if (faulted) return MmuActivity::Error;
-  if (changing) return MmuActivity::Swapping;
-  if (action.empty() || action == "Idle") return MmuActivity::Idle;
-  if (action == "Loading" || action == "Loading Ext") return MmuActivity::Loading;
-  if (action == "Unloading" || action == "Exiting Ext") return MmuActivity::Unloading;
+  if (faulted) {
+    return MmuActivity::Error;
+  }
+  if (changing) {
+    return MmuActivity::Swapping;
+  }
+  if (action.empty() || action == "Idle") {
+    return MmuActivity::Idle;
+  }
+  if (action == "Loading" || action == "Loading Ext") {
+    return MmuActivity::Loading;
+  }
+  if (action == "Unloading" || action == "Exiting Ext") {
+    return MmuActivity::Unloading;
+  }
   // Forming/Cutting Tip, Cutting Filament, Purging, Heating, Checking, Homing,
   // Selecting, Preload, Unknown
   return MmuActivity::Moving;
@@ -37,7 +47,9 @@ static std::string gate_hex_colour(const json &gate_colour, const json &gate_col
   if (gate_colour.is_array() && g < (int)gate_colour.size() && gate_colour[g].is_string()) {
     name = gate_colour[g].template get<std::string>();
   }
-  if (name.empty()) return "";
+  if (name.empty()) {
+    return "";
+  }
 
   if (gate_colour_rgb.is_array() && g < (int)gate_colour_rgb.size() &&
       gate_colour_rgb[g].is_array() && gate_colour_rgb[g].size() == 3) {
@@ -49,7 +61,9 @@ static std::string gate_hex_colour(const json &gate_colour, const json &gate_col
     return fmt::format("{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2]);
   }
 
-  if (!name.empty() && name[0] == '#') name = name.substr(1);
+  if (!name.empty() && name[0] == '#') {
+    name = name.substr(1);
+  }
   if (name.size() == 6 &&
       std::all_of(name.begin(), name.end(), [](unsigned char c) { return std::isxdigit(c); })) {
     return name;
@@ -78,7 +92,9 @@ static int int_at(const json &obj, const char *key, int fallback) {
 
 bool HhBackend::detect() {
   json &objs = State::get_instance()->get_data("/printer_objs/objects"_json_pointer);
-  if (!objs.is_array()) return false;
+  if (!objs.is_array()) {
+    return false;
+  }
   bool found = std::any_of(objs.begin(), objs.end(), [](const json &o) {
     return o.is_string() && o.template get<std::string>() == "mmu";
   });
@@ -115,10 +131,14 @@ void HhBackend::refresh() {
   filament_loaded = false;
   num_tools = 0;
 
-  if (!mmu.is_object()) return;
+  if (!mmu.is_object()) {
+    return;
+  }
 
   const int num_gates = int_at(mmu, "num_gates", 0);
-  if (num_gates <= 0) return;
+  if (num_gates <= 0) {
+    return;
+  }
 
   const json &ttg = array_at(mmu, "ttg_map");
   const json &gate_status = array_at(mmu, "gate_status");
@@ -161,7 +181,9 @@ void HhBackend::refresh() {
   bool es_enabled = false;
   for (const char *key : {"endless_spool_enabled", "endless_spool"}) {
     const auto it = mmu.find(key);
-    if (it == mmu.end()) continue;
+    if (it == mmu.end()) {
+      continue;
+    }
     es_enabled = (it->is_boolean() && it->template get<bool>()) ||
                  (it->is_number() && it->template get<int>() != 0);
     break;
@@ -174,7 +196,9 @@ void HhBackend::refresh() {
     if (ttg.is_array()) {
       for (size_t t = 0; t < ttg.size(); t++) {
         if (ttg[t].is_number() && ttg[t].template get<int>() == g) {
-          if (!slot.map.empty()) slot.map += ",";
+          if (!slot.map.empty()) {
+            slot.map += ",";
+          }
           slot.map += fmt::format("T{}", t);
         }
       }
@@ -201,7 +225,9 @@ void HhBackend::refresh() {
     if (gate_spool_id.is_array() && g < (int)gate_spool_id.size() &&
         gate_spool_id[g].is_number()) {
       const int sid = gate_spool_id[g].template get<int>();
-      if (spoolman && sid > 0) slot.spool_id = sid;
+      if (spoolman && sid > 0) {
+        slot.spool_id = sid;
+      }
       const auto w = sid > 0 ? spool_weights.find(sid) : spool_weights.end();
       if (w != spool_weights.end()) {
         slot.weight = w->second.remaining;
@@ -215,7 +241,9 @@ void HhBackend::refresh() {
   // endless spool groups -> per-slot backup: the next gate in the same group
   if (es_enabled && es_groups.is_array() && (int)es_groups.size() >= num_gates) {
     for (int g = 0; g < num_gates; g++) {
-      if (!es_groups[g].is_number()) continue;
+      if (!es_groups[g].is_number()) {
+        continue;
+      }
       const int grp = es_groups[g].template get<int>();
       for (int step = 1; step < num_gates; step++) {
         const int other = (g + step) % num_gates;
@@ -239,7 +267,9 @@ void HhBackend::refresh() {
   if (error) {
     // reason_for_pause carries the actual failure text while HH is paused
     message = str_at(mmu, "reason_for_pause");
-    if (message.empty()) message = "MMU paused";
+    if (message.empty()) {
+      message = "MMU paused";
+    }
   } else if (!enabled) {
     message = "MMU disabled";
   }
@@ -308,7 +338,9 @@ void HhBackend::fetch_spoolman_weights() {
         spool_weights[s["id"].template get<int>()] = weight;
       }
     }
-    if (changed) changed(); // ids unchanged, so the re-refresh can't re-fetch
+    if (changed) {
+      changed();
+    } // ids unchanged, so the re-refresh can't re-fetch
   });
 }
 
@@ -338,7 +370,9 @@ bool HhBackend::can_set_backup(int slot) const {
 // One verb, both jobs: MMU_CHANGE_TOOL runs HH's full toolchange sequence and
 // handles the "nothing loaded yet" case itself.
 void HhBackend::load(int slot) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   if (!slots[slot].map.empty()) {
     // prefer the mapped tool: MMU_CHANGE_TOOL GATE= refuses a gate no tool
     // maps to ("No tool associated with gate")
@@ -365,7 +399,9 @@ bool HhBackend::can_map_tool(int tool) const {
 }
 
 void HhBackend::map_tool(int tool, int slot) {
-  if (!valid(slot) || !can_map_tool(tool)) return;
+  if (!valid(slot) || !can_map_tool(tool)) {
+    return;
+  }
   ws.gcode_script(fmt::format("MMU_TTG_MAP TOOL={} GATE={} QUIET=1", tool, slot));
 }
 
@@ -391,7 +427,9 @@ void HhBackend::gate_map(int slot, const std::string &args) {
 }
 
 void HhBackend::assign_spool(int slot, int spool_id) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   if (spoolman_pull) {
     // pull: MMU_GATE_MAP edits are overwritten, MMU_SPOOLMAN writes spoolman
     // first. No SPOOLID clears the gate
@@ -403,13 +441,17 @@ void HhBackend::assign_spool(int slot, int spool_id) {
 }
 
 void HhBackend::set_colour(int slot, const std::string &hex) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   // validate_color takes 'rrggbb', a colour name, or an empty string to clear
   gate_map(slot, fmt::format("COLOR={}", hex));
 }
 
 void HhBackend::set_material(int slot, const std::string &material) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   gate_map(slot, fmt::format("MATERIAL={}", KWebSocketClient::quote_arg(material)));
 }
 
@@ -429,7 +471,9 @@ std::vector<int> HhBackend::current_groups() const {
 void HhBackend::send_groups(const std::vector<int> &groups) {
   std::string csv;
   for (size_t i = 0; i < groups.size(); i++) {
-    if (i) csv += ",";
+    if (i) {
+      csv += ",";
+    }
     csv += std::to_string(groups[i]);
   }
   // endless_spool defaults to off, so assigning a backup has to turn it on or
@@ -440,7 +484,9 @@ void HhBackend::send_groups(const std::vector<int> &groups) {
 // the panel's pairwise backup -> endless spool groups
 void HhBackend::set_backup(int slot, int backup) {
   std::vector<int> groups = current_groups();
-  if ((int)groups.size() <= slot) return;
+  if ((int)groups.size() <= slot) {
+    return;
+  }
 
   if (backup < 0) {
     // The panel clears "X backs up slot" by calling this on slot. Groups are
@@ -450,7 +496,9 @@ void HhBackend::set_backup(int slot, int backup) {
     const int out = valid(slot) && slots[slot].backup >= 0 ? slots[slot].backup : slot;
     groups[out] = *std::max_element(groups.begin(), groups.end()) + 1;
   } else {
-    if (backup >= (int)groups.size()) return;
+    if (backup >= (int)groups.size()) {
+      return;
+    }
     groups[backup] = groups[slot];
   }
   send_groups(groups);
