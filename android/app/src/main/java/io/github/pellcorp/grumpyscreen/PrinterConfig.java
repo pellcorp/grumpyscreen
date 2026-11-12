@@ -1,6 +1,8 @@
 package io.github.pellcorp.grumpyscreen;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -18,6 +20,18 @@ final class PrinterConfig {
     private static final int MAX_BYTES = 256 * 1024;
 
     private PrinterConfig() {}
+
+    /** Installs this connection's download, including after an internal process restart. */
+    static void install(File file, byte[] config) throws IOException {
+        if (file.exists() && !file.delete()) {
+            throw new IOException("Unable to remove the previous printer configuration");
+        }
+        if (config != null) {
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                out.write(config);
+            }
+        }
+    }
 
     /** Call off the UI thread. A 404 means this printer uses the bundled defaults. */
     static byte[] download(String host, int port) throws IOException {

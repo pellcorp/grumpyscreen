@@ -5,6 +5,8 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -19,6 +21,8 @@ public final class PrinterConfigTest {
         AtomicReference<String> request = new AtomicReference<>();
         AtomicReference<String> cacheControl = new AtomicReference<>();
         AtomicInteger transfer = new AtomicInteger(0); // fixed length, chunked, truncated
+        Path cache = Files.createTempDirectory("grumpyscreen-config-test");
+        Path session = cache.resolve("grumpyscreen.ini");
         HttpServer printer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         printer.createContext("/", exchange -> {
             request.set(exchange.getRequestURI().toString());
@@ -48,18 +52,33 @@ public final class PrinterConfigTest {
                     + "[macro \"G28\"]\r\ndisplay_name: Home\r\n"
                     + "[moonraker]\r\nhost: 127.0.0.1\r\n";
             body.set(ini.getBytes(StandardCharsets.UTF_8));
-            require(Arrays.equals(body.get(), PrinterConfig.download("127.0.0.1", port)),
+            byte[] downloaded = PrinterConfig.download("127.0.0.1", port);
+            require(Arrays.equals(body.get(), downloaded),
                     "INI contents and formatting survive the download");
             require(request.get().startsWith(PATH + "?date="), "Uses the Moonraker config root");
             require("no-cache".equals(cacheControl.get()), "Asks proxies for current configuration");
+            // Connect prepares these bytes before the native UI opens. A new
+            // process installs the same download when switching printers.
+            PrinterConfig.install(session.toFile(), downloaded);
+            require(Arrays.equals(downloaded, Files.readAllBytes(session)),
+                    "Installs the prepared configuration without changing its contents");
 
             // A reconnect must observe edits, and removal must not reuse the
             // previous successful response.
             body.set("[ui]\nprompt_emergency_stop: true\n".getBytes(StandardCharsets.UTF_8));
-            require(Arrays.equals(body.get(), PrinterConfig.download("127.0.0.1", port)),
+            downloaded = PrinterConfig.download("127.0.0.1", port);
+            require(Arrays.equals(body.get(), downloaded),
                     "Reconnecting fetches edited configuration");
+            PrinterConfig.install(session.toFile(), downloaded);
+            require(Arrays.equals(downloaded, Files.readAllBytes(session)),
+                    "A shorter configuration completely replaces the previous session");
             status.set(404);
-            require(PrinterConfig.download("127.0.0.1", port) == null, "Missing INI uses defaults");
+            downloaded = PrinterConfig.download("127.0.0.1", port);
+            require(downloaded == null, "Missing INI uses defaults");
+            PrinterConfig.install(session.toFile(), downloaded);
+            require(!Files.exists(session), "Using defaults removes the previous printer's override");
+            PrinterConfig.install(session.toFile(), downloaded);
+            require(!Files.exists(session), "Defaults also work in a fresh process without a local file");
 
             for (int code : new int[]{401, 403, 500, 503, 302}) {
                 status.set(code);
@@ -97,8 +116,10 @@ public final class PrinterConfigTest {
                     "Accepts the repository's full configuration");
         } finally {
             printer.stop(0);
+            Files.deleteIfExists(session);
+            Files.delete(cache);
         }
-        System.out.println("Printer configuration HTTP tests passed");
+        System.out.println("Printer configuration HTTP and installation tests passed");
     }
 
     private static void expectFailure(int port, String message) throws Exception {
