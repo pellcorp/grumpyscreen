@@ -69,14 +69,18 @@ reference signing secrets or the release environment.
   every printer you have connected to is remembered by name, the search runs
   again, and choosing one and Connect switches to it (the app restarts itself).
   Connect also reloads configuration when choosing the current printer.
-  Saved printers show whether they are online (each is asked for
-  Moonraker's `/server/info`); only the current one is connected.
+  Opening or returning to the app shows the printer list. The selected
+  printer is checked using Moonraker's `/server/info`; Connect is enabled
+  only once it shows online. Its status is checked again while the list is
+  open. Other saved printers are checked when selected. Typed addresses
+  are checked the same way. Klipper can be down or restarting as long as
+  Moonraker responds.
   Long-press a saved printer to forget it. The same dialog can make the app
   the home screen, for a tablet dedicated to a printer. It is drawn with
   grumpyscreen's own `[theme]` colours and Montserrat, the UI's font.
   **Exit app** closes the app, removes it from Recents and stops its
-  connection to Moonraker. Opening it again starts a fresh session with the
-  saved printer and settings.
+  connection to Moonraker. Opening it again shows the printer list with the
+  saved printers and settings.
 * **Check for updates** in the printer list (☰) checks this repository's GitHub
   releases when pressed. If a newer version is available, choose **Open release**
   to open it in your browser, download `grumpyscreen.apk`
@@ -172,7 +176,7 @@ native heap) and CPU use, idle and while switching nav tabs, over adb.
 
 ## Trying it without a printer
 
-Run the HTTP configuration tests with a JDK installed:
+Run the HTTP configuration and printer selection tests with a JDK installed:
 
 ```
 bash android/tools/test-printer-config.sh

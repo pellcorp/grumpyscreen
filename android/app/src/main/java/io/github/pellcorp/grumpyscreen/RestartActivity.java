@@ -26,6 +26,7 @@ public class RestartActivity extends Activity {
         super.onCreate(savedInstanceState);
         Process.killProcess(getIntent().getIntExtra(EXTRA_PID, -1));
         Intent main = new Intent(this, MainActivity.class);
+        main.putExtra(MainActivity.EXTRA_CONNECT, true);
         main.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(main);
         finish();

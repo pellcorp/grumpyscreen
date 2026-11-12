@@ -12,8 +12,12 @@ import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Process;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
@@ -40,8 +44,10 @@ import java.nio.charset.StandardCharsets;
 public class MainActivity extends Activity {
     private static final String TAG = "grumpyscreen";
     private static final String PREFS = "printer";
+    static final String EXTRA_CONNECT = "connect_selected_printer";
     private SavedPrinters saved;
     private Dialog printerDialog;
+    private Dialog configErrorDialog;
     private File configFile;
     private File moonrakerFile;
     private File overrideFile;
@@ -92,11 +98,34 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (saved.hasCurrent()) {
+        boolean connect = getIntent().getBooleanExtra(EXTRA_CONNECT, false);
+        getIntent().removeExtra(EXTRA_CONNECT);
+        if (connect && saved.hasCurrent() && savedInstanceState == null) {
             start();
         } else {
             showPrinterDialog(true);
         }
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        showPrinterDialog(true);
+    }
+
+    @Override
+    protected void onStop() {
+        // A background download must not reopen the printer UI after resuming.
+        connectionAttempt++;
+        configDownloadRunning = false;
+        if (printerDialog != null) {
+            printerDialog.dismiss();
+        }
+        if (configErrorDialog != null) {
+            configErrorDialog.dismiss();
+            configErrorDialog = null;
+        }
+        super.onStop();
     }
 
     @Override
@@ -201,6 +230,7 @@ public class MainActivity extends Activity {
         message.setText("Could not load grumpyscreen.ini from " + saved.currentHost()
                 + ":" + saved.currentPort() + ".\n\n" + error.getMessage());
         GrumpyTheme.ThemedDialog td = theme.dialog(this, "Printer configuration", message);
+        configErrorDialog = td.dialog;
         td.dialog.setCancelable(false);
         td.addButton("Printers", false, v -> {
             td.dialog.dismiss();
@@ -295,6 +325,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         connectionAttempt++;
+        if (printerDialog != null) {
+            printerDialog.dismiss();
+        }
         GrumpyNative.setActivity(null);
         if (started) {
             getSystemService(DisplayManager.class).unregisterDisplayListener(displayListener);
@@ -339,7 +372,7 @@ public class MainActivity extends Activity {
         getWindow().setAttributes(lp);
     }
 
-    private void showPrinterDialog(boolean firstRun) {
+    private void showPrinterDialog(boolean requireSelection) {
         if (printerDialog != null && printerDialog.isShowing()) {
             return;
         }
@@ -361,15 +394,18 @@ public class MainActivity extends Activity {
         EditText port = theme.input(new EditText(this));
         final TextView[] selected = {null};
         final PrinterScanner.Printer[] selectedPrinter = {null};
+        final Runnable[] checkSelection = {null};
 
         // a row in either list; tapping it selects that printer
         java.util.function.BiFunction<PrinterScanner.Printer, String, TextView> row = (p, text) -> {
             TextView item = theme.row(new TextView(this));
             item.setText(text);
+            item.setTag(text);
             item.setClickable(true);
             item.setOnClickListener(v -> {
                 if (selected[0] != null) {
                     theme.select(selected[0], false);
+                    selected[0].setText(selected[0].getTag().toString());
                 }
                 theme.select(item, true);
                 selected[0] = item;
@@ -394,8 +430,7 @@ public class MainActivity extends Activity {
             layout.addView(savedBox);
             for (PrinterScanner.Printer p : savedList) {
                 boolean current = saved.isCurrent(p);
-                TextView item = row.apply(p, (current ? "● " : "○ ") + p
-                        + (current ? "  — connected" : ""));
+                TextView item = row.apply(p, p.toString());
                 item.setOnLongClickListener(v -> {
                     if (saved.isCurrent(p)) {
                         Toast.makeText(this, "Switch to another printer before removing this one",
@@ -414,7 +449,6 @@ public class MainActivity extends Activity {
                             });
                     return true;
                 });
-                item.setTag(item.getText().toString());  // the label without a status
                 savedBox.addView(item);
                 savedRows.put(p.host + ":" + p.port, item);
                 if (current) {
@@ -447,34 +481,8 @@ public class MainActivity extends Activity {
                 if (scanner[0] != null) {
                     scanner[0].stop();
                 }
-                // Ask each saved printer directly whether it is up: the scan
-                // only sweeps this device's own subnet (and mDNS), so it
-                // misses printers elsewhere, or behind a forwarded port
-                for (PrinterScanner.Printer sp : savedList) {
-                    if (saved.isCurrent(sp)) {
-                        continue;
-                    }
-                    TextView item = savedRows.get(sp.host + ":" + sp.port);
-                    if (item == null) {
-                        continue;
-                    }
-                    item.setText(item.getTag() + "  — checking…");
-                    new Thread(() -> {
-                        boolean up;
-                        try {
-                            String body = PrinterScanner.httpGet(sp.host, sp.port, "/server/info", 2000);
-                            up = body != null && new org.json.JSONObject(body).has("result");
-                        } catch (Exception e) {
-                            up = false;
-                        }
-                        final boolean online = up;
-                        runOnUiThread(() -> {
-                            if (savedRows.get(sp.host + ":" + sp.port) != item) {
-                                return;
-                            }  // removed
-                            item.setText(item.getTag() + (online ? "  — online" : "  — offline"));
-                        });
-                    }).start();
+                if (checkSelection[0] != null) {
+                    checkSelection[0].run();
                 }
                 found.removeAllViews();
                 status.setText("Searching…");
@@ -484,10 +492,6 @@ public class MainActivity extends Activity {
                     public void onFound(PrinterScanner.Printer p) {
                         TextView known = savedRows.get(p.host + ":" + p.port);
                         if (known != null) {
-                            // already saved: just show that it is reachable
-                            if (!saved.isCurrent(p)) {
-                                known.setText(known.getTag() + "  — online");
-                            }
                             if (p.name != null && saved.find(p.host, p.port) != null
                                     && saved.find(p.host, p.port).name == null) {
                                 saved.rename(p.host, p.port, p.name);
@@ -540,6 +544,10 @@ public class MainActivity extends Activity {
         }
         layout.addView(port);
 
+        TextView connectionStatus = theme.text(new TextView(this), 14, true);
+        connectionStatus.setPadding(0, pad / 2, 0, 0);
+        layout.addView(connectionStatus);
+
         CheckBox home = theme.check(new CheckBox(this));
         home.setText("Offer GrumpyScreen as the home screen");
         home.setChecked(isHomeEnabled());
@@ -547,29 +555,26 @@ public class MainActivity extends Activity {
 
         GrumpyTheme.ThemedDialog td = theme.dialog(this, "Printers", scroll);
         Dialog dialog = td.dialog;
-        dialog.setCancelable(!firstRun);
-        if (firstRun) {
+        dialog.setCancelable(!requireSelection);
+        if (requireSelection) {
             td.addButton("Exit", false, v -> exitApp());
         } else {
             td.addButton("Exit app", false, v -> exitApp());
         }
         td.addButton("Check for updates", false, v -> checkForUpdates());
-        if (!firstRun) {
+        if (!requireSelection) {
             td.spacer();
             td.addButton("Cancel", false, v -> dialog.dismiss());
         }
-        if (firstRun) {
+        if (requireSelection) {
             td.spacer();
         }
         printerDialog = dialog;
-        dialog.setOnDismissListener(d -> {
-            if (scanner[0] != null) {
-                scanner[0].stop();
+        final PrinterConnectionCheck[] connection = {null};
+        Button connect = td.addButton("Connect", true, v -> {
+            if (!connection[0].canConnect()) {
+                return;
             }
-            printerDialog = null;
-            goFullscreen();
-        });
-        td.addButton("Connect", true, v -> {
             String[] hp = parseHost(host.getText().toString(), port.getText().toString());
             if (hp == null) {
                 host.setError("Enter the printer's address");
@@ -594,13 +599,78 @@ public class MainActivity extends Activity {
                 learnName(newHost, newPort);
             }
             dialog.dismiss();
-            if (!started) {
+            if (!started && !GrumpyNative.isStarted()) {
                 start();
             } else {
                 // Reads its config once per process. Reconnecting even to the
                 // same printer reloads any edits to its grumpyscreen.ini.
                 RestartActivity.restart(this);
             }
+        });
+        connect.setEnabled(false);
+        Handler checks = new Handler(Looper.getMainLooper());
+        connection[0] = new PrinterConnectionCheck(
+                task -> new Thread(task, "printer-status").start(), this::runOnUiThread,
+                PrinterScanner::isOnline, state -> {
+                    connect.setEnabled(state == PrinterConnectionCheck.State.ONLINE);
+                    String label;
+                    switch (state) {
+                        case CHECKING: label = "Checking printer…"; break;
+                        case ONLINE: label = "Online"; break;
+                        case OFFLINE: label = "Offline"; break;
+                        default: label = "Select a printer or enter a valid address."; break;
+                    }
+                    connectionStatus.setText(label);
+                    if (selected[0] != null) {
+                        selected[0].setText(selected[0].getTag().toString());
+                        PrinterScanner.Printer pick = selectedPrinter[0];
+                        String[] hp = parseHost(host.getText().toString(), port.getText().toString());
+                        if (pick != null && hp != null && pick.host.equals(hp[0])
+                                && String.valueOf(pick.port).equals(hp[1])
+                                && state != PrinterConnectionCheck.State.UNCHECKED) {
+                            selected[0].append("  — " + label.toLowerCase(java.util.Locale.ROOT));
+                        }
+                    }
+                    if (state == PrinterConnectionCheck.State.ONLINE
+                            || state == PrinterConnectionCheck.State.OFFLINE) {
+                        checks.postDelayed(checkSelection[0], 5000);
+                    }
+                });
+        checkSelection[0] = () -> {
+            checks.removeCallbacksAndMessages(null);
+            connection[0].cancel();
+            String[] hp = parseHost(host.getText().toString(), port.getText().toString());
+            if (hp == null) {
+                return;
+            }
+            try {
+                int selectedPort = Integer.parseInt(hp[1]);
+                if (selectedPort > 0 && selectedPort <= 65535) {
+                    connection[0].check(hp[0], selectedPort);
+                }
+            } catch (NumberFormatException ignored) {
+                // Keep Connect disabled until the address and port are valid.
+            }
+        };
+        TextWatcher addressChanged = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable text) {
+                checks.removeCallbacksAndMessages(null);
+                connection[0].cancel();
+                checks.postDelayed(checkSelection[0], 350);
+            }
+        };
+        host.addTextChangedListener(addressChanged);
+        port.addTextChangedListener(addressChanged);
+        dialog.setOnDismissListener(d -> {
+            connection[0].cancel();
+            checks.removeCallbacksAndMessages(null);
+            if (scanner[0] != null) {
+                scanner[0].stop();
+            }
+            printerDialog = null;
+            goFullscreen();
         });
         td.show();
         layout.requestFocus();
