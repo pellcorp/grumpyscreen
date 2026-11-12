@@ -259,7 +259,7 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
 
-    /** The native home panel controls the menu's bounds and visibility. */
+    /** The native navigation controls the menu's bounds and visibility. */
     @SuppressWarnings("unused")
     void placeMenuFromNative(int width, int height, boolean visible) {
         runOnUiThread(() -> {

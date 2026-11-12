@@ -157,9 +157,6 @@ bool MainPanel::home_active() const {
 
 #ifdef OS_ANDROID
 bool MainPanel::printer_menu_visible() {
-  if (!home_active()) {
-    return false;
-  }
   const int main_index = lv_obj_get_index(tabview);
   for (auto *panel : {homing_panel.get_container(), extruder_panel.get_container(),
                       fan_panel.get_container(), led_panel.get_container(),
