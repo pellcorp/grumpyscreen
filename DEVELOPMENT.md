@@ -77,3 +77,23 @@ SIM_BACKEND=hh SIM_LANES=8 ./sim.sh
 ```
 
 Everything happens in `/tmp/grumpy-sim-7125`, so deleting files, factory reset or shutdown never touch your machine. See [docs/simulator.md](docs/simulator.md) for the options, test prints and commands.
+
+## Code quality
+
+Use braces for every `if`, `else`, `for`, `while` and `do` body, including
+single statements. Ordinary `else if` chains are allowed. The `Braces` PR
+check covers C/C++ sources and headers in `src/`, Java sources under
+`android/app/src/`, and Java tests in `android/tests/`.
+
+Run the same syntax check locally with Python 3.10 or newer:
+
+```sh
+python3 -m venv /tmp/grumpyscreen-braces
+/tmp/grumpyscreen-braces/bin/pip install -r tools/requirements-braces.txt
+/tmp/grumpyscreen-braces/bin/python tools/check_braces.py
+/tmp/grumpyscreen-braces/bin/python -m unittest discover -s tools -p 'test_check_braces.py'
+```
+
+The check needs no submodules, Android SDK or firmware toolchain. Configure
+`Braces` as a required status check in the repository's branch protection
+or ruleset to prevent merging a failing PR.
