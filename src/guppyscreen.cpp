@@ -9,7 +9,7 @@
 #endif
 #include "logger.h"
 #include "state.h"
-#if defined(GUPPY_CALIBRATE) || defined(GUPPY_FBDEV)
+#if defined(GUPPY_CALIBRATE) || (defined(GUPPY_FBDEV) && !defined(COSMOS))
 #include <fstream>
 #endif
 #ifdef GUPPY_SDL
@@ -21,7 +21,7 @@ namespace fs = std::experimental::filesystem;
 namespace {
 constexpr double calibration_version = 2.0;
 
-#ifdef GUPPY_FBDEV
+#if defined(GUPPY_FBDEV) && !defined(COSMOS)
 std::string backlight_dir;
 std::string backlight_max;
 
@@ -108,12 +108,14 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 #ifdef GUPPY_FBDEV
   fbdev_init();
   fbdev_unblank();
+#ifndef COSMOS
   if (conf->get<bool>("/ui/display_sleep_backlight", false)) {
     backlight_init();
     if (!backlight_dir.empty()) {
       backlight_set(backlight_max);
     }
   }
+#endif
 #endif
 
   hal_init(primary_color, secondary_color);
@@ -149,10 +151,12 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
   lv_obj_set_size(screen_saver, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_bg_opa(screen_saver, LV_OPA_100, 0);
 #ifdef GUPPY_FBDEV
+#ifndef COSMOS
   // with the backlight off it only has to catch the waking touch
   if (!backlight_dir.empty()) {
     lv_obj_set_style_opa(screen_saver, LV_OPA_TRANSP, 0);
   }
+#endif
 #else
   // nothing blanks the panel here, so the screen saver itself has to be dark
   lv_obj_set_style_bg_color(screen_saver, lv_color_black(), 0);
@@ -248,11 +252,15 @@ void GuppyScreen::loop() {
         if (!is_sleeping.load()) {
           LOG_DEBUG("putting display to sleeping after {} ms effective inactivity", effective_inactive);
 #ifdef GUPPY_FBDEV
+#ifdef COSMOS
+          fbdev_blank();
+#else
           if (backlight_dir.empty()) {
             fbdev_blank();
           } else {
             backlight_set("0");
           }
+#endif
 #endif
           lv_obj_move_foreground(screen_saver);
           is_sleeping = true;
@@ -261,11 +269,15 @@ void GuppyScreen::loop() {
         if (is_sleeping.load()) {
           LOG_DEBUG("waking up display");
 #ifdef GUPPY_FBDEV
+#ifdef COSMOS
+          fbdev_unblank();
+#else
           if (backlight_dir.empty()) {
             fbdev_unblank();
           } else {
             backlight_set(backlight_max);
           }
+#endif
 #endif
           lv_obj_move_background(screen_saver);
           is_sleeping = false;
