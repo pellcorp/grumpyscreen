@@ -21,6 +21,9 @@ final class GrumpyNative {
 
     static native void surfaceDestroyed();
 
+    /** The native UI survives Activity recreation within the same process. */
+    static native boolean isStarted();
+
     /** The display's current refresh rate; the UI redraws at up to this. */
     static native void setRefreshRate(float hz);
 

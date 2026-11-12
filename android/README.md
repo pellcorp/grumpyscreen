@@ -68,6 +68,7 @@ reference signing secrets or the release environment.
 * The **☰** at the top left (or Back) opens the printer list:
   every printer you have connected to is remembered by name, the search runs
   again, and choosing one and Connect switches to it (the app restarts itself).
+  Connect also reloads configuration when choosing the current printer.
   Saved printers show whether they are online (each is asked for
   Moonraker's `/server/info`); only the current one is connected.
   Long-press a saved printer to forget it. The same dialog can make the app
@@ -83,9 +84,22 @@ reference signing secrets or the release environment.
   and settings are kept. Android may ask you to allow installs from your
   browser or file manager. GrumpyScreen does not request permission to install
   apps. There are no automatic update checks.
-* Settings changed in the UI are saved to the app's
-  `files/grumpyscreen-override.cfg`; a `[theme]` there restyles the printer
-  dialog too.
+* Before opening the native UI, the app downloads
+  `/server/files/config/grumpyscreen.ini` from the selected Moonraker host and
+  port. Put `grumpyscreen.ini` in the printer's configuration directory and
+  edit it through Fluidd or Mainsail. It is an override over the APK's bundled
+  `grumpyscreen.cfg`, so it only needs the settings you want to change.
+  A `[theme]` also styles the app's printer dialog.
+  If the file is missing (HTTP 404), the bundled defaults are used. Other
+  download errors offer Retry or a different printer before the UI starts.
+  Each connection downloads a fresh copy; the session copy in the app cache
+  is never reused for a new connection or another printer.
+* Android has no local GrumpyScreen settings or Settings subtab. Existing
+  `files/grumpyscreen-override.cfg` files from older versions are removed;
+  move any settings you want to keep into the printer's `grumpyscreen.ini`.
+  Saved printer addresses and the home-screen preference still belong to
+  Android. The selected host/port and Android's thumbnail cache take priority
+  over any `[moonraker]` values in the INI.
 
 * Thumbnails are downloaded from Moonraker into the app cache.
 * Screen timeout and brightness follow the device's Android settings.
@@ -111,14 +125,17 @@ not used.
 | Create Support ZIP, Switch to Stock, Factory Reset | printer-side scripts | not built |
 | Network tab | the printer's wifi | not built: Android manages the device's wifi |
 
-The printer's Screen timeout setting is omitted on Android. For a dedicated
-tablet that should stay on while plugged in, enable **Stay awake** in Android's
-**Developer options**.
+The Settings subtab is omitted on Android; Tools and About remain available.
+For example, set `[ui]` `prompt_emergency_stop` in `grumpyscreen.ini` to
+configure emergency-stop confirmation. Restart the app or select the printer
+and Connect again to load edits. Screen timeout follows Android's settings.
+For a dedicated tablet that should stay on while plugged in, enable **Stay
+awake** in Android's **Developer options**.
 
 #### Macros
 
 The console's Macros tab is the same as on the printer: one tile per
-`[macro "..."]` section, which go in `grumpyscreen-override.cfg`.
+`[macro "..."]` section, which go in the printer's `grumpyscreen.ini`.
 
 Logs go to logcat: `adb logcat -s grumpyscreen`.
 
@@ -155,9 +172,18 @@ native heap) and CPU use, idle and while switching nav tabs, over adb.
 
 ## Trying it without a printer
 
+Run the HTTP configuration tests with a JDK installed:
+
+```
+bash android/tools/test-printer-config.sh
+```
+
 ```
 python3 tools/fake_moonraker.py --port 7125 --http-thumbnails
 ```
 
 and point the app at your machine's address (from the Android emulator,
 `10.0.2.2`).
+
+To try printer configuration, put `grumpyscreen.ini` in the simulator's
+`config` directory (`/tmp/grumpy-sim-7125/config` by default) and Connect again.

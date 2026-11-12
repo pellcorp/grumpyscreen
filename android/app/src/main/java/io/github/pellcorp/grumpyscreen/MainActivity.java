@@ -49,6 +49,8 @@ public class MainActivity extends Activity {
     private boolean exitRequested;
     private MenuButton menu;
     private boolean updateCheckRunning;
+    private boolean configDownloadRunning;
+    private int connectionAttempt;
 
     // the display can switch rates under us (power saving, a mode change)
     private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
@@ -70,18 +72,20 @@ public class MainActivity extends Activity {
         File files = getFilesDir();
         configFile = new File(files, "grumpyscreen.cfg");
         moonrakerFile = new File(files, "moonraker.cfg");
-        // what the Settings panel saves; survives app updates
-        overrideFile = new File(files, "grumpyscreen-override.cfg");
+        // A session copy of the printer's INI, never a source of local settings.
+        overrideFile = new File(getCacheDir(), "grumpyscreen.ini");
 
         try {
             // the bundled config is replaced on every start, so an app update
-            // brings its new defaults; the user's changes live in the override
+            // brings its new defaults; user configuration lives on the printer
             copyAsset("grumpyscreen.cfg", configFile);
             // left by earlier versions, which bundled a macro list
             new File(files, "macros.cfg").delete();
+            new File(files, "grumpyscreen-override.cfg").delete();
+            if (!GrumpyNative.isStarted()) clearPrinterConfig();
         } catch (IOException e) {
-            Log.e(TAG, "unable to install grumpyscreen.cfg", e);
-            Toast.makeText(this, "Unable to install grumpyscreen.cfg", Toast.LENGTH_LONG).show();
+            Log.e(TAG, "unable to prepare configuration", e);
+            Toast.makeText(this, "Unable to prepare configuration", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
@@ -103,14 +107,109 @@ public class MainActivity extends Activity {
     @Override
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
-        showPrinterDialog(false);
+        if (!started) {
+            connectionAttempt++;
+            configDownloadRunning = false;
+        }
+        showPrinterDialog(!started);
     }
 
     private void start() {
+        if (started || configDownloadRunning) return;
+        // Reattaching an Activity must keep the same config as the running UI.
+        if (GrumpyNative.isStarted()) {
+            startUi();
+            return;
+        }
+        configDownloadRunning = true;
+        final int attempt = ++connectionAttempt;
+        final String host = saved.currentHost();
+        final int port = saved.currentPort();
+        showConfigLoading();
+        new Thread(() -> {
+            try {
+                byte[] config = PrinterConfig.download(host, port);
+                runOnUiThread(() -> {
+                    if (!isCurrentAttempt(attempt)) return;
+                    configDownloadRunning = false;
+                    try {
+                        clearPrinterConfig();
+                        if (config != null) {
+                            try (OutputStream out = new FileOutputStream(overrideFile)) {
+                                out.write(config);
+                            }
+                        } else {
+                            Toast.makeText(this, "No grumpyscreen.ini found; using defaults",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                        startUi();
+                    } catch (IOException e) {
+                        showConfigError(e);
+                    }
+                });
+            } catch (IOException e) {
+                runOnUiThread(() -> {
+                    if (!isCurrentAttempt(attempt)) return;
+                    configDownloadRunning = false;
+                    showConfigError(e);
+                });
+            }
+        }, "printer-config").start();
+    }
+
+    private boolean isCurrentAttempt(int attempt) {
+        return attempt == connectionAttempt && !isFinishing() && !isDestroyed();
+    }
+
+    private void clearPrinterConfig() throws IOException {
+        if (overrideFile.exists() && !overrideFile.delete()) {
+            throw new IOException("Unable to remove the previous printer configuration");
+        }
+    }
+
+    private void showConfigLoading() {
+        GrumpyTheme theme = new GrumpyTheme(this, configFile);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setGravity(Gravity.CENTER);
+        body.setBackgroundColor(GrumpyTheme.opaque(theme.bg));
+        TextView message = theme.text(new TextView(this), 17, false);
+        message.setText("Loading printer configuration…");
+        body.addView(message);
+        Button printers = theme.button(new Button(this), false);
+        printers.setText("Printers");
+        printers.setOnClickListener(v -> onBackPressed());
+        body.addView(printers);
+        setContentView(body);
+        goFullscreen();
+    }
+
+    private void showConfigError(IOException error) {
+        Log.w(TAG, "unable to load printer configuration", error);
+        GrumpyTheme theme = new GrumpyTheme(this, configFile);
+        TextView message = theme.text(new TextView(this), 17, false);
+        message.setText("Could not load grumpyscreen.ini from " + saved.currentHost()
+                + ":" + saved.currentPort() + ".\n\n" + error.getMessage());
+        GrumpyTheme.ThemedDialog td = theme.dialog(this, "Printer configuration", message);
+        td.dialog.setCancelable(false);
+        td.addButton("Printers", false, v -> {
+            td.dialog.dismiss();
+            showPrinterDialog(true);
+        });
+        td.addButton("Retry", true, v -> {
+            td.dialog.dismiss();
+            start();
+        });
+        td.show();
+    }
+
+    private void startUi() {
         try {
             writeMoonrakerConfig(saved.currentHost(), saved.currentPort());
         } catch (IOException e) {
             Log.e(TAG, "unable to write moonraker.cfg", e);
+            showConfigError(e);
+            return;
         }
         started = true;
         preferHighestRefreshRate();
@@ -181,6 +280,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        connectionAttempt++;
         GrumpyNative.setActivity(null);
         if (started) getSystemService(DisplayManager.class).unregisterDisplayListener(displayListener);
         super.onDestroy();
@@ -221,7 +321,7 @@ public class MainActivity extends Activity {
 
     private void showPrinterDialog(boolean firstRun) {
         if (printerDialog != null && printerDialog.isShowing()) return;
-        // re-read each time: the user may have changed the theme in their override
+        // The printer's downloaded theme also styles the app's own dialogs.
         GrumpyTheme theme = new GrumpyTheme(this, configFile, overrideFile);
         int pad = theme.dp(16);
         LinearLayout layout = new LinearLayout(this);
@@ -443,15 +543,14 @@ public class MainActivity extends Activity {
             setHomeEnabled(home.isChecked());
             PrinterScanner.Printer pick = selectedPrinter[0];
             String name = pick != null && pick.host.equals(newHost) && pick.port == newPort ? pick.name : null;
-            boolean changed = !saved.hasCurrent() || !newHost.equals(saved.currentHost())
-                    || newPort != saved.currentPort();
             saved.use(newHost, newPort, name);
             if (name == null) learnName(newHost, newPort);
             dialog.dismiss();
             if (!started) {
                 start();
-            } else if (changed) {
-                // grumpyscreen reads its config once per process
+            } else {
+                // Reads its config once per process. Reconnecting even to the
+                // same printer reloads any edits to its grumpyscreen.ini.
                 RestartActivity.restart(this);
             }
         });
