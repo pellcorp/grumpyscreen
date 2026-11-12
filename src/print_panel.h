@@ -20,6 +20,9 @@ class PrintPanel : public NotifyConsumer {
   void subscribe();
   void foreground();
   void background();
+#ifdef OS_ANDROID
+  lv_obj_t *get_container() { return files_cont; }
+#endif
   void handle_callback(lv_event_t *event);
   void handle_metadata(const std::string& full_path, json & data);
   void handle_back_btn(lv_event_t *event);

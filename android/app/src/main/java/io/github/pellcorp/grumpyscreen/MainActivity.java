@@ -259,9 +259,9 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
 
-    /** The nav strip has laid itself out: its width and the room left at its top. */
+    /** The native home panel controls the menu's bounds and visibility. */
     @SuppressWarnings("unused")
-    void placeMenuFromNative(int width, int height) {
+    void placeMenuFromNative(int width, int height, boolean visible) {
         runOnUiThread(() -> {
             if (menu == null) {
                 return;
@@ -270,7 +270,7 @@ public class MainActivity extends Activity {
             lp.width = width;
             lp.height = height;
             menu.setLayoutParams(lp);
-            menu.setVisibility(View.VISIBLE);
+            menu.setVisibility(visible ? View.VISIBLE : View.GONE);
         });
     }
 

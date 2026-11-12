@@ -22,6 +22,7 @@ const struct _lv_font_t *android_text_font(int px);
 // can put its button there.
 int android_menu_height();
 void android_place_menu(int width, int height);
+void android_set_menu_visible(bool visible);
 #endif
 
 #endif // __GUPPY_PLATFORM_H__

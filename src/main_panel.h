@@ -43,6 +43,9 @@ class MainPanel : public NotifyConsumer {
   void append_console_output(const std::string &text);
   MmuPanel *mmu() { return mmu_panel; }
   bool home_active() const;
+#ifdef OS_ANDROID
+  bool printer_menu_visible();
+#endif
   void add_tab_change_cb(lv_event_cb_t cb, void *user_data);
   void remove_tab_change_cb(lv_event_cb_t cb, void *user_data);
   

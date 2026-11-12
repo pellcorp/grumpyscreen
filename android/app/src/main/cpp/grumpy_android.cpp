@@ -48,6 +48,7 @@ std::vector<uint32_t> frame;     // the whole screen, RGBA_8888
 // display pixels so a new surface can place the new Activity's button too.
 int menu_w = 0;                 // guarded by window_lock
 int menu_h = 0;
+bool menu_visible = false;      // guarded by window_lock
 
 std::atomic<int32_t> touch_x{0};
 std::atomic<int32_t> touch_y{0};
@@ -254,6 +255,7 @@ int android_menu_height() {
 
 static void place_menu() {
   int width, height;
+  bool visible;
   {
     std::lock_guard<std::mutex> g(window_lock);
     if (menu_w <= 0 || menu_h <= 0 || disp_w <= 0 || disp_h <= 0 ||
@@ -262,8 +264,10 @@ static void place_menu() {
     // the compositor and touch() apply to the native display.
     width = menu_w * surface_w / disp_w;
     height = menu_h * surface_h / disp_h;
+    visible = menu_visible;
   }
-  call_activity("placeMenuFromNative", "(II)V", static_cast<jint>(width), static_cast<jint>(height));
+  call_activity("placeMenuFromNative", "(IIZ)V", static_cast<jint>(width), static_cast<jint>(height),
+                static_cast<jboolean>(visible));
 }
 
 void android_place_menu(int width, int height) {
@@ -271,6 +275,17 @@ void android_place_menu(int width, int height) {
     std::lock_guard<std::mutex> g(window_lock);
     menu_w = width;
     menu_h = height;
+  }
+  place_menu();
+}
+
+void android_set_menu_visible(bool visible) {
+  {
+    std::lock_guard<std::mutex> g(window_lock);
+    if (menu_visible == visible) {
+      return;
+    }
+    menu_visible = visible;
   }
   place_menu();
 }

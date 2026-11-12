@@ -18,6 +18,9 @@ class ExtruderPanel : public NotifyConsumer {
 
   void foreground();
   void background();
+#ifdef OS_ANDROID
+  lv_obj_t *get_container() { return panel_cont; }
+#endif
   void consume(json &j);
   void handle_callback(lv_event_t *e);
 #ifndef COSMOS

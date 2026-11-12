@@ -155,6 +155,23 @@ bool MainPanel::home_active() const {
   return lv_tabview_get_tab_act(tabview) == lv_obj_get_index(main_tab);
 }
 
+#ifdef OS_ANDROID
+bool MainPanel::printer_menu_visible() {
+  if (!home_active()) {
+    return false;
+  }
+  const int main_index = lv_obj_get_index(tabview);
+  for (auto *panel : {homing_panel.get_container(), extruder_panel.get_container(),
+                      fan_panel.get_container(), led_panel.get_container(),
+                      print_panel.get_container(), print_status_panel.get_container()}) {
+    if (lv_obj_get_index(panel) > main_index) {
+      return false;
+    }
+  }
+  return true;
+}
+#endif
+
 void MainPanel::add_tab_change_cb(lv_event_cb_t cb, void *user_data) {
   lv_obj_add_event_cb(tabview, cb, LV_EVENT_VALUE_CHANGED, user_data);
 }
