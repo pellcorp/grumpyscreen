@@ -9,9 +9,7 @@
 #endif
 #include "logger.h"
 #include "state.h"
-#ifdef GUPPY_CALIBRATE
 #include <fstream>
-#endif
 #ifdef GUPPY_SDL
 #include <cstdlib>
 #endif
@@ -20,6 +18,26 @@ namespace fs = std::experimental::filesystem;
 
 namespace {
 constexpr double calibration_version = 2.0;
+
+#ifdef GUPPY_FBDEV
+std::string backlight_dir;
+std::string backlight_max;
+
+void backlight_init() {
+  std::error_code ec;
+  for (const auto &e : fs::directory_iterator("/sys/class/backlight", ec)) {
+    std::ifstream max(e.path() / "max_brightness");
+    if (max >> backlight_max) {
+      backlight_dir = e.path();
+      return;
+    }
+  }
+}
+
+void backlight_set(const std::string &value) {
+  std::ofstream(backlight_dir + "/brightness") << value;
+}
+#endif
 }
 
 GuppyScreen *GuppyScreen::instance = NULL;
@@ -88,6 +106,10 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 #ifdef GUPPY_FBDEV
   fbdev_init();
   fbdev_unblank();
+  if (conf->get<bool>("/ui/display_sleep_backlight", false)) {
+    backlight_init();
+    if (!backlight_dir.empty()) backlight_set(backlight_max);
+  }
 #endif
 
   hal_init(primary_color, secondary_color);
@@ -122,7 +144,10 @@ GuppyScreen *GuppyScreen::init(std::function<void(lv_color_t, lv_color_t)> hal_i
 
   lv_obj_set_size(screen_saver, LV_PCT(100), LV_PCT(100));
   lv_obj_set_style_bg_opa(screen_saver, LV_OPA_100, 0);
-#ifndef GUPPY_FBDEV
+#ifdef GUPPY_FBDEV
+  // with the backlight off it only has to catch the waking touch
+  if (!backlight_dir.empty()) lv_obj_set_style_opa(screen_saver, LV_OPA_TRANSP, 0);
+#else
   // nothing blanks the panel here, so the screen saver itself has to be dark
   lv_obj_set_style_bg_color(screen_saver, lv_color_black(), 0);
 #endif
@@ -217,7 +242,8 @@ void GuppyScreen::loop() {
         if (!is_sleeping.load()) {
           LOG_DEBUG("putting display to sleeping after {} ms effective inactivity", effective_inactive);
 #ifdef GUPPY_FBDEV
-          fbdev_blank();
+          if (backlight_dir.empty()) fbdev_blank();
+          else backlight_set("0");
 #endif
           lv_obj_move_foreground(screen_saver);
           is_sleeping = true;
@@ -226,7 +252,8 @@ void GuppyScreen::loop() {
         if (is_sleeping.load()) {
           LOG_DEBUG("waking up display");
 #ifdef GUPPY_FBDEV
-          fbdev_unblank();
+          if (backlight_dir.empty()) fbdev_unblank();
+          else backlight_set(backlight_max);
 #endif
           lv_obj_move_background(screen_saver);
           is_sleeping = false;
