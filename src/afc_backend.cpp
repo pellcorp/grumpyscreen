@@ -9,7 +9,9 @@
 
 bool AfcBackend::detect() {
   json &objs = State::get_instance()->get_data("/printer_objs/objects"_json_pointer);
-  if (!objs.is_array()) return false;
+  if (!objs.is_array()) {
+    return false;
+  }
   return std::any_of(objs.begin(), objs.end(), [](const json &o) {
     return o.is_string() && o.template get<std::string>() == "AFC";
   });
@@ -17,9 +19,13 @@ bool AfcBackend::detect() {
 
 bool AfcBackend::owns_update(json &j) {
   auto &status = j["/params/0"_json_pointer];
-  if (!status.is_object()) return false;
+  if (!status.is_object()) {
+    return false;
+  }
   for (auto &el : status.items()) {
-    if (el.key().rfind("AFC", 0) == 0) return true;
+    if (el.key().rfind("AFC", 0) == 0) {
+      return true;
+    }
   }
   return false;
 }
@@ -29,12 +35,24 @@ bool AfcBackend::owns_update(json &j) {
 // Restoring. Anything outside the resting states means the unit is mid-
 // operation, so an unrecognised one maps to Moving rather than Idle.
 static MmuActivity afc_activity(const std::string &state, bool error) {
-  if (error || state == "Error") return MmuActivity::Error;
-  if (state.empty() || state == "Idle" || state == "Initialized") return MmuActivity::Idle;
-  if (state == "Loading") return MmuActivity::Loading;
-  if (state == "Unloading") return MmuActivity::Unloading;
-  if (state == "ToolSwap") return MmuActivity::Swapping;
-  if (state == "Ejecting") return MmuActivity::Ejecting;
+  if (error || state == "Error") {
+    return MmuActivity::Error;
+  }
+  if (state.empty() || state == "Idle" || state == "Initialized") {
+    return MmuActivity::Idle;
+  }
+  if (state == "Loading") {
+    return MmuActivity::Loading;
+  }
+  if (state == "Unloading") {
+    return MmuActivity::Unloading;
+  }
+  if (state == "ToolSwap") {
+    return MmuActivity::Swapping;
+  }
+  if (state == "Ejecting") {
+    return MmuActivity::Ejecting;
+  }
   return MmuActivity::Moving;
 }
 
@@ -57,11 +75,15 @@ void AfcBackend::refresh() {
   json &pstat = state->get_data("/printer_state/print_stats/state"_json_pointer);
   printing = pstat.is_string() && pstat.template get<std::string>() == "printing";
 
-  if (!afc.is_object()) return;
+  if (!afc.is_object()) {
+    return;
+  }
 
   std::string current_load;
   auto &load_j = afc["/current_load"_json_pointer];
-  if (load_j.is_string()) current_load = load_j.template get<std::string>();
+  if (load_j.is_string()) {
+    current_load = load_j.template get<std::string>();
+  }
 
   // message is a {message, type} pair. Reading it with a nested json pointer
   // would throw if AFC ever published something else there, and a throw on the
@@ -69,7 +91,9 @@ void AfcBackend::refresh() {
   auto msg_it = afc.find("message");
   if (msg_it != afc.end() && msg_it->is_object()) {
     auto text = msg_it->find("message");
-    if (text != msg_it->end() && text->is_string()) message = text->template get<std::string>();
+    if (text != msg_it->end() && text->is_string()) {
+      message = text->template get<std::string>();
+    }
     // AFC tags queued messages "error" or "warning"; only the former is a fault
     auto type = msg_it->find("type");
     message_error = type != msg_it->end() && type->is_string() &&
@@ -90,17 +114,23 @@ void AfcBackend::refresh() {
   }
 
   auto &err = afc["/error_state"_json_pointer];
-  if (err.is_boolean()) error = err.template get<bool>();
+  if (err.is_boolean()) {
+    error = err.template get<bool>();
+  }
 
   auto &mm = afc["/multiple_tool_mapping"_json_pointer];
   multiple_mapping = mm.is_boolean() && mm.template get<bool>();
 
   auto &byp = afc["/bypass_state"_json_pointer];
-  if (byp.is_boolean()) bypass = byp.template get<bool>();
+  if (byp.is_boolean()) {
+    bypass = byp.template get<bool>();
+  }
 
   auto &cur_state = afc["/current_state"_json_pointer];
   activity = afc_activity(cur_state.is_string() ? cur_state.template get<std::string>() : "", error);
-  if (error) message_error = true;
+  if (error) {
+    message_error = true;
+  }
 
   // AFC reports spoolman as a bool (or a URL string in some versions)
   auto &spm = afc["/spoolman"_json_pointer];
@@ -119,13 +149,21 @@ void AfcBackend::refresh() {
   json &objects = state->get_data("/printer_objs/objects"_json_pointer);
   if (objects.is_array()) {
     for (auto &o : objects) {
-      if (!o.is_string()) continue;
+      if (!o.is_string()) {
+        continue;
+      }
       const std::string obj_name = o.template get<std::string>();
-      if (obj_name.rfind("AFC_", 0) != 0) continue;
+      if (obj_name.rfind("AFC_", 0) != 0) {
+        continue;
+      }
       auto space = obj_name.find(' ');
-      if (space == std::string::npos) continue;
+      if (space == std::string::npos) {
+        continue;
+      }
       const std::string suffix = obj_name.substr(space + 1);
-      if (lane_objs.count(suffix)) continue;
+      if (lane_objs.count(suffix)) {
+        continue;
+      }
       json &st = state->get_data(json::json_pointer(fmt::format("/printer_state/{}", obj_name)));
       // hubs, extruders and buffers share the naming; only a lane reports these
       if (st.is_object() && (st.contains("load") || st.contains("prep"))) {
@@ -138,10 +176,14 @@ void AfcBackend::refresh() {
   auto &lane_names = afc["/lanes"_json_pointer];
   if (lane_names.is_array()) {
     for (auto &l : lane_names) {
-      if (!l.is_string()) continue;
+      if (!l.is_string()) {
+        continue;
+      }
       const std::string lane_name = l.template get<std::string>();
       auto obj = lane_objs.find(lane_name);
-      if (obj == lane_objs.end()) continue;
+      if (obj == lane_objs.end()) {
+        continue;
+      }
 
       json &st = state->get_data(json::json_pointer(fmt::format("/printer_state/{}", obj->second)));
       MmuSlot slot;
@@ -162,27 +204,45 @@ void AfcBackend::refresh() {
           slot.map = m.template get<std::string>();
         } else if (m.is_array()) {
           for (const auto &t : m) {
-            if (!t.is_string()) continue;
-            if (!slot.map.empty()) slot.map += ",";
+            if (!t.is_string()) {
+              continue;
+            }
+            if (!slot.map.empty()) {
+              slot.map += ",";
+            }
             slot.map += t.template get<std::string>();
           }
         }
       }
-      if (st.contains("runout_lane") && st["runout_lane"].is_string()) runout_lane = st["runout_lane"].template get<std::string>();
-      if (st.contains("material") && st["material"].is_string()) slot.material = st["material"].template get<std::string>();
+      if (st.contains("runout_lane") && st["runout_lane"].is_string()) {
+        runout_lane = st["runout_lane"].template get<std::string>();
+      }
+      if (st.contains("material") && st["material"].is_string()) {
+        slot.material = st["material"].template get<std::string>();
+      }
       if (st.contains("color") && st["color"].is_string()) {
         slot.colour = st["color"].template get<std::string>();
-        if (!slot.colour.empty() && slot.colour[0] == '#') slot.colour.erase(0, 1);
+        if (!slot.colour.empty() && slot.colour[0] == '#') {
+          slot.colour.erase(0, 1);
+        }
       }
-      if (st.contains("prep") && st["prep"].is_boolean()) slot.prepped = st["prep"].template get<bool>();
+      if (st.contains("prep") && st["prep"].is_boolean()) {
+        slot.prepped = st["prep"].template get<bool>();
+      }
       // `load` is AFC's own loadable test (AFC_lane.load_state): the lane's
       // load switch on a physical hub, loaded_to_hub on a virtual one. It is
       // exactly what TOOL_LOAD refuses on, so `ready` follows it and nothing
       // else -- loaded_to_hub can stay latched on a lane whose spool has run
       // out, and offering a load there just manufactures a lane failure.
-      if (st.contains("load") && st["load"].is_boolean()) slot.ready = st["load"].template get<bool>();
-      if (st.contains("tool_loaded") && st["tool_loaded"].is_boolean()) slot.tool_loaded = st["tool_loaded"].template get<bool>();
-      if (st.contains("weight") && st["weight"].is_number()) slot.weight = st["weight"].template get<int>();
+      if (st.contains("load") && st["load"].is_boolean()) {
+        slot.ready = st["load"].template get<bool>();
+      }
+      if (st.contains("tool_loaded") && st["tool_loaded"].is_boolean()) {
+        slot.tool_loaded = st["tool_loaded"].template get<bool>();
+      }
+      if (st.contains("weight") && st["weight"].is_number()) {
+        slot.weight = st["weight"].template get<int>();
+      }
       if (st.contains("initial_weight") && st["initial_weight"].is_number()) {
         slot.full_weight = st["initial_weight"].template get<int>();
       }
@@ -201,8 +261,12 @@ void AfcBackend::refresh() {
   }
 
   for (size_t i = 0; i < slots.size(); i++) {
-    if (lane_ids[i] == current_load) loaded_slot = (int)i;
-    if (runout[i].empty()) continue;
+    if (lane_ids[i] == current_load) {
+      loaded_slot = (int)i;
+    }
+    if (runout[i].empty()) {
+      continue;
+    }
     for (size_t b = 0; b < slots.size(); b++) {
       if (lane_ids[b] == runout[i]) { slots[i].backup = (int)b; break; }
     }
@@ -238,7 +302,9 @@ bool AfcBackend::can_set_backup(int slot) const {
 }
 
 void AfcBackend::load(int slot) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   // CHANGE_TOOL unloads whatever is in the tool first; TOOL_LOAD assumes it is
   // already empty and errors otherwise
   if (loaded_slot >= 0 && loaded_slot != slot) {
@@ -253,17 +319,23 @@ void AfcBackend::unload() {
 }
 
 void AfcBackend::eject(int slot) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   ws.gcode_script(fmt::format("LANE_UNLOAD LANE={}", lane_id(slot)));
 }
 
 void AfcBackend::set_colour(int slot, const std::string &hex) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   ws.gcode_script(fmt::format("SET_COLOR LANE={} COLOR={}", lane_id(slot), hex));
 }
 
 void AfcBackend::assign_spool(int slot, int spool_id) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   // AFC then pulls the lane's colour, material and weight from spoolman
   // an empty SPOOL_ID clears the lane's spool
   ws.gcode_script(fmt::format("SET_SPOOL_ID LANE={} SPOOL_ID={}", lane_id(slot),
@@ -271,13 +343,17 @@ void AfcBackend::assign_spool(int slot, int spool_id) {
 }
 
 void AfcBackend::set_material(int slot, const std::string &material) {
-  if (!valid(slot)) return;
+  if (!valid(slot)) {
+    return;
+  }
   ws.gcode_script(fmt::format("SET_MATERIAL LANE={} MATERIAL={}",
                               lane_id(slot), KWebSocketClient::quote_arg(material)));
 }
 
 void AfcBackend::set_backup(int slot, int backup) {
-  if (!valid(slot) || (backup >= 0 && !valid(backup))) return;
+  if (!valid(slot) || (backup >= 0 && !valid(backup))) {
+    return;
+  }
   if (backup < 0) {
     ws.gcode_script(fmt::format("SET_RUNOUT LANE={} RUNOUT=NONE", lane_id(slot)));
   } else {
@@ -293,7 +369,9 @@ bool AfcBackend::can_map_tool(int tool) const {
 }
 
 void AfcBackend::map_tool(int tool, int slot) {
-  if (!valid(slot) || !can_map_tool(tool)) return;
+  if (!valid(slot) || !can_map_tool(tool)) {
+    return;
+  }
   ws.gcode_script(fmt::format("SET_MAP LANE={} MAP=T{}", lane_id(slot), tool));
 }
 

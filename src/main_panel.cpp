@@ -73,7 +73,9 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
   emergency_btn.set_prompt_condition([] {
     return Config::get_instance()->get<bool>("/ui/prompt_emergency_stop");
   });
-    if (spoolman_tab != NULL) spoolman_panel->attach(spoolman_tab);
+    if (spoolman_tab != NULL) {
+      spoolman_panel->attach(spoolman_tab);
+    }
     ws.register_notify_update(this);
     if (mmu_panel != NULL) {
       mmu_panel->pick_spool = [this](const std::string &lane, int current, std::function<void(int)> done) {
@@ -89,7 +91,9 @@ MainPanel::MainPanel(KWebSocketClient &websocket,
 
 MainPanel::~MainPanel() {
   if (tabview != NULL) {
-    if (spoolman_panel != NULL) spoolman_panel->detach();
+    if (spoolman_panel != NULL) {
+      spoolman_panel->detach();
+    }
     lv_obj_del(tabview);
     tabview = NULL;
   }
@@ -108,18 +112,28 @@ void MainPanel::set_firmware_restart_available(bool available) {
 }
 
 void MainPanel::set_klipper_ready(bool ready) {
-  if (!ready) disable_mmu();
+  if (!ready) {
+    disable_mmu();
+  }
   std::lock_guard<std::mutex> lock(lv_lock);
   klipper_ready = ready;
   console_panel.set_gcode_input_enabled(ready);
 
   for (ButtonContainer *button : {&homing_btn, &extrude_btn, &action_btn,
                                   &led_btn, &print_btn, &emergency_btn}) {
-    if (ready) button->enable();
-    else button->disable();
+    if (ready) {
+      button->enable();
+    }
+    else {
+      button->disable();
+    }
   }
-  for (const auto &sensor : sensors) sensor.second->set_enabled(ready);
-  if (ready) lv_obj_clear_state(print_status_panel.get_mini_status(), LV_STATE_DISABLED);
+  for (const auto &sensor : sensors) {
+    sensor.second->set_enabled(ready);
+  }
+  if (ready) {
+    lv_obj_clear_state(print_status_panel.get_mini_status(), LV_STATE_DISABLED);
+  }
   else {
     lv_obj_add_state(print_status_panel.get_mini_status(), LV_STATE_DISABLED);
     print_status_panel.background();
@@ -196,7 +210,9 @@ void MainPanel::init(json &j) {
   fit_chart_range();
   auto fans = State::get_instance()->get_display_fans();
   print_status_panel.init(fans);
-  if (mmu_panel != NULL) mmu_panel->init_state();
+  if (mmu_panel != NULL) {
+    mmu_panel->init_state();
+  }
 }
 
 void MainPanel::consume(json &j) {  
@@ -235,26 +251,42 @@ static void scroll_begin_event(lv_event_t * e) {
   /*Disable the scroll animations. Triggered when a tab button is clicked */
   if (lv_event_get_code(e) == LV_EVENT_SCROLL_BEGIN) {
     lv_anim_t * a = (lv_anim_t*)lv_event_get_param(e);
-    if(a)  a->time = 0;
+    if(a) {
+      a->time = 0;
+    }
   }
 }
 
 const lv_img_dsc_t *MainPanel::tab_icon(uint16_t id) const {
   auto is = [id](lv_obj_t *tab) { return tab != NULL && lv_obj_get_index(tab) == id; };
-  if (is(main_tab)) return Icons::NAV_HOME;
-  if (is(mmu_tab)) return Icons::NAV_SPOOL;
-  if (is(spoolman_tab)) return Icons::NAV_SPOOLMAN;
-  if (is(console_tab)) return Icons::NAV_CONSOLE;
-  if (is(setting_tab)) return Icons::NAV_TOOLS;
+  if (is(main_tab)) {
+    return Icons::NAV_HOME;
+  }
+  if (is(mmu_tab)) {
+    return Icons::NAV_SPOOL;
+  }
+  if (is(spoolman_tab)) {
+    return Icons::NAV_SPOOLMAN;
+  }
+  if (is(console_tab)) {
+    return Icons::NAV_CONSOLE;
+  }
+  if (is(setting_tab)) {
+    return Icons::NAV_TOOLS;
+  }
   return NULL;
 }
 
 void MainPanel::_draw_tab_icon(lv_event_t *e) {
   auto *self = static_cast<MainPanel*>(lv_event_get_user_data(e));
   auto *part = static_cast<lv_obj_draw_part_dsc_t*>(lv_event_get_param(e));
-  if (part->part != LV_PART_ITEMS) return;
+  if (part->part != LV_PART_ITEMS) {
+    return;
+  }
   const auto *icon = self->tab_icon(part->id);
-  if (icon == NULL) return;
+  if (icon == NULL) {
+    return;
+  }
   // LVGL changes draw_area to the label bounds before DRAW_PART_END.
   // Each button's BEGIN/END pair finishes before the next button is drawn.
   if (lv_event_get_code(e) == LV_EVENT_DRAW_PART_BEGIN) {
@@ -267,7 +299,9 @@ void MainPanel::_draw_tab_icon(lv_event_t *e) {
   const auto &slot = self->tab_icon_area;
   // Ask the decoder so this also works with encoded image sources.
   lv_img_header_t header;
-  if (lv_img_decoder_get_info(icon, &header) != LV_RES_OK || header.w == 0 || header.h == 0) return;
+  if (lv_img_decoder_get_info(icon, &header) != LV_RES_OK || header.w == 0 || header.h == 0) {
+    return;
+  }
   const int size = std::max(1, std::min({nav_icon_px(), lv_area_get_width(&slot) - 2 * gap(),
                                       lv_area_get_height(&slot) - 2 * gap()}));
   const int zoom = size * LV_IMG_ZOOM_NONE / std::max(header.w, header.h);
@@ -292,7 +326,9 @@ void MainPanel::_draw_tab_icon(lv_event_t *e) {
 }
 
 void MainPanel::_tabview_event_cb(lv_event_t *e) {
-    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) {
+      return;
+    }
 
     auto *self = static_cast<MainPanel*>(lv_event_get_user_data(e));
     lv_obj_t *tv = lv_event_get_target(e);
@@ -345,7 +381,9 @@ void MainPanel::create_panel() {
   lv_obj_set_style_bg_color(tabview, col(BG), 0);
   lv_obj_set_style_bg_opa(tabview, LV_OPA_COVER, 0);
   for (lv_obj_t *tab : {main_tab, console_tab, setting_tab, mmu_tab, spoolman_tab}) {
-    if (tab == NULL) continue;
+    if (tab == NULL) {
+      continue;
+    }
     lv_obj_add_style(tab, &styles().screen, 0);
     // the tab is only a page behind a panel that pads itself; without this
     // the screen style's gap would double up with the panel's own
@@ -575,7 +613,9 @@ void MainPanel::create_sensors(json &temp_sensors) {
   // the readouts were appended after the chart, so put the chart back at the
   // bottom of the column where it belongs
   const uint32_t last = lv_obj_get_child_cnt(temp_cont);
-  if (last > 0) lv_obj_move_to_index(temp_chart_box, last - 1);
+  if (last > 0) {
+    lv_obj_move_to_index(temp_chart_box, last - 1);
+  }
   lv_obj_set_height(temp_chart_box, many_sensors ? scale_r(110) : 0);
   const int sensor_weight = std::max<int>(1, sensors.size());
   const int compact_chart_weight = compact_amount / compact_range;
@@ -603,7 +643,9 @@ void MainPanel::create_leds(json &leds) {
 }
 
 void MainPanel::enable_spoolman() {
-  if (spoolman_tab == NULL) return;
+  if (spoolman_tab == NULL) {
+    return;
+  }
   spoolman_panel->init();
   std::lock_guard<std::mutex> lock(lv_lock);
   lv_btnmatrix_clear_btn_ctrl(lv_tabview_get_tab_btns(tabview),
@@ -611,7 +653,9 @@ void MainPanel::enable_spoolman() {
 }
 
 void MainPanel::enable_mmu() {
-  if (mmu_tab == NULL || mmu_panel == NULL) return;
+  if (mmu_tab == NULL || mmu_panel == NULL) {
+    return;
+  }
 
   LOG_DEBUG("enabling mmu panel");
   std::lock_guard<std::mutex> lock(lv_lock);
@@ -623,7 +667,9 @@ void MainPanel::enable_mmu() {
 // Klipper is offline or has no supported backend. Clear the previous session
 // and leave the MMU tab before disabling its navigation button.
 void MainPanel::disable_mmu() {
-  if (mmu_tab == NULL || mmu_panel == NULL) return;
+  if (mmu_tab == NULL || mmu_panel == NULL) {
+    return;
+  }
 
   LOG_DEBUG("disabling mmu panel");
   std::lock_guard<std::mutex> lock(lv_lock);

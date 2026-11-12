@@ -30,7 +30,9 @@ static const char *DISPLAY_SLEEP_MAP[] = {"Never", "1 min", "5 min", "10 min", "
 
 static int display_sleep_index(int32_t seconds) {
   for (size_t i = 0; i < sizeof(DISPLAY_SLEEP_VALUES) / sizeof(DISPLAY_SLEEP_VALUES[0]); ++i) {
-    if (DISPLAY_SLEEP_VALUES[i] == seconds) return static_cast<int>(i);
+    if (DISPLAY_SLEEP_VALUES[i] == seconds) {
+      return static_cast<int>(i);
+    }
   }
   return -1;
 }
@@ -107,7 +109,9 @@ static lv_obj_t *add_about_line(lv_obj_t *parent, const std::string &text, bool 
   lv_obj_set_width(label, LV_PCT(100));
   lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
   lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
-  if (title) lv_obj_add_style(label, &Theme::styles().dim_label, 0);
+  if (title) {
+    lv_obj_add_style(label, &Theme::styles().dim_label, 0);
+  }
   return label;
 }
 
@@ -282,12 +286,20 @@ SettingPanel::SettingPanel(KWebSocketClient &c, std::mutex &l, lv_obj_t *parent)
       &restart_klipper_btn, &restart_firmware_btn, &guppy_restart_btn};
   struct Optional { ButtonContainer *tile; const char *cmd; };
   for (const Optional &o : {Optional{&support_zip_btn, "/commands/support_zip_cmd"}}) {
-    if (has_cmd(o.cmd)) action_tiles.push_back(o.tile); else o.tile->hide();
+    if (has_cmd(o.cmd)) {
+      action_tiles.push_back(o.tile);
+    } else {
+      o.tile->hide();
+    }
   }
   for (const Optional &o : {Optional{&switch_to_stock_btn, "/commands/switch_to_stock_cmd"},
                             Optional{&factory_reset_btn, "/commands/factory_reset_cmd"}
                             }) {
-    if (has_cmd(o.cmd)) action_tiles.push_back(o.tile); else o.tile->hide();
+    if (has_cmd(o.cmd)) {
+      action_tiles.push_back(o.tile);
+    } else {
+      o.tile->hide();
+    }
   }
 #ifdef COSMOS
   action_tiles.push_back(&update_btn);
@@ -319,8 +331,12 @@ void SettingPanel::select_first_tab() {
 }
 
 void SettingPanel::set_firmware_restart_available(bool available) {
-  if (available) restart_firmware_btn.enable();
-  else restart_firmware_btn.disable();
+  if (available) {
+    restart_firmware_btn.enable();
+  }
+  else {
+    restart_firmware_btn.disable();
+  }
 }
 
 void SettingPanel::_tabview_event_cb(lv_event_t *event) {
@@ -343,10 +359,12 @@ void SettingPanel::setting_changed(lv_event_t *event) {
     const bool enabled = lv_obj_has_state(emergency_prompt_switch, LV_STATE_CHECKED);
     saved = conf->set_prompt_emergency_stop(enabled);
     if (!saved) {
-      if (conf->get<bool>("/ui/prompt_emergency_stop"))
+      if (conf->get<bool>("/ui/prompt_emergency_stop")) {
         lv_obj_add_state(emergency_prompt_switch, LV_STATE_CHECKED);
-      else
+      }
+      else {
         lv_obj_clear_state(emergency_prompt_switch, LV_STATE_CHECKED);
+      }
     }
   } else if (target == sleep_timeout_selector) {
     const uint32_t selected = lv_btnmatrix_get_selected_btn(sleep_timeout_selector);
@@ -367,8 +385,12 @@ void SettingPanel::setting_changed(lv_event_t *event) {
                          "The config file could not be updated.", true, true);
   }
 
-  if (target == emergency_prompt_switch) refresh_emergency_stop_warning();
-  if (target == sleep_timeout_selector) refresh_sleep_timeout_warning();
+  if (target == emergency_prompt_switch) {
+    refresh_emergency_stop_warning();
+  }
+  if (target == sleep_timeout_selector) {
+    refresh_sleep_timeout_warning();
+  }
 }
 
 void SettingPanel::refresh_sleep_timeout_warning() {
@@ -409,12 +431,16 @@ void SettingPanel::handle_callback(lv_event_t *event) {
       };
       const int sent = ws.send_jsonrpc("machine.services.restart", {{"service", "klipper"}},
                                        [this, failed](json &r) {
-        if (!r.contains("error")) return;
+        if (!r.contains("error")) {
+          return;
+        }
         LOG_ERROR("Failed to restart Klipper: {}", r["error"].dump());
         std::lock_guard<std::mutex> lock(lv_lock);
         failed();
       });
-      if (sent < 0) failed();  // no connection to Moonraker
+      if (sent < 0) {
+        failed();
+      }  // no connection to Moonraker
     } else if (btn == restart_firmware_btn.get_container()) {
       ws.send_jsonrpc("printer.firmware_restart");
 #ifndef OS_ANDROID
@@ -440,12 +466,16 @@ void SettingPanel::handle_callback(lv_event_t *event) {
         create_simple_dialog(lv_scr_act(), "Shutdown Host Failed", "Failed to shutdown host!", true, true);
       };
       const int sent = ws.send_jsonrpc("machine.shutdown", json::object(), [this, failed](json &r) {
-        if (!r.contains("error")) return;
+        if (!r.contains("error")) {
+          return;
+        }
         LOG_ERROR("Failed to shutdown host: {}", r["error"].dump());
         std::lock_guard<std::mutex> lock(lv_lock);
         failed();
       });
-      if (sent < 0) failed();  // no connection to Moonraker
+      if (sent < 0) {
+        failed();
+      }  // no connection to Moonraker
 #endif
 #ifndef OS_ANDROID
     } else if (btn == support_zip_btn.get_container()) {

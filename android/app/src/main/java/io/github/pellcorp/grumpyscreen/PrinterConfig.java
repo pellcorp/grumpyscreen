@@ -36,12 +36,16 @@ final class PrinterConfig {
         connection.setRequestProperty("Cache-Control", "no-cache");
         try {
             int status = connection.getResponseCode();
-            if (status == HttpURLConnection.HTTP_NOT_FOUND) return null;
+            if (status == HttpURLConnection.HTTP_NOT_FOUND) {
+                return null;
+            }
             if (status != HttpURLConnection.HTTP_OK) {
                 throw new IOException("Moonraker returned HTTP " + status);
             }
             long length = connection.getContentLengthLong();
-            if (length > MAX_BYTES) throw new IOException("grumpyscreen.ini exceeds 256 KiB");
+            if (length > MAX_BYTES) {
+                throw new IOException("grumpyscreen.ini exceeds 256 KiB");
+            }
             ByteArrayOutputStream body = new ByteArrayOutputStream();
             try (InputStream in = connection.getInputStream()) {
                 byte[] buffer = new byte[8192];
@@ -83,9 +87,13 @@ final class PrinterConfig {
             lineNumber++;
             int comment = line.indexOf('#');
             int semicolon = line.indexOf(';');
-            if (semicolon >= 0 && (comment < 0 || semicolon < comment)) comment = semicolon;
+            if (semicolon >= 0 && (comment < 0 || semicolon < comment)) {
+                comment = semicolon;
+            }
             String text = (comment < 0 ? line : line.substring(0, comment)).trim();
-            if (text.isEmpty()) continue;
+            if (text.isEmpty()) {
+                continue;
+            }
             if (text.startsWith("[") && text.endsWith("]")) {
                 String section = text.substring(1, text.length() - 1).trim();
                 int space = firstSeparator(section, ' ', '\t');

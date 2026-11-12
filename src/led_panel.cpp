@@ -156,7 +156,9 @@ void LedPanel::init(json &l) {
   // Any number of rows, any screen size: build them, then let the scroller
   // measure whether they overflow; no row height or count is guessed anywhere
   const lv_coord_t row_h = SliderContainer::row_height(leds.size());
-  for (auto &r : leds) r.second->set_height(row_h);
+  for (auto &r : leds) {
+    r.second->set_height(row_h);
+  }
   refresh_scroll(leds_cont);
 }
 
@@ -268,7 +270,9 @@ void LedPanel::handle_callback(lv_event_t *event) {
 
 std::string LedPanel::led_gcode(const std::string &key, double fraction) {
   const std::string name = KUtils::get_obj_name(key);
-  if (key.rfind("output_pin ", 0) == 0) return fmt::format("SET_PIN PIN={} VALUE={}", name, fraction);
+  if (key.rfind("output_pin ", 0) == 0) {
+    return fmt::format("SET_PIN PIN={} VALUE={}", name, fraction);
+  }
   return fmt::format("SET_LED LED={} WHITE={}", name, fraction);
 }
 

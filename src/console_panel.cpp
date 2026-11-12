@@ -177,7 +177,9 @@ void ta_add_text_limit_lines(lv_obj_t * ta, const std::string &line) {
     // Find pointer to first line we want to keep
     const char * keep = full;
     while(drop > 0 && *keep) {
-        if(*keep == '\n') drop--;
+        if(*keep == '\n') {
+          drop--;
+        }
         keep++;
     }
 
@@ -216,7 +218,9 @@ std::string ConsolePanel::colourize(const std::string &text) const {
 }
 
 void ConsolePanel::append_output(const std::string &text) {
-  if (!text.empty()) ta_add_text_limit_lines(output, colourize(text));
+  if (!text.empty()) {
+    ta_add_text_limit_lines(output, colourize(text));
+  }
 }
 
 void ConsolePanel::handle_macro_response(json &j) {
@@ -244,9 +248,13 @@ void ConsolePanel::append_gcode(const std::string &gcode) {
   size_t start = 0;
   while (start < gcode.size()) {
     const size_t end = gcode.find('\n', start);
-    if (!text.empty()) text += '\n';
+    if (!text.empty()) {
+      text += '\n';
+    }
     text += "> " + gcode.substr(start, end == std::string::npos ? end : end - start);
-    if (end == std::string::npos) break;
+    if (end == std::string::npos) {
+      break;
+    }
     start = end + 1;
   }
   append_output(text);

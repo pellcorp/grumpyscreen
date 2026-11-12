@@ -38,7 +38,9 @@ static std::vector<std::string> split_csv(const std::string &s) {
   for (auto &tok : KUtils::split(s, ',')) {
     tok.erase(0, tok.find_first_not_of(" \t"));
     tok.erase(tok.find_last_not_of(" \t") + 1);
-    if (!tok.empty()) out.push_back(tok);
+    if (!tok.empty()) {
+      out.push_back(tok);
+    }
   }
   return out;
 }
@@ -346,7 +348,9 @@ void MmuPanel::create(lv_obj_t *parent) {
 // FULL-SCREEN SPOOL EDIT PANEL (480x272 on lv_scr_act())
 // =========================================================================
 void MmuPanel::create_edit_screen() {
-  if (edit_panel_cont != NULL) return;
+  if (edit_panel_cont != NULL) {
+    return;
+  }
 
   lv_color_t primary = theme_primary();
 
@@ -478,7 +482,9 @@ void MmuPanel::create_edit_screen() {
                      [](const std::string &m) {
                        // a name with a space cannot be passed as a gcode
                        // parameter; the vendor would see only its first word
-                       if (m.find_first_of(" \t") == std::string::npos) return false;
+                       if (m.find_first_of(" \t") == std::string::npos) {
+                         return false;
+                       }
                        LOG_INFO("/mmu/materials: ignoring '{}', names cannot contain spaces", m);
                        return true;
                      }),
@@ -494,10 +500,14 @@ void MmuPanel::create_edit_screen() {
   materials.clear();
   int widest = 0;
   for (const auto &m : material_catalog) {
-    if (materials.size() >= MAX_MATERIALS) break;
+    if (materials.size() >= MAX_MATERIALS) {
+      break;
+    }
     widest = std::max(widest, (int)lv_txt_get_width(m.c_str(), m.size(), chip_font, 0, LV_TEXT_FLAG_NONE) + gap());
     const int n = (int)materials.size() + 1;
-    if (n * widest + (n - 1) * gap() > avail) break;
+    if (n * widest + (n - 1) * gap() > avail) {
+      break;
+    }
     materials.push_back(m);
   }
 
@@ -561,10 +571,16 @@ void MmuPanel::create_colour_swatches() {
   // missing clear tile simply shifts the grid up by one. Rebuild on backend
   // detection so a reconnect can switch vendors.
   colour_swatch_hex.clear();
-  if (backend == NULL || backend->can_clear_colour()) colour_swatch_hex.push_back("");
-  for (const char *hex : COLOUR_PRESETS) colour_swatch_hex.push_back(hex);
+  if (backend == NULL || backend->can_clear_colour()) {
+    colour_swatch_hex.push_back("");
+  }
+  for (const char *hex : COLOUR_PRESETS) {
+    colour_swatch_hex.push_back(hex);
+  }
   // one colour short of two full rows: drop the last, rather than leave a hole
-  while ((colour_swatch_hex.size() + 1) % SWATCH_ROWS != 0) colour_swatch_hex.pop_back();
+  while ((colour_swatch_hex.size() + 1) % SWATCH_ROWS != 0) {
+    colour_swatch_hex.pop_back();
+  }
   const size_t per_row = (colour_swatch_hex.size() + 1) / SWATCH_ROWS;
 
   colour_swatch_btns.clear();
@@ -628,16 +644,24 @@ MmuBackend *MmuPanel::select_backend() {
   // can race LVGL event callbacks reading the backend on the UI thread
   std::lock_guard<std::mutex> guard(lv_lock);
   clear();
-  if (!enabled()) return NULL;
+  if (!enabled()) {
+    return NULL;
+  }
 
   for (MmuBackend *b : backends) {
-    if (!b->detect()) continue;
+    if (!b->detect()) {
+      continue;
+    }
     LOG_INFO("MMU backend: {}", b->vendor());
     backend = b;
-    if (edit_panel_cont != NULL) create_colour_swatches();
+    if (edit_panel_cont != NULL) {
+      create_colour_swatches();
+    }
     backend->changed = [this]() {
       std::lock_guard<std::mutex> lock(lv_lock);
-      if (cont == NULL) return;
+      if (cont == NULL) {
+        return;
+      }
       refresh();
       populate();
     };
@@ -649,21 +673,27 @@ MmuBackend *MmuPanel::select_backend() {
 }
 
 void MmuPanel::init_state() {
-  if (cont == NULL) return;
+  if (cont == NULL) {
+    return;
+  }
   refresh();
   populate();
 }
 
 // Drop the binding and any controls or messages from the previous session.
 void MmuPanel::clear() {
-  if (backend != NULL) backend->changed = nullptr;
+  if (backend != NULL) {
+    backend->changed = nullptr;
+  }
   backend = NULL;
   NotificationBanner::instance().clear(NotificationBanner::Source::Mmu);
   dismissed_message.clear();
   tool_map.close();
   current_page = 0;
   refresh();
-  if (cont != NULL) close_edit();
+  if (cont != NULL) {
+    close_edit();
+  }
 }
 
 void MmuPanel::refresh() {
@@ -677,7 +707,9 @@ void MmuPanel::refresh() {
   spoolman_active = false;
   weight_active = false;
 
-  if (backend == NULL) return;
+  if (backend == NULL) {
+    return;
+  }
 
   backend->refresh();
   slots = backend->slots;
@@ -693,7 +725,9 @@ void MmuPanel::refresh() {
   // Stop suppressing as soon as the backend reports something else. Only
   // clearing on an empty message would swallow a repeat: a queue-backed
   // backend can go A -> B -> A without ever passing through "".
-  if (message != dismissed_message) dismissed_message.clear();
+  if (message != dismissed_message) {
+    dismissed_message.clear();
+  }
 }
 
 // The backend reports a neutral activity; the wording is the panel's
@@ -721,7 +755,9 @@ int MmuPanel::remaining_pct(const MmuSlot &slot) const {
 // a slot is a backup when another slot names it as its backup (infinite spool)
 bool MmuPanel::is_backup_slot(int idx) const {
   for (size_t i = 0; i < slots.size(); i++) {
-    if ((int)i != idx && slots[i].backup == idx) return true;
+    if ((int)i != idx && slots[i].backup == idx) {
+      return true;
+    }
   }
   return false;
 }
@@ -823,7 +859,9 @@ void MmuPanel::rebuild_grid(size_t page_count) {
     }
   };
   fill_row(cards_row1, CARDS_PER_ROW - row1_cards);
-  if (!single_row_mode) fill_row(cards_row2, CARDS_PER_ROW - row2_cards);
+  if (!single_row_mode) {
+    fill_row(cards_row2, CARDS_PER_ROW - row2_cards);
+  }
 }
 
 // Pagination row; hide the arrow that has nowhere to go
@@ -834,18 +872,30 @@ void MmuPanel::update_nav(size_t total_pages) {
   }
   lv_obj_clear_flag(nav_row, LV_OBJ_FLAG_HIDDEN);
   lv_label_set_text(nav_label, fmt::format("Page {} / {}", current_page + 1, total_pages).c_str());
-  if (current_page == 0) lv_obj_add_flag(nav_prev_btn, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_clear_flag(nav_prev_btn, LV_OBJ_FLAG_HIDDEN);
-  if (current_page + 1 >= total_pages) lv_obj_add_flag(nav_next_btn, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_clear_flag(nav_next_btn, LV_OBJ_FLAG_HIDDEN);
+  if (current_page == 0) {
+    lv_obj_add_flag(nav_prev_btn, LV_OBJ_FLAG_HIDDEN);
+  }
+  else {
+    lv_obj_clear_flag(nav_prev_btn, LV_OBJ_FLAG_HIDDEN);
+  }
+  if (current_page + 1 >= total_pages) {
+    lv_obj_add_flag(nav_next_btn, LV_OBJ_FLAG_HIDDEN);
+  }
+  else {
+    lv_obj_clear_flag(nav_next_btn, LV_OBJ_FLAG_HIDDEN);
+  }
 }
 
 void MmuPanel::populate() {
-  if (cont == NULL) return;
+  if (cont == NULL) {
+    return;
+  }
 
   // slots can shrink on a klipper reconfig; don't strand the view on an empty page
   size_t total_pages = slots.empty() ? 1 : (slots.size() + CARDS_PER_PAGE - 1) / CARDS_PER_PAGE;
-  if (current_page >= total_pages) current_page = total_pages - 1;
+  if (current_page >= total_pages) {
+    current_page = total_pages - 1;
+  }
 
   size_t start_idx = current_page * CARDS_PER_PAGE;
   size_t end_idx = std::min(start_idx + CARDS_PER_PAGE, slots.size());
@@ -861,7 +911,9 @@ void MmuPanel::populate() {
   // Populate visible cards
   for (size_t c = 0; c < visible_cards.size(); c++) {
     size_t slot_idx = start_idx + c;
-    if (slot_idx >= slots.size()) break;
+    if (slot_idx >= slots.size()) {
+      break;
+    }
 
     const MmuSlot &slot = slots[slot_idx];
     Card &card = visible_cards[c];
@@ -879,15 +931,21 @@ void MmuPanel::populate() {
 
     // Line 1: slot and tool (e.g. "S1 (T0)", "S1 (T0) (B)")
     std::string tool_str = slot_label(slot, slot_idx);
-    if (backup) tool_str += " (B)";
+    if (backup) {
+      tool_str += " (B)";
+    }
     lv_label_set_text(card.title, tool_str.c_str());
     lv_obj_set_style_text_color(card.title, slot.tool_loaded ? primary : col(TEXT), 0);
 
     // Line 2: Material. A configured material shows even when the slot is
     // physically empty (the translucent spool conveys emptiness); bare slots say "Empty"
     std::string mat_line = !slot.material.empty() ? slot.material : has_filament ? "-" : "Empty";
-    if (spoolman_active && slot.spool_id >= 0) mat_line += fmt::format(" #{}", slot.spool_id);
-    if (pct >= 0) mat_line += fmt::format(" {}%", pct);
+    if (spoolman_active && slot.spool_id >= 0) {
+      mat_line += fmt::format(" #{}", slot.spool_id);
+    }
+    if (pct >= 0) {
+      mat_line += fmt::format(" {}%", pct);
+    }
     lv_label_set_text(card.material, mat_line.c_str());
 
     // the loaded lane outlines itself in the accent, a step heavier than the
@@ -955,8 +1013,12 @@ void MmuPanel::populate() {
       // no local edit in progress on a field: follow changes made elsewhere
       // (an RFID scan, the web UI, another screen). the backend owns these
       // values, and each field follows on its own
-      if (!draft_colour_dirty) draft_colour = slots[edit_slot_idx].colour;
-      if (!draft_material_dirty) draft_material = slots[edit_slot_idx].material;
+      if (!draft_colour_dirty) {
+        draft_colour = slots[edit_slot_idx].colour;
+      }
+      if (!draft_material_dirty) {
+        draft_material = slots[edit_slot_idx].material;
+      }
       update_edit_preview();
     } else {
       close_edit(); // slot disappeared on a klipper reconfig
@@ -968,26 +1030,34 @@ void MmuPanel::populate() {
 
 bool MmuPanel::open_tool_map(const json &metadata, const std::string &filename,
                              std::function<void()> print) {
-  if (backend == NULL) return false;
+  if (backend == NULL) {
+    return false;
+  }
   const std::vector<MmuFileTool> tools = mmu_file_tools(metadata);
   // a vendor with no tool map, or one refusing every tool the file uses,
   // has nothing to show here
   const bool mappable = std::any_of(tools.begin(), tools.end(), [this](const MmuFileTool &t) {
     return backend->can_map_tool(t.tool);
   });
-  if (!mappable) return false;
+  if (!mappable) {
+    return false;
+  }
   refresh();
   tool_map.open(backend, tools, filename, print);
   return true;
 }
 
 void MmuPanel::consume(json &j) {
-  if (cont == NULL) return;
+  if (cont == NULL) {
+    return;
+  }
 
   auto &pstat_state = j["/params/0/print_stats/state"_json_pointer];
   const bool mmu_updated = backend != NULL && backend->owns_update(j);
 
-  if (pstat_state.is_null() && !mmu_updated) return;
+  if (pstat_state.is_null() && !mmu_updated) {
+    return;
+  }
 
   std::lock_guard<std::mutex> lock(lv_lock);
   refresh();
@@ -1007,26 +1077,36 @@ void MmuPanel::handle_card(lv_event_t *e) {
     pick_spool_for(idx);
     return;
   }
-  if (card_long_pressed) return;
+  if (card_long_pressed) {
+    return;
+  }
   LOG_TRACE("mmu card {} clicked -> opening full-screen config", idx);
   open_edit(idx);
 }
 
 void MmuPanel::pick_spool_for(int idx) {
-  if (backend == NULL || idx < 0 || (size_t)idx >= backend->slots.size()) return;
+  if (backend == NULL || idx < 0 || (size_t)idx >= backend->slots.size()) {
+    return;
+  }
   if (!backend->can_assign_spool()) {
     const std::string why = fmt::format("{} {}.", backend->vendor(), backend->assign_spool_refusal());
     create_simple_dialog(lv_layer_top(), "Spoolman", why.c_str(), true, false);
     return;
   }
-  if (!pick_spool) return;
+  if (!pick_spool) {
+    return;
+  }
   const std::string lane = backend->slots[idx].name;
   const int current = backend->slots[idx].spool_id;
   pick_spool(lane, current, [this, idx, lane, current](int spool_id) {
     // the unit may have changed while the list was open
     if (backend == NULL || !backend->can_assign_spool() || (size_t)idx >= backend->slots.size() ||
-        backend->slots[idx].name != lane) return;
-    if (spool_id < 0 && backend->slots[idx].spool_id != current) return;
+        backend->slots[idx].name != lane) {
+      return;
+    }
+    if (spool_id < 0 && backend->slots[idx].spool_id != current) {
+      return;
+    }
     backend->assign_spool(idx, spool_id);
   });
 }
@@ -1047,7 +1127,9 @@ void MmuPanel::handle_page_next(lv_event_t *e) {
 }
 
 void MmuPanel::handle_status_bar(lv_event_t *e) {
-  if (backend == NULL) return;
+  if (backend == NULL) {
+    return;
+  }
   if (error_state) {
     backend->reset_failure();
   }
@@ -1057,7 +1139,9 @@ void MmuPanel::handle_status_bar(lv_event_t *e) {
 // FULL-SCREEN EDIT PANEL LIFECYCLE
 // =========================================================================
 void MmuPanel::open_edit(int idx) {
-  if (idx < 0 || (size_t)idx >= slots.size()) return;
+  if (idx < 0 || (size_t)idx >= slots.size()) {
+    return;
+  }
   create_edit_screen(); // first tap on a card pays for it, as with the popouts
   edit_slot_idx = idx;
   edit_slot_name = slots[idx].name;
@@ -1090,7 +1174,9 @@ void MmuPanel::close_edit() {
 }
 
 void MmuPanel::update_edit_preview() {
-  if (edit_slot_idx < 0 || (size_t)edit_slot_idx >= slots.size()) return;
+  if (edit_slot_idx < 0 || (size_t)edit_slot_idx >= slots.size()) {
+    return;
+  }
   const MmuSlot &slot = slots[edit_slot_idx];
 
   lv_label_set_text(edit_name_lbl, slot.name.c_str());
@@ -1115,12 +1201,16 @@ void MmuPanel::update_edit_preview() {
     // tracks the spool
     if (has_filament && (spoolman_active || weight_active) && slot.weight > 0) {
       mat_str += fmt::format(" - {}g", slot.weight);
-      if (pct >= 0) mat_str += fmt::format(" ({}%)", pct);
+      if (pct >= 0) {
+        mat_str += fmt::format(" ({}%)", pct);
+      }
     }
   }
   // a slot whose metadata something else owns says so, so a greyed-out Save
   // does not look like a bug
-  if (!slot.can_configure) mat_str += " (locked)";
+  if (!slot.can_configure) {
+    mat_str += " (locked)";
+  }
   lv_label_set_text(edit_mat_lbl, mat_str.c_str());
 
   // Tool assignment is read-only info; it comes from the MMU config. So is the
@@ -1171,15 +1261,25 @@ void MmuPanel::update_edit_preview() {
   bool can_toggle = backup || (backend != NULL && backend->can_set_backup(edit_slot_idx));
   // An icon tile has no "on" fill, so an assigned backup says so the way an
   // active icon does anywhere else: the glyph wears the accent.
-  if (backend != NULL) edit_backup_btn->set_label(backend->backup_label());
-  if (can_toggle) edit_backup_btn->enable(); else edit_backup_btn->disable();
+  if (backend != NULL) {
+    edit_backup_btn->set_label(backend->backup_label());
+  }
+  if (can_toggle) {
+    edit_backup_btn->enable();
+  } else {
+    edit_backup_btn->disable();
+  }
   // A local recolour outranks the shared icon style, so the resting colour has
   // to be asked for here rather than left to it.
   lv_obj_set_style_img_recolor(edit_backup_btn->get_button(),
                                backup ? theme_primary() : col(ICON), 0);
   lv_obj_set_style_img_recolor_opa(edit_backup_btn->get_button(), LV_OPA_COVER, 0);
 
-  if (configurable) edit_save_btn->enable(); else edit_save_btn->disable();
+  if (configurable) {
+    edit_save_btn->enable();
+  } else {
+    edit_save_btn->disable();
+  }
 
   // Update square colour swatches active outline
   const std::string cur_hex = mmu_normalise_hex(draft_colour);
@@ -1190,11 +1290,19 @@ void MmuPanel::update_edit_preview() {
     bool active = configurable && (hex.empty() ? cur_hex.empty() : cur_hex == hex);
     lv_obj_set_style_border_width(s, active ? scale_r(2) : border_w(), 0);
     lv_obj_set_style_border_color(s, active ? col(TEXT) : col(BORDER_DIM), 0);
-    if (configurable) lv_obj_clear_state(s, LV_STATE_DISABLED);
-    else lv_obj_add_state(s, LV_STATE_DISABLED);
+    if (configurable) {
+      lv_obj_clear_state(s, LV_STATE_DISABLED);
+    }
+    else {
+      lv_obj_add_state(s, LV_STATE_DISABLED);
+    }
   }
-  if (configurable) lv_obj_clear_state(custom_colour_btn, LV_STATE_DISABLED);
-  else lv_obj_add_state(custom_colour_btn, LV_STATE_DISABLED);
+  if (configurable) {
+    lv_obj_clear_state(custom_colour_btn, LV_STATE_DISABLED);
+  }
+  else {
+    lv_obj_add_state(custom_colour_btn, LV_STATE_DISABLED);
+  }
 
   // Update Material Buttons checked state
   for (size_t i = 0; i < material_btns.size(); i++) {
@@ -1205,15 +1313,25 @@ void MmuPanel::update_edit_preview() {
     // swatches wear one only because a fill would cover the colour they show.
     lv_obj_set_style_bg_color(b, active ? theme_primary() : col(RAISED), 0);
     lv_obj_set_style_text_color(b, active ? col(ON_PRIMARY) : col(TEXT), 0);
-    if (configurable) lv_obj_clear_state(b, LV_STATE_DISABLED);
-    else lv_obj_add_state(b, LV_STATE_DISABLED);
+    if (configurable) {
+      lv_obj_clear_state(b, LV_STATE_DISABLED);
+    }
+    else {
+      lv_obj_add_state(b, LV_STATE_DISABLED);
+    }
   }
-  if (configurable) lv_obj_clear_state(more_mat_btn, LV_STATE_DISABLED);
-  else lv_obj_add_state(more_mat_btn, LV_STATE_DISABLED);
+  if (configurable) {
+    lv_obj_clear_state(more_mat_btn, LV_STATE_DISABLED);
+  }
+  else {
+    lv_obj_add_state(more_mat_btn, LV_STATE_DISABLED);
+  }
 }
 
 void MmuPanel::save_edit() {
-  if (backend == NULL || edit_slot_idx < 0 || (size_t)edit_slot_idx >= slots.size()) return;
+  if (backend == NULL || edit_slot_idx < 0 || (size_t)edit_slot_idx >= slots.size()) {
+    return;
+  }
   const MmuSlot &slot = slots[edit_slot_idx];
 
   // Only push what the user actually changed. The backend owns this metadata
@@ -1241,14 +1359,20 @@ void MmuPanel::handle_edit_action(lv_event_t *e) {
     save_edit();
     return;
   }
-  if (backend == NULL || edit_slot_idx < 0 || (size_t)edit_slot_idx >= slots.size()) return;
+  if (backend == NULL || edit_slot_idx < 0 || (size_t)edit_slot_idx >= slots.size()) {
+    return;
+  }
   const MmuSlot &slot = slots[edit_slot_idx];
 
   if (target == edit_load_btn) {
     // one verb: "end with this slot in the tool". Whether that means a plain
     // load or swapping out what is loaded now is the backend's decision.
-    if (slot.tool_loaded) backend->unload();
-    else backend->load(edit_slot_idx);
+    if (slot.tool_loaded) {
+      backend->unload();
+    }
+    else {
+      backend->load(edit_slot_idx);
+    }
     close_edit();
     return;
   }
@@ -1291,7 +1415,9 @@ void MmuPanel::handle_edit_action(lv_event_t *e) {
       // one more slot pointing here, nothing cleared: a vendor that lets one
       // spare cover several slots keeps that, and one that does not enforces
       // it in its own backend
-      if (idx >= 0) backend->set_backup(idx, edit_slot_idx);
+      if (idx >= 0) {
+        backend->set_backup(idx, edit_slot_idx);
+      }
       close_backup_picker();
       return;
     }
@@ -1390,7 +1516,9 @@ void show_popout(lv_obj_t *overlay) {
 }
 
 void hide_popout(lv_obj_t *overlay) {
-  if (overlay == NULL) return;
+  if (overlay == NULL) {
+    return;
+  }
   lv_obj_add_flag(overlay, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_background(overlay);
 }
@@ -1424,7 +1552,9 @@ lv_obj_t *create_slot_tile(lv_obj_t *parent, const MmuSlot &l, size_t idx, int w
   lv_obj_clear_flag(dot, LV_OBJ_FLAG_CLICKABLE);
 
   std::string name = by_name ? l.name : slot_label(l, idx);
-  if (l.tool_loaded) name += " *";
+  if (l.tool_loaded) {
+    name += " *";
+  }
   lv_obj_t *lbl = lv_label_create(b);
   lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
   lv_obj_set_width(lbl, LV_PCT(100));
@@ -1447,7 +1577,9 @@ lv_obj_t *create_slot_tile(lv_obj_t *parent, const MmuSlot &l, size_t idx, int w
 // BACKUP PICKER: choose which slot the edited slot backs up
 // =========================================================================
 void MmuPanel::open_backup_picker() {
-  if (edit_slot_idx < 0 || (size_t)edit_slot_idx >= slots.size()) return;
+  if (edit_slot_idx < 0 || (size_t)edit_slot_idx >= slots.size()) {
+    return;
+  }
   const MmuSlot &editing = slots[edit_slot_idx];
 
   if (backup_picker == NULL) {
@@ -1472,7 +1604,9 @@ void MmuPanel::open_backup_picker() {
 
   for (size_t i = 0; i < slots.size(); i++) {
     const MmuSlot &l = slots[i];
-    if (l.name == editing.name) continue;
+    if (l.name == editing.name) {
+      continue;
+    }
 
     lv_obj_t *b = create_slot_tile(backup_picker_list, l, i, tile_w,
                                    &MmuPanel::_handle_edit_action, this);
@@ -1573,7 +1707,9 @@ void MmuPanel::open_colour_picker() {
 
   // seed wheel + sliders from the current draft colour
   lv_color_t seed;
-  if (!parse_colour(draft_colour, &seed)) seed = theme_primary();  // no colour yet: start on the accent
+  if (!parse_colour(draft_colour, &seed)) {
+    seed = theme_primary();
+  }  // no colour yet: start on the accent
   lv_color32_t s32;
   s32.full = lv_color_to32(seed);
   lv_color_hsv_t hsv = lv_color_rgb_to_hsv(s32.ch.red, s32.ch.green, s32.ch.blue);

@@ -114,6 +114,8 @@ public final class PrinterConfigTest {
     }
 
     private static void require(boolean ok, String message) {
-        if (!ok) throw new AssertionError(message);
+        if (!ok) {
+            throw new AssertionError(message);
+        }
     }
 }

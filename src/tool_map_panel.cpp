@@ -21,20 +21,30 @@ enum Col { STATUS, TOOL, FILE_MAT, REQ, FILE_DOT, TO, SLOT_DOT, LANE, SLOT_MAT, 
 static int dot_d() { return scale_r(18); }
 
 static std::string weight_text(double grams) {
-  if (grams < 10) return fmt::format("{:.1f}g", grams);
-  if (grams < 1000) return fmt::format("{:.0f}g", grams);
+  if (grams < 10) {
+    return fmt::format("{:.1f}g", grams);
+  }
+  if (grams < 1000) {
+    return fmt::format("{:.0f}g", grams);
+  }
   return fmt::format("{:.2f}kg", grams / 1000);
 }
 
 ToolMapPanel::~ToolMapPanel() {
-  if (picker != NULL) lv_obj_del(picker);
+  if (picker != NULL) {
+    lv_obj_del(picker);
+  }
   back_btn.reset();
   print_btn.reset();
-  if (cont != NULL) lv_obj_del(cont);
+  if (cont != NULL) {
+    lv_obj_del(cont);
+  }
 }
 
 void ToolMapPanel::create() {
-  if (cont != NULL) return;
+  if (cont != NULL) {
+    return;
+  }
 
   // laid out like the spoolman panel: the table, then a row of controls
   cont = create_screen(NULL);
@@ -89,8 +99,12 @@ void ToolMapPanel::create() {
   const int widths[COLS] = {scale_w(24), scale_w(46), 0, scale_w(50), dot_d() + pad,
                             scale_w(30), dot_d() + pad, 0, 0, scale_w(56)};
   int remain = lv_obj_get_content_width(table);
-  for (int w : widths) remain -= w;
-  for (uint16_t c = 0; c < COLS; c++) lv_table_set_col_width(table, c, widths[c]);
+  for (int w : widths) {
+    remain -= w;
+  }
+  for (uint16_t c = 0; c < COLS; c++) {
+    lv_table_set_col_width(table, c, widths[c]);
+  }
   lv_table_set_col_width(table, FILE_MAT, remain * 30 / 100);
   lv_table_set_col_width(table, LANE, remain * 38 / 100);
   lv_table_set_col_width(table, SLOT_MAT, remain - remain * 30 / 100 - remain * 38 / 100);
@@ -103,7 +117,9 @@ void ToolMapPanel::open(MmuBackend *b, const std::vector<MmuFileTool> &t,
   tools = t;
   print = p;
   want.clear();
-  for (const MmuFileTool &tool : tools) want.push_back(mmu_slot_for_tool(backend->slots, tool.tool));
+  for (const MmuFileTool &tool : tools) {
+    want.push_back(mmu_slot_for_tool(backend->slots, tool.tool));
+  }
   lv_label_set_text(title, fmt::format("Preparing {}", filename).c_str());
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
@@ -130,7 +146,9 @@ bool ToolMapPanel::is_open() const {
 void ToolMapPanel::assign(size_t t, int slot) {
   if (!backend->can_share_slot()) {
     for (size_t j = 0; j < want.size(); j++) {
-      if (j != t && want[j] == slot) want[j] = want[t];
+      if (j != t && want[j] == slot) {
+        want[j] = want[t];
+      }
     }
   }
   want[t] = slot;
@@ -139,7 +157,9 @@ void ToolMapPanel::assign(size_t t, int slot) {
 // Red cross (blocks Print): no slot, or no filament in it. Amber warning:
 // another material, or a colour past MMU_COLOUR_MISMATCH.
 void ToolMapPanel::update() {
-  if (!is_open() || backend == NULL) return;
+  if (!is_open() || backend == NULL) {
+    return;
+  }
   const std::vector<MmuSlot> &slots = backend->slots;
 
   lv_table_set_row_cnt(table, tools.size() + 1);
@@ -177,10 +197,16 @@ void ToolMapPanel::update() {
   }
   refresh_scroll(table);
 
-  if (blocked) print_btn->disable();
-  else print_btn->enable();
+  if (blocked) {
+    print_btn->disable();
+  }
+  else {
+    print_btn->enable();
+  }
 
-  if (picking >= 0) show_picker(picking);  // slots changed under an open picker
+  if (picking >= 0) {
+    show_picker(picking);
+  }  // slots changed under an open picker
 }
 
 void ToolMapPanel::handle_table(lv_event_t *e) {
@@ -188,19 +214,25 @@ void ToolMapPanel::handle_table(lv_event_t *e) {
   if (code == LV_EVENT_VALUE_CHANGED) {
     uint16_t row, col;
     lv_table_get_selected_cell(table, &row, &col);
-    if (row != LV_TABLE_CELL_NONE && row > 0) show_picker(row - 1);
+    if (row != LV_TABLE_CELL_NONE && row > 0) {
+      show_picker(row - 1);
+    }
     return;
   }
 
   lv_obj_draw_part_dsc_t *dsc = lv_event_get_draw_part_dsc(e);
-  if (dsc->part != LV_PART_ITEMS) return;
+  if (dsc->part != LV_PART_ITEMS) {
+    return;
+  }
   const uint32_t row = dsc->id / COLS;
   const uint32_t column = dsc->id % COLS;
   const RowPaint *p = row > 0 && row <= paint.size() ? &paint[row - 1] : NULL;
 
   if (code == LV_EVENT_DRAW_PART_END) {
     // the filament colours as circles; a bare ring when unknown
-    if (p == NULL || (column != FILE_DOT && column != SLOT_DOT)) return;
+    if (p == NULL || (column != FILE_DOT && column != SLOT_DOT)) {
+      return;
+    }
     const bool file = column == FILE_DOT;
     lv_color_t c;
     const bool valid = parse_colour(file ? p->file_colour : p->slot_colour, &c);
@@ -232,7 +264,9 @@ void ToolMapPanel::handle_table(lv_event_t *e) {
     dsc->rect_dsc->bg_color = lv_color_mix(col(RAISED), dsc->rect_dsc->bg_color, ZEBRA_TINT);
     dsc->rect_dsc->bg_opa = LV_OPA_COVER;
   }
-  if (p == NULL) return;
+  if (p == NULL) {
+    return;
+  }
 
   // the table presses a cell; show the whole row pressed
   uint16_t pressed_row, pressed_col;
@@ -256,7 +290,9 @@ void ToolMapPanel::handle_table(lv_event_t *e) {
 }
 
 void ToolMapPanel::show_picker(size_t t) {
-  if (backend == NULL || t >= tools.size()) return close_picker();
+  if (backend == NULL || t >= tools.size()) {
+    return close_picker();
+  }
   const MmuFileTool &tool = tools[t];
   const std::vector<MmuSlot> &slots = backend->slots;
 
@@ -301,7 +337,9 @@ void ToolMapPanel::pick(lv_event_t *e) {
   const int slot = (int)(intptr_t)lv_obj_get_user_data(lv_event_get_current_target(e));
   const int t = picking;
   close_picker();
-  if (backend == NULL || t < 0) return;
+  if (backend == NULL || t < 0) {
+    return;
+  }
   assign(t, slot);
   update();
 }
@@ -313,7 +351,9 @@ void ToolMapPanel::close_picker() {
 
 void ToolMapPanel::handle_action(lv_event_t *e) {
   lv_obj_t *btn = lv_event_get_current_target(e);
-  if (backend == NULL) return;
+  if (backend == NULL) {
+    return;
+  }
   if (btn == back_btn->get_container()) {
     close();
   } else if (btn == print_btn->get_container() && !lv_obj_has_state(btn, LV_STATE_DISABLED)) {
@@ -327,6 +367,8 @@ void ToolMapPanel::handle_action(lv_event_t *e) {
     }
     std::function<void()> p = print;
     close();
-    if (p) p();
+    if (p) {
+      p();
+    }
   }
 }

@@ -25,14 +25,22 @@ struct SimpleDialogContext {
 };
 
 static inline void simple_dialog_btnm_draw_part_cb(lv_event_t *e) {
-    if (lv_event_get_code(e) != LV_EVENT_DRAW_PART_BEGIN) return;
+    if (lv_event_get_code(e) != LV_EVENT_DRAW_PART_BEGIN) {
+        return;
+    }
 
     auto *ctx = static_cast<SimpleDialogContext *>(lv_event_get_user_data(e));
-    if (ctx == nullptr || ctx->highlighted_button_idx < 0) return;
+    if (ctx == nullptr || ctx->highlighted_button_idx < 0) {
+        return;
+    }
 
     lv_obj_draw_part_dsc_t *dsc = lv_event_get_draw_part_dsc(e);
-    if (dsc == nullptr || dsc->part != LV_PART_ITEMS) return;
-    if (static_cast<int32_t>(dsc->id) != ctx->highlighted_button_idx) return;
+    if (dsc == nullptr || dsc->part != LV_PART_ITEMS) {
+        return;
+    }
+    if (static_cast<int32_t>(dsc->id) != ctx->highlighted_button_idx) {
+        return;
+    }
 
     lv_obj_t *btnm = lv_event_get_current_target(e);
     if (lv_obj_has_state(btnm, LV_STATE_PRESSED) &&
@@ -46,7 +54,9 @@ static inline void simple_dialog_btnm_draw_part_cb(lv_event_t *e) {
 }
 
 static inline bool simple_dialog_has_overlay(lv_obj_t *overlay) {
-    if (overlay == nullptr) return false;
+    if (overlay == nullptr) {
+        return false;
+    }
     return lv_obj_has_flag(overlay, LV_OBJ_FLAG_USER_1);
 }
 
@@ -61,14 +71,20 @@ static inline void simple_dialog_close(lv_obj_t * mbox) {
 }
 
 static inline void simple_dialog_event_cb(lv_event_t * e) {
-    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) {
+        return;
+    }
 
     lv_obj_t * mbox = lv_event_get_current_target(e);
-    if (mbox == NULL) return;
+    if (mbox == NULL) {
+        return;
+    }
 
     lv_obj_t * btnm = lv_event_get_target(e);
     int32_t id = lv_btnmatrix_get_selected_btn(btnm);
-    if (id < 0) return;
+    if (id < 0) {
+        return;
+    }
 
     SimpleDialogContext *ctx = static_cast<SimpleDialogContext *>(lv_event_get_user_data(e));
     if (ctx != nullptr && ctx->result_cb != nullptr) {
@@ -207,7 +223,9 @@ static inline lv_obj_t * create_configurable_dialog(lv_obj_t * parent,
         lv_obj_add_event_cb(
             mbox,
             [](lv_event_t *e) {
-                if (lv_event_get_code(e) != LV_EVENT_DELETE) return;
+                if (lv_event_get_code(e) != LV_EVENT_DELETE) {
+                    return;
+                }
                 auto *ctx = static_cast<SimpleDialogContext *>(lv_event_get_user_data(e));
                 delete ctx;
             },

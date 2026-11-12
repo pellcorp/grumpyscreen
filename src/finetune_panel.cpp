@@ -52,7 +52,9 @@ FineTunePanel::FineTunePanel(KWebSocketClient &websocket_client, std::mutex &l)
   // the selectors and Back share the content-sized bottom row: it takes the
   // height a row of keys needs, the four parameter rows above get the rest,
   // and all three sit at the end of it, a screen margin from the bottom edge
-  for (Selector *s : {&multiplier_selector, &step_selector}) s->seat_at_row_bottom();
+  for (Selector *s : {&multiplier_selector, &step_selector}) {
+    s->seat_at_row_bottom();
+  }
   lv_obj_set_grid_cell(multiplier_selector.get_container(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_END, 4, 1);
   lv_obj_set_grid_cell(step_selector.get_container(), LV_GRID_ALIGN_STRETCH, 1, 2, LV_GRID_ALIGN_END, 4, 1);
   back_btn.use_plain();
@@ -127,9 +129,13 @@ void FineTunePanel::consume(json &j) {
 // a label is only rewritten (and redrawn) when its text actually changes
 void FineTunePanel::update_values(const json &state) {
   auto set = [](lv_obj_t *label, const json &v, std::string (*fmt)(double)) {
-    if (v.is_null()) return;
+    if (v.is_null()) {
+      return;
+    }
     const std::string s = fmt(v.template get<double>());
-    if (s != lv_label_get_text(label)) lv_label_set_text(label, s.c_str());
+    if (s != lv_label_get_text(label)) {
+      lv_label_set_text(label, s.c_str());
+    }
   };
   set(z.value, state.value("/gcode_move/homing_origin/2"_json_pointer, json()),
       [](double v) { return fmt_offset(v, "mm"); });
@@ -143,7 +149,9 @@ void FineTunePanel::handle_selector(lv_event_t *e) {
   lv_obj_t *selector = lv_event_get_target(e);
   uint32_t idx = lv_btnmatrix_get_selected_btn(selector);
   for (Selector *s : {&step_selector, &multiplier_selector}) {
-    if (selector == s->get_selector()) s->set_selected_idx(idx);
+    if (selector == s->get_selector()) {
+      s->set_selected_idx(idx);
+    }
   }
 }
 
@@ -160,7 +168,9 @@ void FineTunePanel::handle_btn(lv_obj_t *btn) {
 
   } else if (btn == pa.reset) {
     auto v = state->get_data("/printer_state/configfile/settings/extruder/pressure_advance"_json_pointer);
-    if (!v.is_null()) ws.gcode_script(fmt::format("SET_PRESSURE_ADVANCE ADVANCE={}", v.template get<double>()));
+    if (!v.is_null()) {
+      ws.gcode_script(fmt::format("SET_PRESSURE_ADVANCE ADVANCE={}", v.template get<double>()));
+    }
   } else if (btn == pa.up || btn == pa.down) {
     auto cur = state->get_data("/printer_state/extruder/pressure_advance"_json_pointer);
     if (!cur.is_null()) {

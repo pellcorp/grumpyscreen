@@ -64,7 +64,9 @@ final class SavedPrinters {
 
     PrinterScanner.Printer find(String host, int port) {
         for (PrinterScanner.Printer p : all()) {
-            if (p.host.equals(host) && p.port == port) return p;
+            if (p.host.equals(host) && p.port == port) {
+                return p;
+            }
         }
         return null;
     }
@@ -77,7 +79,9 @@ final class SavedPrinters {
         List<PrinterScanner.Printer> out = new ArrayList<>();
         out.add(new PrinterScanner.Printer(host, port, keep));
         for (PrinterScanner.Printer p : list) {
-            if (!(p.host.equals(host) && p.port == port)) out.add(p);
+            if (!(p.host.equals(host) && p.port == port)) {
+                out.add(p);
+            }
         }
         save(out);
         prefs.edit().putString(KEY_HOST, host).putInt(KEY_PORT, port).commit();
@@ -95,7 +99,9 @@ final class SavedPrinters {
     void remove(PrinterScanner.Printer gone) {
         List<PrinterScanner.Printer> out = new ArrayList<>();
         for (PrinterScanner.Printer p : all()) {
-            if (!(p.host.equals(gone.host) && p.port == gone.port)) out.add(p);
+            if (!(p.host.equals(gone.host) && p.port == gone.port)) {
+                out.add(p);
+            }
         }
         save(out);
     }
@@ -113,7 +119,9 @@ final class SavedPrinters {
                 JSONObject o = new JSONObject();
                 o.put("host", p.host);
                 o.put("port", p.port);
-                if (p.name != null) o.put("name", p.name);
+                if (p.name != null) {
+                    o.put("name", p.name);
+                }
                 a.put(o);
             }
         } catch (Exception ignored) {

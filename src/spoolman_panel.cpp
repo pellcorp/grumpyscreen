@@ -26,25 +26,33 @@ static const lv_opa_t HEADER_TINT = LV_OPA_20;
 static const lv_opa_t ZEBRA_TINT = LV_OPA_40;
 
 static std::string string_at(const json &j, const json::json_pointer &ptr, const std::string &def = "") {
-  if (!j.contains(ptr)) return def;
+  if (!j.contains(ptr)) {
+    return def;
+  }
   const auto &v = j[ptr];
   return v.is_string() ? v.template get<std::string>() : def;
 }
 
 static double number_at(const json &j, const json::json_pointer &ptr, double def = 0.0) {
-  if (!j.contains(ptr)) return def;
+  if (!j.contains(ptr)) {
+    return def;
+  }
   const auto &v = j[ptr];
   return v.is_number() ? v.template get<double>() : def;
 }
 
 static uint32_t uint_at(const json &j, const json::json_pointer &ptr, uint32_t def = 0) {
-  if (!j.contains(ptr)) return def;
+  if (!j.contains(ptr)) {
+    return def;
+  }
   const auto &v = j[ptr];
   return v.is_number_unsigned() || v.is_number_integer() ? v.template get<uint32_t>() : def;
 }
 
 static bool bool_at(const json &j, const json::json_pointer &ptr, bool def = false) {
-  if (!j.contains(ptr)) return def;
+  if (!j.contains(ptr)) {
+    return def;
+  }
   const auto &v = j[ptr];
   return v.is_boolean() ? v.template get<bool>() : def;
 }
@@ -168,7 +176,9 @@ void SpoolmanPanel::init() {
     if (d.contains(result_ptr) && d[result_ptr].is_array()) {
       std::map<uint32_t, SpoolRec> fresh;
       for (auto &e : d[result_ptr]) {
-        if (!e.contains("id") || !e["id"].is_number()) continue;
+        if (!e.contains("id") || !e["id"].is_number()) {
+          continue;
+        }
         SpoolRec r;
         r.id = uint_at(e, "/id"_json_pointer);
         r.name = spool_name(e);
@@ -282,7 +292,9 @@ void SpoolmanPanel::populate_spools(std::vector<SpoolRec> &sorted_spools) {
       // a second line for the lanes it is in
       std::string name = el.name;
       const std::string lanes = lanes_of ? lanes_of((int)id) : "";
-      if (!lanes.empty()) name += "\n" + lanes;
+      if (!lanes.empty()) {
+        name += "\n" + lanes;
+      }
       lv_table_set_cell_value(spool_table, row_idx, 1, name.c_str());
       lv_table_set_cell_value(spool_table, row_idx, 2, material.c_str());
       lv_table_set_cell_value(spool_table, row_idx, 3, "");
@@ -323,10 +335,18 @@ void SpoolmanPanel::populate_spools(std::vector<SpoolRec> &sorted_spools) {
   // nothing listed (no spools, or all of them archived): say so instead of
   // showing a bare header
   const bool empty = row_idx <= 1;
-  if (empty) lv_obj_add_flag(table_box, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_clear_flag(table_box, LV_OBJ_FLAG_HIDDEN);
-  if (empty) lv_obj_clear_flag(empty_box, LV_OBJ_FLAG_HIDDEN);
-  else lv_obj_add_flag(empty_box, LV_OBJ_FLAG_HIDDEN);
+  if (empty) {
+    lv_obj_add_flag(table_box, LV_OBJ_FLAG_HIDDEN);
+  }
+  else {
+    lv_obj_clear_flag(table_box, LV_OBJ_FLAG_HIDDEN);
+  }
+  if (empty) {
+    lv_obj_clear_flag(empty_box, LV_OBJ_FLAG_HIDDEN);
+  }
+  else {
+    lv_obj_add_flag(empty_box, LV_OBJ_FLAG_HIDDEN);
+  }
 
   // the bar takes or gives back its lane first, then the columns share the
   // width the table is left with (names wrap, so a narrower table only gets

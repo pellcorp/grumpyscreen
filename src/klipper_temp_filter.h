@@ -14,23 +14,34 @@
 static inline bool kf_is_digit(char c) { return c >= '0' && c <= '9'; }
 
 static inline size_t kf_skip_ws(const char *s, size_t len, size_t i) {
-    while (i < len && isspace((unsigned char)s[i])) ++i;
+    while (i < len && isspace((unsigned char)s[i])) {
+       ++i;
+    }
     return i;
 }
 
 static inline bool kf_contains(const char *s, size_t len, const char *sub) {
     size_t m = strlen(sub);
-    if (m == 0 || m > len) return false;
+    if (m == 0 || m > len) {
+       return false;
+    }
     /* naive scan; short strings so it’s fine */
-    for (size_t i = 0; i + m <= len; ++i)
-        if (memcmp(s + i, sub, m) == 0) return true;
+    for (size_t i = 0; i + m <= len; ++i) {
+       if (memcmp(s + i, sub, m) == 0) {
+          return true;
+       }
+    }
     return false;
 }
 
 static inline void kf_trim(const char *s, size_t len, size_t *out_start, size_t *out_len) {
     size_t i = 0, j = len;
-    while (i < j && isspace((unsigned char)s[i])) ++i;
-    while (j > i && isspace((unsigned char)s[j - 1])) --j;
+    while (i < j && isspace((unsigned char)s[i])) {
+       ++i;
+    }
+    while (j > i && isspace((unsigned char)s[j - 1])) {
+       --j;
+    }
     *out_start = i;
     *out_len = j - i;
 }
@@ -38,21 +49,27 @@ static inline void kf_trim(const char *s, size_t len, size_t *out_start, size_t 
 /* number := [-+]? digits [ . digits ]? */
 static inline bool kf_parse_number(const char *s, size_t len, size_t *io) {
     size_t i = *io, start = i;
-    if (i < len && (s[i] == '-' || s[i] == '+')) ++i;
+    if (i < len && (s[i] == '-' || s[i] == '+')) {
+       ++i;
+    }
     bool had_digit = false;
     while (i < len && kf_is_digit(s[i])) { ++i; had_digit = true; }
     if (i < len && s[i] == '.') {
         ++i;
         while (i < len && kf_is_digit(s[i])) { ++i; had_digit = true; }
     }
-    if (!had_digit || i == start) return false;
+    if (!had_digit || i == start) {
+       return false;
+    }
     *io = i;
     return true;
 }
 
 /* temp_pair := number [ '/' number ]? (second number optional) */
 static inline bool kf_parse_temp_pair(const char *s, size_t len, size_t *io) {
-    if (!kf_parse_number(s, len, io)) return false;
+    if (!kf_parse_number(s, len, io)) {
+       return false;
+    }
     size_t i = *io;
     if (i < len && s[i] == '/') {
         size_t save = ++i;
@@ -75,7 +92,9 @@ static inline bool kf_parse_token(const char *s, size_t len, size_t *io, bool *s
     /* T / T<digit> : */
     if (i < len && (s[i] == 'T' || s[i] == 't')) {
         ++i;
-        if (i < len && kf_is_digit(s[i])) ++i; /* T0, T1… */
+        if (i < len && kf_is_digit(s[i])) {
+           ++i;
+        } /* T0, T1… */
         if (i >= len || s[i] != ':') { *io = start; return false; }
         ++i;
         if (!kf_parse_temp_pair(s, len, &i)) { *io = start; return false; }
@@ -122,11 +141,15 @@ static inline bool kf_parse_token(const char *s, size_t len, size_t *io, bool *s
 
 /* Core detector on raw buffer */
 static inline bool klipper_is_temp_report_buf(const char *buf, size_t len) {
-    if (!buf || len == 0) return false;
+    if (!buf || len == 0) {
+       return false;
+    }
 
     size_t off = 0, tlen = 0;
     kf_trim(buf, len, &off, &tlen);
-    if (tlen == 0) return false;
+    if (tlen == 0) {
+       return false;
+    }
     const char *s = buf + off;
 
     /* Fast reject: typical tokens that appear in temp lines */
@@ -134,8 +157,9 @@ static inline bool klipper_is_temp_report_buf(const char *buf, size_t len) {
         !kf_contains(s, tlen, "T0:") &&
         !kf_contains(s, tlen, "B:") &&
         !kf_contains(s, tlen, "@:") &&
-        !kf_contains(s, tlen, "B@:"))
-        return false;
+        !kf_contains(s, tlen, "B@:")) {
+       return false;
+    }
 
     size_t i = 0;
 
@@ -144,19 +168,25 @@ static inline bool klipper_is_temp_report_buf(const char *buf, size_t len) {
         (s[0] == 'o' || s[0] == 'O') &&
         (s[1] == 'k' || s[1] == 'K')) {
         i = 2;
-        if (i < tlen && isspace((unsigned char)s[i])) ++i;
+        if (i < tlen && isspace((unsigned char)s[i])) {
+           ++i;
+        }
     }
 
     bool saw_extruder_like = false;
 
     while (1) {
         i = kf_skip_ws(s, tlen, i);
-        if (i >= tlen) break;
+        if (i >= tlen) {
+           break;
+        }
 
         size_t before = i;
         if (!kf_parse_token(s, tlen, &i, &saw_extruder_like)) {
             /* Unknown alpha token (e.g., "echo:", "Error:") => not a pure temp line */
-            if (isalpha((unsigned char)s[before])) return false;
+            if (isalpha((unsigned char)s[before])) {
+               return false;
+            }
 
             /* Skip non-alpha separators so we can continue scanning */
             size_t tmp = before;
@@ -165,7 +195,9 @@ static inline bool klipper_is_temp_report_buf(const char *buf, size_t len) {
                    !isalpha((unsigned char)s[tmp])) {
                 ++tmp;
             }
-            if (tmp == before) return false; /* stuck */
+            if (tmp == before) {
+               return false;
+            } /* stuck */
             i = tmp;
         }
     }
@@ -176,7 +208,9 @@ static inline bool klipper_is_temp_report_buf(const char *buf, size_t len) {
 
 /* Convenience for NUL-terminated strings */
 static inline bool klipper_is_temp_report(const char *cstr) {
-    if (!cstr) return false;
+    if (!cstr) {
+       return false;
+    }
     return klipper_is_temp_report_buf(cstr, strlen(cstr));
 }
 

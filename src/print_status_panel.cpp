@@ -352,7 +352,9 @@ void PrintStatusPanel::consume(json &j) {
   json v;
   if (!active_extruder_.empty()) {
     v = j[json::json_pointer("/params/0/" + active_extruder_ + "/target")];
-    if (v.is_number()) extruder_target = v.get<int>();
+    if (v.is_number()) {
+      extruder_target = v.get<int>();
+    }
   }
 
   v = j["/params/0/heater_bed/target"_json_pointer];
@@ -474,12 +476,15 @@ void PrintStatusPanel::update_active_extruder(const json &update) {
   // toolhead.extruder is Klipper's active heater (also after ACTIVATE_EXTRUDER).
   // Notifications are patches, so use the saved state when this field is absent.
   json reported = update.value("/params/0/toolhead/extruder"_json_pointer, json());
-  if (reported.is_null())
+  if (reported.is_null()) {
     reported = State::get_instance()->get_data(
         "/printer_state/toolhead/extruder"_json_pointer);
+  }
   const std::string name = reported.is_string()
       ? reported.get<std::string>() : "extruder";
-  if (name == active_extruder_) return;
+  if (name == active_extruder_) {
+    return;
+  }
   active_extruder_ = name;
   extruder_target = -1;
   if (name.empty()) {
@@ -494,7 +499,9 @@ void PrintStatusPanel::update_active_extruder(const json &update) {
   }
   const auto target = state.value("target", json());
   const auto temperature = state.value("temperature", json());
-  if (target.is_number()) extruder_target = target.get<int>();
+  if (target.is_number()) {
+    extruder_target = target.get<int>();
+  }
   if (temperature.is_number()) {
     const int value = temperature.get<int>();
     const std::string label = extruder_target > 0
@@ -513,10 +520,14 @@ void PrintStatusPanel::handle_callback(lv_event_t *event) {
   } else if (btn == emergency_btn.get_container()) {
     ws.send_jsonrpc("printer.emergency_stop");
   } else if (btn == pause_btn.get_container()) {
-    if (!pause_btn.start_pressed_transition(2000)) return;
+    if (!pause_btn.start_pressed_transition(2000)) {
+      return;
+    }
     ws.send_jsonrpc("printer.print.pause");
   } else if (btn == resume_btn.get_container()) {
-    if (!resume_btn.start_pressed_transition(2000)) return;
+    if (!resume_btn.start_pressed_transition(2000)) {
+      return;
+    }
     ws.send_jsonrpc("printer.print.resume");
   } else if (btn == cancel_btn.get_container()) {
     ws.send_jsonrpc("printer.print.cancel");

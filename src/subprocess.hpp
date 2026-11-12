@@ -238,8 +238,9 @@ namespace util
   inline std::string get_last_error()
   {
     DWORD errorMessageID = ::GetLastError();
-    if (errorMessageID == 0)
+    if (errorMessageID == 0) {
       return std::string();
+    }
 
     LPSTR messageBuffer = nullptr;
     size_t size = FormatMessageA(
@@ -297,12 +298,14 @@ namespace util
     saAttr.lpSecurityDescriptor = NULL;
 
     // Create a pipe for the child process's STDIN.
-    if (!CreatePipe(read_handle, write_handle, &saAttr,0))
+    if (!CreatePipe(read_handle, write_handle, &saAttr,0)) {
       throw OSError("CreatePipe", 0);
+    }
 
     // Ensure the write handle to the pipe for STDIN is not inherited.
-    if (!SetHandleInformation(*child_handle, HANDLE_FLAG_INHERIT, 0))
+    if (!SetHandleInformation(*child_handle, HANDLE_FLAG_INHERIT, 0)) {
       throw OSError("SetHandleInformation", 0);
+    }
   }
 
   // env_map_t MapFromWindowsEnvironment()
@@ -444,7 +447,9 @@ namespace util
                    const std::string& sep = " ")
   {
     std::string res;
-    for (auto& elem : vec) res.append(elem + sep);
+    for (auto& elem : vec) {
+      res.append(elem + sep);
+    }
     res.erase(--res.end());
     return res;
   }
@@ -464,8 +469,12 @@ namespace util
   void set_clo_on_exec(int fd, bool set = true)
   {
     int flags = fcntl(fd, F_GETFD, 0);
-    if (set) flags |= FD_CLOEXEC;
-    else flags &= ~FD_CLOEXEC;
+    if (set) {
+      flags |= FD_CLOEXEC;
+    }
+    else {
+      flags &= ~FD_CLOEXEC;
+    }
     //TODO: should check for errors
     fcntl(fd, F_SETFD, flags);
   }
@@ -514,7 +523,9 @@ namespace util
     size_t nwritten = 0;
     while (nwritten < length) {
       int written = write(fd, buf + nwritten, length - nwritten);
-      if (written == -1) return -1;
+      if (written == -1) {
+        return -1;
+      }
       nwritten += written;
     }
     return nwritten;
@@ -549,13 +560,17 @@ namespace util
       int read_bytes = read(fd, buf + rbytes, read_upto - rbytes);
       if (read_bytes == -1) {
         if (errno == EINTR) {
-          if (eintr_cnter >= 50) return -1;
+          if (eintr_cnter >= 50) {
+            return -1;
+          }
           eintr_cnter++;
           continue;
         }
         return -1;
       }
-      if (read_bytes == 0) return rbytes;
+      if (read_bytes == 0) {
+        return rbytes;
+      }
 
       rbytes += read_bytes;
     }
@@ -587,7 +602,9 @@ namespace util
       const int rd_bytes = read_atmost_n(fp, buffer, fill_sz);
 
       if (rd_bytes == -1) { // Read finished
-        if (total_bytes_read == 0) return -1;
+        if (total_bytes_read == 0) {
+          return -1;
+        }
         break;
 
       } else if (rd_bytes == fill_sz) { // Buffer full
@@ -632,8 +649,12 @@ namespace util
     int ret = -1;
     while (1) {
       ret = waitpid(pid, &status, 0);
-      if (ret == -1) break;
-      if (ret == 0) continue;
+      if (ret == -1) {
+        break;
+      }
+      if (ret == 0) {
+        continue;
+      }
       return std::make_pair(ret, status);
     }
 
@@ -785,7 +806,9 @@ struct input
 
   explicit input(const char* filename) {
     int fd = open(filename, O_RDONLY);
-    if (fd == -1) throw OSError("File not found: ", errno);
+    if (fd == -1) {
+      throw OSError("File not found: ", errno);
+    }
     rd_ch_ = fd;
   }
   explicit input(IOTYPE typ) {
@@ -818,7 +841,9 @@ struct output
 
   explicit output(const char* filename) {
     int fd = open(filename, O_APPEND | O_CREAT | O_RDWR, 0640);
-    if (fd == -1) throw OSError("File not found: ", errno);
+    if (fd == -1) {
+      throw OSError("File not found: ", errno);
+    }
     wr_ch_ = fd;
   }
   explicit output(IOTYPE typ) {
@@ -849,7 +874,9 @@ struct error
 
   explicit error(const char* filename) {
     int fd = open(filename, O_APPEND | O_CREAT | O_RDWR, 0640);
-    if (fd == -1) throw OSError("File not found: ", errno);
+    if (fd == -1) {
+      throw OSError("File not found: ", errno);
+    }
     wr_ch_ = fd;
   }
   explicit error(IOTYPE typ) {
@@ -1115,16 +1142,28 @@ public:
 
   void close_parent_fds()
   {
-    if (write_to_child_ != -1)  close(write_to_child_);
-    if (read_from_child_ != -1) close(read_from_child_);
-    if (err_read_ != -1)        close(err_read_);
+    if (write_to_child_ != -1) {
+      close(write_to_child_);
+    }
+    if (read_from_child_ != -1) {
+      close(read_from_child_);
+    }
+    if (err_read_ != -1) {
+      close(err_read_);
+    }
   }
 
   void close_child_fds()
   {
-    if (write_to_parent_ != -1)  close(write_to_parent_);
-    if (read_from_parent_ != -1) close(read_from_parent_);
-    if (err_write_ != -1)        close(err_write_);
+    if (write_to_parent_ != -1) {
+      close(write_to_parent_);
+    }
+    if (read_from_parent_ != -1) {
+      close(read_from_parent_);
+    }
+    if (err_write_ != -1) {
+      close(err_write_);
+    }
   }
 
   FILE* input()  { return input_.get(); }
@@ -1236,7 +1275,9 @@ public:
     // Setup the communication channels of the Popen class
     stream_.setup_comm_channels();
 
-    if (!defer_process_start_) execute_process();
+    if (!defer_process_start_) {
+      execute_process();
+    }
   }
 
   template <typename... Args>
@@ -1248,7 +1289,9 @@ public:
     // Setup the communication channels of the Popen class
     stream_.setup_comm_channels();
 
-    if (!defer_process_start_) execute_process();
+    if (!defer_process_start_) {
+      execute_process();
+    }
   }
 
   template <typename... Args>
@@ -1259,7 +1302,9 @@ public:
     // Setup the communication channels of the Popen class
     stream_.setup_comm_channels();
 
-    if (!defer_process_start_) execute_process();
+    if (!defer_process_start_) {
+      execute_process();
+    }
   }
 
 /*
@@ -1386,7 +1431,9 @@ inline void Popen::populate_c_argv()
 {
   cargv_.clear();
   cargv_.reserve(vargs_.size() + 1);
-  for (auto& arg : vargs_) cargv_.push_back(&arg[0]);
+  for (auto& arg : vargs_) {
+    cargv_.push_back(&arg[0]);
+  }
   cargv_.push_back(nullptr);
 }
 
@@ -1414,12 +1461,20 @@ inline int Popen::wait() noexcept(false)
   int ret, status;
   std::tie(ret, status) = util::wait_for_child_exit(pid());
   if (ret == -1) {
-    if (errno != ECHILD) throw OSError("waitpid failed", errno);
+    if (errno != ECHILD) {
+      throw OSError("waitpid failed", errno);
+    }
     return 0;
   }
-  if (WIFEXITED(status)) return WEXITSTATUS(status);
-  if (WIFSIGNALED(status)) return WTERMSIG(status);
-  else return 255;
+  if (WIFEXITED(status)) {
+    return WEXITSTATUS(status);
+  }
+  if (WIFSIGNALED(status)) {
+    return WTERMSIG(status);
+  }
+  else {
+    return 255;
+  }
 
   return 0;
 #endif
@@ -1429,24 +1484,31 @@ inline int Popen::poll() noexcept(false)
 {
 #ifdef __USING_WINDOWS__
   int ret = WaitForSingleObject(process_handle_, 0);
-  if (ret != WAIT_OBJECT_0) return -1;
+  if (ret != WAIT_OBJECT_0) {
+    return -1;
+  }
 
   DWORD dretcode_;
-  if (FALSE == GetExitCodeProcess(process_handle_, &dretcode_))
-      throw OSError("GetExitCodeProcess", 0);
+  if (FALSE == GetExitCodeProcess(process_handle_, &dretcode_)) {
+    throw OSError("GetExitCodeProcess", 0);
+  }
 
   retcode_ = (int)dretcode_;
   CloseHandle(process_handle_);
 
   return retcode_;
 #else
-  if (!child_created_) return -1; // TODO: ??
+  if (!child_created_) {
+    return -1;
+  } // TODO: ??
 
   int status;
 
   // Returns zero if child is still running
   int ret = waitpid(child_pid_, &status, WNOHANG);
-  if (ret == 0) return -1;
+  if (ret == 0) {
+    return -1;
+  }
 
   if (ret == child_pid_) {
     if (WIFSIGNALED(status)) {
@@ -1465,8 +1527,12 @@ inline int Popen::poll() noexcept(false)
     // or waiting for child process has otherwise been disabled
     // for our process. This child is dead, we cannot get the
     // status.
-    if (errno == ECHILD) retcode_ = 0;
-    else throw OSError("waitpid failed", errno);
+    if (errno == ECHILD) {
+      retcode_ = 0;
+    }
+    else {
+      throw OSError("waitpid failed", errno);
+    }
   } else {
     retcode_ = ret;
   }
@@ -1482,8 +1548,12 @@ inline void Popen::kill(int sig_num)
     throw OSError("TerminateProcess", 0);
   }
 #else
-  if (session_leader_) killpg(child_pid_, sig_num);
-  else ::kill(child_pid_, sig_num);
+  if (session_leader_) {
+    killpg(child_pid_, sig_num);
+  }
+  else {
+    ::kill(child_pid_, sig_num);
+  }
 #endif
 }
 
@@ -1554,8 +1624,9 @@ inline void Popen::execute_process() noexcept(false)
                             &piProcInfo); // receives PROCESS_INFORMATION
 
   // If an error occurs, exit the application.
-  if (!bSuccess)
+  if (!bSuccess) {
     throw OSError("CreateProcessW failed", 0);
+  }
 
   CloseHandle(piProcInfo.hThread);
 
@@ -1684,13 +1755,21 @@ namespace detail {
   }
 
   inline void ArgumentDeducer::set_option(input&& inp) {
-    if (inp.rd_ch_ != -1) popen_->stream_.read_from_parent_ = inp.rd_ch_;
-    if (inp.wr_ch_ != -1) popen_->stream_.write_to_child_ = inp.wr_ch_;
+    if (inp.rd_ch_ != -1) {
+      popen_->stream_.read_from_parent_ = inp.rd_ch_;
+    }
+    if (inp.wr_ch_ != -1) {
+      popen_->stream_.write_to_child_ = inp.wr_ch_;
+    }
   }
 
   inline void ArgumentDeducer::set_option(output&& out) {
-    if (out.wr_ch_ != -1) popen_->stream_.write_to_parent_ = out.wr_ch_;
-    if (out.rd_ch_ != -1) popen_->stream_.read_from_child_ = out.rd_ch_;
+    if (out.wr_ch_ != -1) {
+      popen_->stream_.write_to_parent_ = out.wr_ch_;
+    }
+    if (out.rd_ch_ != -1) {
+      popen_->stream_.read_from_child_ = out.rd_ch_;
+    }
   }
 
   inline void ArgumentDeducer::set_option(error&& err) {
@@ -1701,8 +1780,12 @@ namespace detail {
         throw std::runtime_error("Set output before redirecting error to output");
       }
     }
-    if (err.wr_ch_ != -1) popen_->stream_.err_write_ = err.wr_ch_;
-    if (err.rd_ch_ != -1) popen_->stream_.err_read_ = err.rd_ch_;
+    if (err.wr_ch_ != -1) {
+      popen_->stream_.err_write_ = err.wr_ch_;
+    }
+    if (err.rd_ch_ != -1) {
+      popen_->stream_.err_read_ = err.rd_ch_;
+    }
   }
 
   inline void ArgumentDeducer::set_option(close_fds&& cfds) {
@@ -1721,11 +1804,13 @@ namespace detail {
     auto& stream = parent_->stream_;
 
     try {
-      if (stream.write_to_parent_ == 0)
+      if (stream.write_to_parent_ == 0) {
         stream.write_to_parent_ = dup(stream.write_to_parent_);
+      }
 
-      if (stream.err_write_ == 0 || stream.err_write_ == 1)
+      if (stream.err_write_ == 0 || stream.err_write_ == 1) {
         stream.err_write_ = dup(stream.err_write_);
+      }
 
       // Make the child owned descriptors as the
       // stdin, stdout and stderr for the child process
@@ -1741,7 +1826,9 @@ namespace detail {
           util::set_clo_on_exec(fd, false);
         } else if(fd != -1) {
           int res = dup2(fd, to_fd);
-          if (res == -1) throw OSError("dup2 failed", errno);
+          if (res == -1) {
+            throw OSError("dup2 failed", errno);
+          }
         }
       };
 
@@ -1751,22 +1838,29 @@ namespace detail {
       _dup2_(stream.err_write_,        2); // Error stream
 
       // Close the duped descriptors
-      if (stream.read_from_parent_ != -1 && stream.read_from_parent_ > 2)
+      if (stream.read_from_parent_ != -1 && stream.read_from_parent_ > 2) {
         close(stream.read_from_parent_);
+      }
 
-      if (stream.write_to_parent_ != -1 && stream.write_to_parent_ > 2)
+      if (stream.write_to_parent_ != -1 && stream.write_to_parent_ > 2) {
         close(stream.write_to_parent_);
+      }
 
-      if (stream.err_write_ != -1 && stream.err_write_ > 2)
+      if (stream.err_write_ != -1 && stream.err_write_ > 2) {
         close(stream.err_write_);
+      }
 
       // Close all the inherited fd's except the error write pipe
       if (parent_->close_fds_) {
         int max_fd = sysconf(_SC_OPEN_MAX);
-        if (max_fd == -1) throw OSError("sysconf failed", errno);
+        if (max_fd == -1) {
+          throw OSError("sysconf failed", errno);
+        }
 
         for (int i = 3; i < max_fd; i++) {
-          if (i == err_wr_pipe_) continue;
+          if (i == err_wr_pipe_) {
+            continue;
+          }
           close(i);
         }
       }
@@ -1774,7 +1868,9 @@ namespace detail {
       // Change the working directory if provided
       if (parent_->cwd_.length()) {
         sys_ret = chdir(parent_->cwd_.c_str());
-        if (sys_ret == -1) throw OSError("chdir failed", errno);
+        if (sys_ret == -1) {
+          throw OSError("chdir failed", errno);
+        }
       }
 
       if (parent_->has_preexec_fn_) {
@@ -1783,7 +1879,9 @@ namespace detail {
 
       if (parent_->session_leader_) {
         sys_ret = setsid();
-        if (sys_ret == -1) throw OSError("setsid failed", errno);
+        if (sys_ret == -1) {
+          throw OSError("setsid failed", errno);
+        }
       }
 
       // Replace the current image with the executable
@@ -1796,7 +1894,9 @@ namespace detail {
         sys_ret = execvp(parent_->exe_name_.c_str(), parent_->cargv_.data());
       }
 
-      if (sys_ret == -1) throw OSError("execve failed", errno);
+      if (sys_ret == -1) {
+        throw OSError("execve failed", errno);
+      }
 
     } catch (const OSError& exp) {
       // Just write the exception message
@@ -1829,14 +1929,22 @@ namespace detail {
     this->err_read_ = _fileno(this->error());
 #else
 
-    if (write_to_child_ != -1)  input(fdopen(write_to_child_, "wb"));
-    if (read_from_child_ != -1) output(fdopen(read_from_child_, "rb"));
-    if (err_read_ != -1)        error(fdopen(err_read_, "rb"));
+    if (write_to_child_ != -1) {
+      input(fdopen(write_to_child_, "wb"));
+    }
+    if (read_from_child_ != -1) {
+      output(fdopen(read_from_child_, "rb"));
+    }
+    if (err_read_ != -1) {
+      error(fdopen(err_read_, "rb"));
+    }
 
     auto handles = {input(), output(), error()};
 
     for (auto& h : handles) {
-      if (h == nullptr) continue;
+      if (h == nullptr) {
+        continue;
+      }
       switch (bufsiz_) {
       case 0:
         setvbuf(h, nullptr, _IONBF, BUFSIZ);
@@ -1853,7 +1961,9 @@ namespace detail {
 
   inline int Communication::send(const char* msg, size_t length)
   {
-    if (stream_->input() == nullptr) return -1;
+    if (stream_->input() == nullptr) {
+      return -1;
+    }
     return std::fwrite(msg, sizeof(char), length, stream_->input());
   }
 
@@ -1966,13 +2076,21 @@ namespace detail {
 
     if (out_fut.valid()) {
       int res = out_fut.get();
-      if (res != -1) obuf.length = res;
-      else obuf.length = 0;
+      if (res != -1) {
+        obuf.length = res;
+      }
+      else {
+        obuf.length = 0;
+      }
     }
     if (err_fut.valid()) {
       int res = err_fut.get();
-      if (res != -1) ebuf.length = res;
-      else ebuf.length = 0;
+      if (res != -1) {
+        ebuf.length = res;
+      }
+      else {
+        ebuf.length = 0;
+      }
     }
 
     return std::make_pair(std::move(obuf), std::move(ebuf));
@@ -2095,7 +2213,9 @@ OutBuffer pipeline(Args&&... args)
   std::vector<Popen> pcmds;
   detail::pipeline_impl(pcmds, std::forward<Args>(args)...);
 
-  for (auto& p : pcmds) p.start_process();
+  for (auto& p : pcmds) {
+    p.start_process();
+  }
   return (pcmds.back().communicate().first);
 }
 

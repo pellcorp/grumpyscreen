@@ -102,7 +102,9 @@ const lv_font_t *scale_font(int px) {
   };
   const int target = scale_r(px);
   for (const F &f : fonts) {
-    if (f.size >= target) return f.font;
+    if (f.size >= target) {
+      return f.font;
+    }
   }
   return fonts[sizeof(fonts) / sizeof(fonts[0]) - 1].font;
 }
@@ -131,7 +133,9 @@ int popout_row_w() { return popout_w() - 2 * popout_pad() - 2 * border_w() - 2; 
 Styles &styles() {
   static Styles s;
   static bool ready = false;
-  if (ready) return s;
+  if (ready) {
+    return s;
+  }
 
   // The stock button: the grey LVGL has always used, rounded the same amount.
   // Nothing here says what a press looks like -- LVGL's own theme is this
@@ -433,12 +437,18 @@ int fit_img(lv_obj_t *img, int w, int h, int max_zoom) {
   // box overshoots the space it was fitted to
   const int margin = 5;
   int zoom = max_zoom;
-  if (i->w > 0 && w > 0) zoom = std::min(zoom, LV_IMG_ZOOM_NONE * (w - margin) / i->w);
-  if (i->h > 0 && h > 0) zoom = std::min(zoom, LV_IMG_ZOOM_NONE * (h - margin) / i->h);
+  if (i->w > 0 && w > 0) {
+    zoom = std::min(zoom, LV_IMG_ZOOM_NONE * (w - margin) / i->w);
+  }
+  if (i->h > 0 && h > 0) {
+    zoom = std::min(zoom, LV_IMG_ZOOM_NONE * (h - margin) / i->h);
+  }
   zoom = std::max(zoom, LV_IMG_ZOOM_NONE / 8);
   // a no-op when nothing changes: lv_img_set_zoom and the box refresh each
   // cost a layout pass, and size-changed handlers call this on every layout
-  if (zoom == lv_img_get_zoom(img) && lv_img_get_size_mode(img) == LV_IMG_SIZE_MODE_REAL) return zoom;
+  if (zoom == lv_img_get_zoom(img) && lv_img_get_size_mode(img) == LV_IMG_SIZE_MODE_REAL) {
+    return zoom;
+  }
   lv_img_set_size_mode(img, LV_IMG_SIZE_MODE_REAL);
   lv_img_set_zoom(img, zoom);
   lv_obj_refresh_self_size(img);
@@ -490,8 +500,12 @@ void manage_scroll(lv_obj_t *scrollee) {
 
 void refresh_scroll(lv_obj_t *scrollee) {
   const bool overflows = lv_obj_get_scroll_top(scrollee) > 0 || lv_obj_get_scroll_bottom(scrollee) > 0;
-  if (overflows) lv_obj_add_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
-  else lv_obj_clear_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
+  if (overflows) {
+    lv_obj_add_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
+  }
+  else {
+    lv_obj_clear_flag(scrollee, LV_OBJ_FLAG_SCROLLABLE);
+  }
 }
 
 lv_obj_t *create_screen(lv_obj_t *parent) {
@@ -538,13 +552,17 @@ void set_action_btn(lv_obj_t *btn, bool enabled, lv_color_t enabled_colour) {
   if (enabled) {
     lv_obj_clear_state(btn, LV_STATE_DISABLED);
     lv_obj_set_style_bg_color(btn, enabled_colour, 0);
-    if (label) lv_obj_set_style_text_color(label, col(TEXT), 0);
+    if (label) {
+      lv_obj_set_style_text_color(label, col(TEXT), 0);
+    }
   } else {
     // grey text on the plain button grey: reads as off, unlike TEXT which
     // would make it identical to a live flat button
     lv_obj_add_state(btn, LV_STATE_DISABLED);
     lv_obj_set_style_bg_color(btn, col(RAISED), 0);
-    if (label) lv_obj_set_style_text_color(label, col(DISABLED), 0);
+    if (label) {
+      lv_obj_set_style_text_color(label, col(DISABLED), 0);
+    }
   }
 }
 
