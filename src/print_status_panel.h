@@ -24,6 +24,9 @@ class PrintStatusPanel : public NotifyConsumer {
   void populate();
   void foreground();
   void background();
+#ifdef OS_ANDROID
+  lv_obj_t *get_container() { return status_cont; }
+#endif
   bool is_foreground() const;
 
   void handle_metadata(const std::string &gcode_file, json &j);

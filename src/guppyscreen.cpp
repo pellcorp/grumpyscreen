@@ -226,6 +226,10 @@ void GuppyScreen::loop() {
     lv_lock.lock();
     const uint32_t time_till_next = lv_timer_handler();
 
+#ifdef OS_ANDROID
+    android_set_menu_visible(instance->main_panel.printer_menu_visible());
+#endif
+
 #ifndef OS_ANDROID
     // The Settings panel updates Config in place, so do not keep using the
     // startup snapshot after the user changes the timeout.

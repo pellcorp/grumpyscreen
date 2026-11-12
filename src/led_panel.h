@@ -18,7 +18,9 @@ class LedPanel : public NotifyConsumer {
 
   void consume(json &j);
 
-  lv_obj_t *get_container();
+#ifdef OS_ANDROID
+  lv_obj_t *get_container() { return ledpanel_cont; }
+#endif
   void init(json&);
   void activate();
   const void *get_main_button_image();

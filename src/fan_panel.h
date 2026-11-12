@@ -18,7 +18,9 @@ class FanPanel : public NotifyConsumer {
 
   void consume(json &j);
   
-  lv_obj_t *get_container();
+#ifdef OS_ANDROID
+  lv_obj_t *get_container() { return fanpanel_cont; }
+#endif
   void create_fans(json &f);
   void foreground();
   void background();
