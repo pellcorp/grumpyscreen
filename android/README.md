@@ -69,11 +69,13 @@ reference signing secrets or the release environment.
   every printer you have connected to is remembered by name, the search runs
   again, and choosing one and Connect switches to it (the app restarts itself).
   Connect also reloads configuration when choosing the current printer.
-  Opening or returning to the app shows the printer list. The selected
-  printer is checked using Moonraker's `/server/info`; Connect is enabled
-  only once it shows online. Offline printers are checked again while the
-  list is open; checks stop once the selected printer is online. Other
-  saved printers are checked when selected. Typed addresses
+  Opening the app after Exit shows the printer list with no printer UI
+  underneath. Switching to another app and back keeps the same running
+  printer UI and its downloaded configuration. The selected printer in the
+  list is checked using Moonraker's `/server/info`;
+  Connect is enabled only once it shows online. Offline printers are checked
+  again while the list is open; checks stop once the selected printer is
+  online. Other saved printers are checked when selected. Typed addresses
   are checked the same way. Klipper can be down or restarting as long as
   Moonraker responds.
   Long-press a saved printer to forget it. The same dialog can make the app
@@ -101,7 +103,8 @@ reference signing secrets or the release environment.
   download errors appear in the printer list, where you can press Connect
   to retry or select a different printer before the UI starts.
   Each connection downloads a fresh copy; the session copy in the app cache
-  is never reused for a new connection or another printer.
+  is never reused for a new connection or another printer. Returning from
+  another app keeps the current session and does not download the INI again.
 * Android has no local GrumpyScreen settings or Settings subtab. Existing
   `files/grumpyscreen-override.cfg` files from older versions are removed;
   move any settings you want to keep into the printer's `grumpyscreen.ini`.
