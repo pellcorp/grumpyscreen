@@ -7,6 +7,8 @@
 #include "logger.h"
 #include "theme.h"
 
+#include <algorithm>
+
 using namespace Theme;
 
 // a colour as label recolour wants it: "#RRGGBB text#"
@@ -291,8 +293,27 @@ void PromptPanel::update_manual_probe(json &mp) {
   lv_label_set_text(z_max_label, z_field("Z Max", mp["z_position_upper"]).c_str());
 
   if (opening) {
-    fit_box();
+    fit_manual_probe(lv_obj_get_child(flex, 0));
   }
+}
+
+void PromptPanel::fit_manual_probe(lv_obj_t *table) {
+  fit_box();
+  const int overflow = lv_obj_get_scroll_bottom(flex);
+  if (overflow <= 0) {
+    return;
+  }
+  // Android's fonts keep scaling beyond the printer fonts' 28px limit. Fit
+  // the control rows below the Z readout before resorting to scrolling.
+  const int rows = lv_obj_get_child_cnt(table) - 1;
+  const int height = std::max(scale_r(32), touch_h() - (overflow + rows - 1) / rows);
+  for (uint32_t i = 1; i < lv_obj_get_child_cnt(table); ++i) {
+    lv_obj_t *row = lv_obj_get_child(table, i);
+    for (uint32_t b = 0; b < lv_obj_get_child_cnt(row); ++b) {
+      lv_obj_set_height(lv_obj_get_child(row, b), height);
+    }
+  }
+  fit_box();
 }
 
 void PromptPanel::show_screws_tilt(json &st) {
