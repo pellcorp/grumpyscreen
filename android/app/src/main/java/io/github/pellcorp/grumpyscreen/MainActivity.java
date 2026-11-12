@@ -12,6 +12,7 @@ import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Process;
 import android.text.InputType;
 import android.util.Log;
 import android.view.Display;
@@ -45,6 +46,7 @@ public class MainActivity extends Activity {
     private File moonrakerFile;
     private File overrideFile;
     private boolean started;
+    private boolean exitRequested;
     private MenuButton menu;
     private boolean updateCheckRunning;
 
@@ -182,6 +184,15 @@ public class MainActivity extends Activity {
         GrumpyNative.setActivity(null);
         if (started) getSystemService(DisplayManager.class).unregisterDisplayListener(displayListener);
         super.onDestroy();
+        // The native UI and its Moonraker connection live for the process's
+        // lifetime. An explicit exit stops them after the Activity cleans up.
+        if (exitRequested) Process.killProcess(Process.myPid());
+    }
+
+    private void exitApp() {
+        exitRequested = true;
+        if (printerDialog != null) printerDialog.dismiss();
+        finishAndRemoveTask();
     }
 
     /**
@@ -402,9 +413,9 @@ public class MainActivity extends Activity {
         Dialog dialog = td.dialog;
         dialog.setCancelable(!firstRun);
         if (firstRun) {
-            td.addButton("Exit", false, v -> finish());
+            td.addButton("Exit", false, v -> exitApp());
         } else {
-            td.addButton("Exit app", false, v -> finishAffinity());
+            td.addButton("Exit app", false, v -> exitApp());
         }
         td.addButton("Check for updates", false, v -> checkForUpdates());
         if (!firstRun) {

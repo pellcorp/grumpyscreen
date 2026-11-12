@@ -73,6 +73,9 @@ reference signing secrets or the release environment.
   Long-press a saved printer to forget it. The same dialog can make the app
   the home screen, for a tablet dedicated to a printer. It is drawn with
   grumpyscreen's own `[theme]` colours and Montserrat, the UI's font.
+  **Exit app** closes the app, removes it from Recents and stops its
+  connection to Moonraker. Opening it again starts a fresh session with the
+  saved printer and settings.
 * **Check for updates** in the printer list (☰) checks this repository's GitHub
   releases when pressed. If a newer version is available, choose **Open release**
   to open it in your browser, download `grumpyscreen.apk`

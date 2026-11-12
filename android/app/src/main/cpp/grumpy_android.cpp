@@ -44,6 +44,10 @@ int surface_h = 0;
 int disp_w = 0;
 int disp_h = 0;
 std::vector<uint32_t> frame;     // the whole screen, RGBA_8888
+// The native UI outlives its Activity. Keep the reserved menu bounds in
+// display pixels so a new surface can place the new Activity's button too.
+int menu_w = 0;                 // guarded by window_lock
+int menu_h = 0;
 
 std::atomic<int32_t> touch_x{0};
 std::atomic<int32_t> touch_y{0};
@@ -247,8 +251,27 @@ int android_menu_height() {
   return menu_height_px.load();
 }
 
-void android_place_menu(int width, int height) {
+static void place_menu() {
+  int width, height;
+  {
+    std::lock_guard<std::mutex> g(window_lock);
+    if (menu_w <= 0 || menu_h <= 0 || disp_w <= 0 || disp_h <= 0 ||
+        surface_w <= 0 || surface_h <= 0) return;
+    // A replacement surface can have a different size; match the scaling
+    // the compositor and touch() apply to the native display.
+    width = menu_w * surface_w / disp_w;
+    height = menu_h * surface_h / disp_h;
+  }
   call_activity("placeMenuFromNative", "(II)V", static_cast<jint>(width), static_cast<jint>(height));
+}
+
+void android_place_menu(int width, int height) {
+  {
+    std::lock_guard<std::mutex> g(window_lock);
+    menu_w = width;
+    menu_h = height;
+  }
+  place_menu();
 }
 
 void android_restart_app() {
@@ -325,6 +348,9 @@ Java_io_github_pellcorp_grumpyscreen_GrumpyNative_surfaceChanged(
     std::lock_guard<std::mutex> g(GuppyScreen::get()->get_lock());
     lv_obj_invalidate(lv_scr_act());
   }
+  // MainPanel lays out only once per process, but Android can recreate the
+  // Activity (and its initially hidden menu) without restarting that process.
+  place_menu();
 }
 
 JNIEXPORT void JNICALL
