@@ -99,14 +99,14 @@ reference signing secrets or the release environment.
 
 The UI is the same code, so every panel is there except the ones that act
 on the printer host itself, which are not compiled into the app. The Tools
-tab is always the same four tiles; the `[commands]` in grumpyscreen.cfg are
+tab is always the same three tiles; the `[commands]` in grumpyscreen.cfg are
 not used.
 
 | Tools tile | K1 | Android |
 |---|---|---|
 | Restart Klipper | Moonraker `machine.services.restart` | same |
 | Firmware Restart | Klipper RPC | same |
-| Restart GUI | restarts the service | restarts the app |
+| Restart GUI | restarts the service | not built |
 | Shutdown Host | Moonraker `machine.shutdown` | same |
 | Create Support ZIP, Switch to Stock, Factory Reset | printer-side scripts | not built |
 | Network tab | the printer's wifi | not built: Android manages the device's wifi |
