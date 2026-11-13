@@ -3,6 +3,19 @@
 GrumpyScreen shares its C++ UI in `src/` between printer firmware and Android.
 Android Java code lives in `android/app/src/`; see `android/README.md` for builds.
 
+## Clarifying requests
+
+- Check requested constraints against known technical limits and existing valid
+  use cases before implementing them. If a request appears to rest on a mistaken
+  assumption or would unnecessarily exclude valid inputs, explain the issue,
+  recommend a correction, and ask whether the restriction is intentional before
+  making the affected change.
+- For example, if asked to limit ports to four digits, point out that valid
+  ports extend to 65535 and ask whether to allow five digits instead.
+- Keep questions focused on meaningful correctness or compatibility concerns;
+  use judgment for routine implementation choices. Once the user confirms an
+  intentional restriction, honor it without repeatedly asking.
+
 ## Coding style
 
 - Use braces for every C/C++ and Java `if`, `else`, `for`, `while` and `do`

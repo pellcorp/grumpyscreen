@@ -16,8 +16,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.text.Editable;
+import android.text.InputFilter;
 import android.text.InputType;
 import android.text.TextWatcher;
+import android.text.method.DigitsKeyListener;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
@@ -25,6 +27,7 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -519,8 +522,20 @@ public class MainActivity extends Activity {
         hostLabel.setText("Or enter the Moonraker host or IP address");
         hostLabel.setPadding(0, pad, 0, 0);
         layout.addView(hostLabel);
-        host.setSingleLine(true);
         host.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        host.setSingleLine(true);
+        host.setImeOptions(EditorInfo.IME_ACTION_NEXT | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+        host.setFilters(new InputFilter[]{(source, start, end, dest, dstart, dend) -> {
+            for (int i = start; i < end; i++) {
+                char c = source.charAt(i);
+                // Keep pasted URLs, host:port and IPv6 addresses supported too.
+                if (!(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z')
+                        && !(c >= '0' && c <= '9') && ".-:[]/".indexOf(c) < 0) {
+                    return dest.subSequence(dstart, dend);
+                }
+            }
+            return null;
+        }});
         host.setHint("192.168.1.50");
         if (host.getText().length() == 0 && saved.hasCurrent()) {
             host.setText(saved.currentHost());
@@ -531,11 +546,15 @@ public class MainActivity extends Activity {
         portLabel.setPadding(0, pad / 2, 0, 0);
         portLabel.setText("Port");
         layout.addView(portLabel);
-        port.setSingleLine(true);
         port.setInputType(InputType.TYPE_CLASS_NUMBER);
+        port.setKeyListener(DigitsKeyListener.getInstance("0123456789"));
+        port.setSingleLine(true);
+        port.setImeOptions(EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+        port.setHint("1 - 65535");
         if (port.getText().length() == 0) {
             port.setText(String.valueOf(saved.currentPort()));
         }
+        port.setFilters(new InputFilter[]{new InputFilter.LengthFilter(5)});
         layout.addView(port);
 
         TextView connectionStatus = theme.text(new TextView(this), 14, true);
