@@ -630,15 +630,15 @@ public class MainActivity extends Activity {
                     switch (state) {
                         case ONLINE: label = "Online"; break;
                         case OFFLINE: label = "Offline"; break;
-                        default: label = "Select a printer or enter a valid address."; break;
+                        default: label = ""; break;
                     }
                     TextView item = savedRows.get(checkedHost + ":" + checkedPort);
                     if (item == null) {
                         item = foundRows.get(checkedHost + ":" + checkedPort);
                     }
                     if (item != null) {
-                        item.setText(item.getTag().toString() + "  — "
-                                + label.toLowerCase(java.util.Locale.ROOT));
+                        item.setText(item.getTag().toString() + (label.isEmpty() ? "" : "  — "
+                                + label.toLowerCase(java.util.Locale.ROOT)));
                     }
                     if (checkedHost == null || connection[0].isSelected(checkedHost, checkedPort)) {
                         connect.setEnabled(!configDownloadRunning && connection[0].canConnect());
