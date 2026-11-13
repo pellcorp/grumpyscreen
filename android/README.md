@@ -75,16 +75,16 @@ reference signing secrets or the release environment.
   Opening the app after Exit shows the printer list with no printer UI
   underneath. Switching to another app and back keeps the same running
   printer UI and its downloaded configuration. The selected printer in the
-  list is checked using Moonraker's `/server/info`;
-  Connect is enabled only once it shows online. Offline printers are checked
-  again while the list is open; checks stop once the selected printer is
-  online. Other saved printers are checked when selected. Typed addresses
-  are checked the same way. Klipper can be down or restarting as long as
-  Moonraker responds.
+  list and all other saved printers are checked using Moonraker's `/server/info`;
+  Connect is enabled only once the selected printer shows online. All offline
+  printers are checked again while the list is open, even when they are not
+  selected. Checks stop for each printer once it is online; **Search again**
+  refreshes their status. Typed addresses are checked the same way. Klipper
+  can be down or restarting as long as Moonraker responds.
   Long-press a saved printer to forget it. The same dialog can make the app
   the home screen, for a tablet dedicated to a printer. It is drawn with
   grumpyscreen's own `[theme]` colours and Montserrat, the UI's font.
-  **Exit app** closes the app, removes it from Recents and stops its
+  **Exit** closes the app, removes it from Recents and stops its
   connection to Moonraker. Opening it again shows the printer list with the
   saved printers and settings.
 * **Check for updates** in the printer list (☰) checks this repository's GitHub

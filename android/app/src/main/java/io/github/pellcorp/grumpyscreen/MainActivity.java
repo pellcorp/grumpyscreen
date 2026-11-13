@@ -381,6 +381,7 @@ public class MainActivity extends Activity {
         final TextView[] selected = {null};
         final PrinterScanner.Printer[] selectedPrinter = {null};
         final Runnable[] checkSelection = {null};
+        final PrinterConnectionCheck[] connection = {null};
 
         // a row in either list; tapping it selects that printer
         java.util.function.BiFunction<PrinterScanner.Printer, String, TextView> row = (p, text) -> {
@@ -391,7 +392,6 @@ public class MainActivity extends Activity {
             item.setOnClickListener(v -> {
                 if (selected[0] != null) {
                     theme.select(selected[0], false);
-                    selected[0].setText(selected[0].getTag().toString());
                 }
                 theme.select(item, true);
                 selected[0] = item;
@@ -428,6 +428,7 @@ public class MainActivity extends Activity {
                                 saved.remove(p);
                                 savedBox.removeView(item);
                                 savedRows.remove(p.host + ":" + p.port);
+                                connection[0].remove(p.host, p.port);
                                 if (selected[0] == item) {
                                     selected[0] = null;
                                     selectedPrinter[0] = null;
@@ -460,6 +461,8 @@ public class MainActivity extends Activity {
         layout.addView(rescan, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
+        java.util.Map<String, TextView> foundRows = new java.util.HashMap<>();
+        java.util.List<PrinterScanner.Printer> foundPrinters = new java.util.ArrayList<>();
         final PrinterScanner[] scanner = {null};
         Runnable startScan = new Runnable() {
             @Override
@@ -467,10 +470,16 @@ public class MainActivity extends Activity {
                 if (scanner[0] != null) {
                     scanner[0].stop();
                 }
+                for (PrinterScanner.Printer p : foundPrinters) {
+                    connection[0].remove(p.host, p.port);
+                }
+                foundPrinters.clear();
+                foundRows.clear();
+                found.removeAllViews();
+                connection[0].refresh();
                 if (checkSelection[0] != null) {
                     checkSelection[0].run();
                 }
-                found.removeAllViews();
                 status.setText("Searching…");
                 rescan.setEnabled(false);
                 scanner[0] = new PrinterScanner(MainActivity.this, new PrinterScanner.Listener() {
@@ -482,10 +491,14 @@ public class MainActivity extends Activity {
                                     && saved.find(p.host, p.port).name == null) {
                                 saved.rename(p.host, p.port, p.name);
                             }
+                            connection[0].found(p.host, p.port);
                             return;
                         }
                         TextView item = row.apply(p, p.toString());
                         found.addView(item);
+                        foundRows.put(p.host + ":" + p.port, item);
+                        foundPrinters.add(p);
+                        connection[0].found(p.host, p.port);
                         // first run: preselect the first printer found
                         if (selectedPrinter[0] == null && host.getText().length() == 0) {
                             item.performClick();
@@ -542,11 +555,7 @@ public class MainActivity extends Activity {
         GrumpyTheme.ThemedDialog td = theme.dialog(this, "Printers", scroll);
         Dialog dialog = td.dialog;
         dialog.setCancelable(!requireSelection);
-        if (requireSelection) {
-            td.addButton("Exit", false, v -> exitApp());
-        } else {
-            td.addButton("Exit app", false, v -> exitApp());
-        }
+        td.addButton("Exit", false, v -> exitApp());
         td.addButton("Check for updates", false, v -> checkForUpdates());
         if (!requireSelection) {
             td.spacer();
@@ -556,8 +565,12 @@ public class MainActivity extends Activity {
             td.spacer();
         }
         printerDialog = dialog;
-        final PrinterConnectionCheck[] connection = {null};
         Handler checks = new Handler(Looper.getMainLooper());
+        final boolean[] retryScheduled = {false};
+        Runnable retryOffline = () -> {
+            retryScheduled[0] = false;
+            connection[0].retryOffline();
+        };
         Button connect = td.addButton("Connect", true, v -> {
             if (configDownloadRunning || !connection[0].canConnect()) {
                 return;
@@ -580,7 +593,7 @@ public class MainActivity extends Activity {
             }
             PrinterScanner.Printer pick = selectedPrinter[0];
             String name = pick != null && pick.host.equals(newHost) && pick.port == newPort ? pick.name : null;
-            checks.removeCallbacksAndMessages(null);
+            checks.removeCallbacks(checkSelection[0]);
             Button button = (Button) v;
             button.setText("Connecting…");
             button.setEnabled(false);
@@ -596,9 +609,7 @@ public class MainActivity extends Activity {
         connect.setEnabled(false);
         connection[0] = new PrinterConnectionCheck(
                 task -> new Thread(task, "printer-status").start(), this::runOnUiThread,
-                PrinterScanner::isOnline, state -> {
-                    connect.setEnabled(!configDownloadRunning
-                            && state == PrinterConnectionCheck.State.ONLINE);
+                PrinterScanner::isOnline, (checkedHost, checkedPort, state) -> {
                     String label;
                     switch (state) {
                         case CHECKING: label = "Checking printer…"; break;
@@ -606,38 +617,49 @@ public class MainActivity extends Activity {
                         case OFFLINE: label = "Offline"; break;
                         default: label = "Select a printer or enter a valid address."; break;
                     }
-                    connectionStatus.setText(label);
-                    if (selected[0] != null) {
-                        selected[0].setText(selected[0].getTag().toString());
-                        PrinterScanner.Printer pick = selectedPrinter[0];
-                        String[] hp = parseHost(host.getText().toString(), port.getText().toString());
-                        if (pick != null && hp != null && pick.host.equals(hp[0])
-                                && String.valueOf(pick.port).equals(hp[1])
-                                && state != PrinterConnectionCheck.State.UNCHECKED) {
-                            selected[0].append("  — " + label.toLowerCase(java.util.Locale.ROOT));
+                    TextView item = savedRows.get(checkedHost + ":" + checkedPort);
+                    if (item == null) {
+                        item = foundRows.get(checkedHost + ":" + checkedPort);
+                    }
+                    if (item != null) {
+                        item.setText(item.getTag().toString() + "  — "
+                                + label.toLowerCase(java.util.Locale.ROOT));
+                    }
+                    if (checkedHost == null || connection[0].isSelected(checkedHost, checkedPort)) {
+                        connect.setEnabled(!configDownloadRunning && connection[0].canConnect());
+                        if (!configDownloadRunning) {
+                            connectionStatus.setText(label);
                         }
                     }
-                    if (state == PrinterConnectionCheck.State.OFFLINE) {
-                        checks.postDelayed(checkSelection[0], 5000);
+                    if (connection[0].hasOffline()) {
+                        if (!retryScheduled[0]) {
+                            retryScheduled[0] = true;
+                            checks.postDelayed(retryOffline, 5000);
+                        }
+                    } else {
+                        checks.removeCallbacks(retryOffline);
+                        retryScheduled[0] = false;
                     }
                 });
         checkSelection[0] = () -> {
             cancelConnection();
             connect.setText("Connect");
-            checks.removeCallbacksAndMessages(null);
-            connection[0].cancel();
+            checks.removeCallbacks(checkSelection[0]);
             String[] hp = parseHost(host.getText().toString(), port.getText().toString());
             if (hp == null) {
+                connection[0].clearSelection();
                 return;
             }
             try {
                 int selectedPort = Integer.parseInt(hp[1]);
                 if (selectedPort > 0 && selectedPort <= 65535) {
-                    connection[0].check(hp[0], selectedPort);
+                    connection[0].select(hp[0], selectedPort);
+                    return;
                 }
             } catch (NumberFormatException ignored) {
                 // Keep Connect disabled until the address and port are valid.
             }
+            connection[0].clearSelection();
         };
         TextWatcher addressChanged = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -645,8 +667,8 @@ public class MainActivity extends Activity {
             @Override public void afterTextChanged(Editable text) {
                 cancelConnection();
                 connect.setText("Connect");
-                checks.removeCallbacksAndMessages(null);
-                connection[0].cancel();
+                checks.removeCallbacks(checkSelection[0]);
+                connection[0].clearSelection();
                 checks.postDelayed(checkSelection[0], 350);
             }
         };
@@ -662,6 +684,9 @@ public class MainActivity extends Activity {
             printerDialog = null;
             goFullscreen();
         });
+        for (PrinterScanner.Printer p : savedList) {
+            connection[0].watch(p.host, p.port);
+        }
         td.show();
         layout.requestFocus();
         startScan.run();
