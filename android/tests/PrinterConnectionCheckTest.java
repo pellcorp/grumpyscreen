@@ -12,13 +12,13 @@ import java.util.concurrent.Executor;
 public final class PrinterConnectionCheckTest {
     public static void main(String[] args) {
         selectionUsesCachedStatus();
-        offlinePrintersRetryIndependently();
-        refreshInvalidatesOldReplies();
+        allPrintersRefreshSilently();
+        refreshKeepsStatusUntilReply();
         discoverySupersedesPendingChecks();
         selectionIgnoresOldReplies();
         forgettingAndClosingStopChecks();
         manualAddressRetries();
-        System.out.println("Printer connection and offline retry tests passed");
+        System.out.println("Printer connection and background refresh tests passed");
     }
 
     private static void selectionUsesCachedStatus() {
@@ -30,7 +30,7 @@ public final class PrinterConnectionCheckTest {
         f.check.refresh();
         f.check.select("printer", 7125);
         require(!f.check.canConnect(), "Connect stays disabled while checking");
-        require(f.states.get("printer:7125") == PrinterConnectionCheck.State.CHECKING, "Shows checking");
+        require(f.states.get("printer:7125") == PrinterConnectionCheck.State.UNCHECKED, "No checking state is displayed");
         f.background.run(0);
         require(!f.check.canConnect(), "Waits for the reply on the UI thread");
         f.main.run(0);
@@ -46,7 +46,7 @@ public final class PrinterConnectionCheckTest {
         require(f.requests.size() == 2, "Each host and port is checked independently");
     }
 
-    private static void offlinePrintersRetryIndependently() {
+    private static void allPrintersRefreshSilently() {
         Fixture f = new Fixture();
         f.online.add("selected:7125");
         f.check.watch("selected", 7125);
@@ -56,37 +56,36 @@ public final class PrinterConnectionCheckTest {
         f.check.select("selected", 7125);
         f.finishChecks();
         require(f.check.canConnect(), "The selected printer is online");
-        require(f.check.hasOffline(), "Unselected offline printers still need retries");
+        int notifications = f.notifications.size();
 
-        f.check.clearSelection();
-        f.check.select("second", 7125);
+        f.check.refresh();
+        require(f.background.pending.size() == 3, "Rechecks online and offline printers, including unselected ones");
+        require(f.check.canConnect(), "Connect stays enabled during a background check");
+        require(f.states.get("second:7125") == PrinterConnectionCheck.State.OFFLINE,
+                "An offline printer keeps its state while checking");
+        f.check.refresh();
+        require(f.background.pending.size() == 3, "Does not overlap pending checks");
+        f.finishChecks();
+        require(f.notifications.size() == notifications, "Unchanged replies do not notify the UI");
+
         f.online.add("second:7125");
-        f.check.retryOffline();
-        require(f.background.pending.size() == 2, "Retries all offline printers across selection changes");
-        require(f.states.get("selected:7125") == PrinterConnectionCheck.State.ONLINE,
-                "Retries leave the online printer alone");
-        f.check.retryOffline();
-        require(f.background.pending.size() == 2, "Does not overlap pending checks");
-        f.finishChecks();
-        require(f.check.canConnect(), "The selected printer becomes connectable when it appears");
-        require(f.check.hasOffline(), "Another offline printer keeps retrying");
-
-        f.check.select("selected", 7125);
         f.online.add("third:7126");
-        f.check.retryOffline();
-        require(f.background.pending.size() == 1, "Only the remaining offline printer is retried");
+        f.check.refresh();
         f.finishChecks();
+        require(f.notifications.size() == notifications + 2, "Only changed states notify the UI");
         require(f.states.get("third:7126") == PrinterConnectionCheck.State.ONLINE,
                 "An unselected printer updates when it appears");
-        require(!f.check.hasOffline(), "Retries stop after all printers appear");
-        f.check.retryOffline();
         f.check.select("second", 7125);
-        require(f.background.pending.isEmpty(), "Online printers stay unchecked until Search again");
-        require(f.requests.equals(List.of("selected:7125", "second:7125", "third:7126",
-                "second:7125", "third:7126", "third:7126")), "Only offline addresses are retried");
+        require(f.check.canConnect(), "An unselected printer's latest status is cached");
+        f.online.remove("selected:7125");
+        f.check.refresh();
+        f.finishChecks();
+        require(f.states.get("selected:7125") == PrinterConnectionCheck.State.OFFLINE,
+                "An unselected online printer is also detected going offline");
+        require(f.check.canConnect(), "Another printer going offline leaves Connect enabled");
     }
 
-    private static void refreshInvalidatesOldReplies() {
+    private static void refreshKeepsStatusUntilReply() {
         Fixture f = new Fixture();
         f.online.add("printer:7125");
         f.check.watch("printer", 7125);
@@ -95,18 +94,20 @@ public final class PrinterConnectionCheckTest {
         f.finishChecks();
         require(f.check.canConnect(), "Initial check succeeds");
 
-        f.check.refresh();
-        require(!f.check.canConnect(), "Search again immediately invalidates the online result");
-        f.background.run(0);
         f.online.clear();
         f.check.refresh();
+        require(f.check.canConnect(), "Search again preserves the online result while checking");
         f.background.run(0);
-        f.main.run(1);
+        require(f.check.canConnect(), "Connect stays enabled until failure is delivered to the UI");
         f.main.run(0);
-        require(!f.check.canConnect(), "An older success cannot overwrite a newer offline result");
+        require(!f.check.canConnect(), "A failed check disables Connect");
         require(f.states.get("printer:7125") == PrinterConnectionCheck.State.OFFLINE,
-                "Search again detects a printer that went offline");
-        require(f.check.hasOffline(), "A refreshed offline printer needs retries");
+                "A failed check shows offline");
+        f.online.add("printer:7125");
+        f.check.refresh();
+        require(!f.check.canConnect(), "An offline printer stays disabled until a successful reply");
+        f.finishChecks();
+        require(f.check.canConnect(), "A printer coming back online enables Connect");
     }
 
     private static void discoverySupersedesPendingChecks() {
@@ -119,8 +120,9 @@ public final class PrinterConnectionCheckTest {
         require(f.check.canConnect(), "Network discovery confirms the printer is online");
         f.main.run(0);
         require(f.check.canConnect(), "An old failed probe cannot undo network discovery");
-        f.check.retryOffline();
-        require(f.background.pending.isEmpty(), "Discovery stops retries for that printer");
+        int notifications = f.notifications.size();
+        f.check.found("printer", 7125);
+        require(f.notifications.size() == notifications, "Repeated discovery does not notify the UI");
 
         f.check.found("other", 7126);
         f.check.select("other", 7126);
@@ -144,7 +146,7 @@ public final class PrinterConnectionCheckTest {
                 "Keeps the current selection's status");
 
         f.check.clearSelection();
-        f.check.retryOffline();
+        f.check.refresh();
         require(f.background.pending.isEmpty(), "Editing stops retries for the old typed address");
     }
 
@@ -155,9 +157,9 @@ public final class PrinterConnectionCheckTest {
         f.background.run(0);
         f.check.remove("forgotten", 7125);
         f.main.run(0);
-        f.check.retryOffline();
-        require(!f.check.hasOffline() && f.background.pending.isEmpty(),
-                "A forgotten printer's pending failure does not restart retries");
+        f.check.refresh();
+        require(!f.states.containsKey("forgotten:7125") && f.background.pending.isEmpty(),
+                "A forgotten printer's pending failure is ignored and checks stop");
 
         f.online.add("printer:7125");
         f.check.select("printer", 7125);
@@ -174,7 +176,6 @@ public final class PrinterConnectionCheckTest {
                 "Keeps the reopened picker's current result");
         f.check.cancel();
         f.check.refresh();
-        f.check.retryOffline();
         require(f.background.pending.isEmpty(), "Closing discards every watched printer");
     }
 
@@ -182,13 +183,16 @@ public final class PrinterConnectionCheckTest {
         Fixture f = new Fixture();
         f.check.select("manual", 7125);
         f.finishChecks();
-        require(!f.check.canConnect() && f.check.hasOffline(), "An offline typed address needs retries");
+        require(!f.check.canConnect(), "An offline typed address cannot connect");
         f.online.add("manual:7125");
-        f.check.retryOffline();
+        f.check.refresh();
         f.finishChecks();
-        require(f.check.canConnect() && !f.check.hasOffline(), "A typed address becomes connectable");
-        f.check.retryOffline();
-        require(f.background.pending.isEmpty(), "A successful typed address stops retrying");
+        require(f.check.canConnect(), "A typed address becomes connectable");
+        f.online.clear();
+        f.check.refresh();
+        require(f.check.canConnect(), "A successful typed address keeps Connect enabled during checks");
+        f.finishChecks();
+        require(!f.check.canConnect(), "A typed address is also detected going offline");
     }
 
     private static final class Fixture {
@@ -197,11 +201,15 @@ public final class PrinterConnectionCheckTest {
         final List<String> requests = new ArrayList<>();
         final Set<String> online = new HashSet<>();
         final Map<String, PrinterConnectionCheck.State> states = new HashMap<>();
+        final List<String> notifications = new ArrayList<>();
         final PrinterConnectionCheck check = new PrinterConnectionCheck(background, main, (host, port) -> {
             String address = host + ":" + port;
             requests.add(address);
             return online.contains(address);
-        }, (host, port, state) -> states.put(host + ":" + port, state));
+        }, (host, port, state) -> {
+            states.put(host + ":" + port, state);
+            notifications.add(host + ":" + port + "=" + state);
+        });
 
         void finishChecks() {
             while (!background.pending.isEmpty()) {

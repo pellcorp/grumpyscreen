@@ -462,7 +462,6 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         java.util.Map<String, TextView> foundRows = new java.util.HashMap<>();
-        java.util.List<PrinterScanner.Printer> foundPrinters = new java.util.ArrayList<>();
         final PrinterScanner[] scanner = {null};
         Runnable startScan = new Runnable() {
             @Override
@@ -470,12 +469,6 @@ public class MainActivity extends Activity {
                 if (scanner[0] != null) {
                     scanner[0].stop();
                 }
-                for (PrinterScanner.Printer p : foundPrinters) {
-                    connection[0].remove(p.host, p.port);
-                }
-                foundPrinters.clear();
-                foundRows.clear();
-                found.removeAllViews();
                 connection[0].refresh();
                 if (checkSelection[0] != null) {
                     checkSelection[0].run();
@@ -486,6 +479,9 @@ public class MainActivity extends Activity {
                     @Override
                     public void onFound(PrinterScanner.Printer p) {
                         TextView known = savedRows.get(p.host + ":" + p.port);
+                        if (known == null) {
+                            known = foundRows.get(p.host + ":" + p.port);
+                        }
                         if (known != null) {
                             if (p.name != null && saved.find(p.host, p.port) != null
                                     && saved.find(p.host, p.port).name == null) {
@@ -497,7 +493,6 @@ public class MainActivity extends Activity {
                         TextView item = row.apply(p, p.toString());
                         found.addView(item);
                         foundRows.put(p.host + ":" + p.port, item);
-                        foundPrinters.add(p);
                         connection[0].found(p.host, p.port);
                         // first run: preselect the first printer found
                         if (selectedPrinter[0] == null && host.getText().length() == 0) {
@@ -566,10 +561,12 @@ public class MainActivity extends Activity {
         }
         printerDialog = dialog;
         Handler checks = new Handler(Looper.getMainLooper());
-        final boolean[] retryScheduled = {false};
-        Runnable retryOffline = () -> {
-            retryScheduled[0] = false;
-            connection[0].retryOffline();
+        Runnable refreshPrinters = new Runnable() {
+            @Override
+            public void run() {
+                connection[0].refresh();
+                checks.postDelayed(this, 5000);
+            }
         };
         Button connect = td.addButton("Connect", true, v -> {
             if (configDownloadRunning || !connection[0].canConnect()) {
@@ -612,7 +609,6 @@ public class MainActivity extends Activity {
                 PrinterScanner::isOnline, (checkedHost, checkedPort, state) -> {
                     String label;
                     switch (state) {
-                        case CHECKING: label = "Checking printer…"; break;
                         case ONLINE: label = "Online"; break;
                         case OFFLINE: label = "Offline"; break;
                         default: label = "Select a printer or enter a valid address."; break;
@@ -630,15 +626,6 @@ public class MainActivity extends Activity {
                         if (!configDownloadRunning) {
                             connectionStatus.setText(label);
                         }
-                    }
-                    if (connection[0].hasOffline()) {
-                        if (!retryScheduled[0]) {
-                            retryScheduled[0] = true;
-                            checks.postDelayed(retryOffline, 5000);
-                        }
-                    } else {
-                        checks.removeCallbacks(retryOffline);
-                        retryScheduled[0] = false;
                     }
                 });
         checkSelection[0] = () -> {
@@ -690,6 +677,7 @@ public class MainActivity extends Activity {
         td.show();
         layout.requestFocus();
         startScan.run();
+        checks.postDelayed(refreshPrinters, 5000);
     }
 
     // --- updates -----------------------------------------------------------
