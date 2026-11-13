@@ -76,10 +76,12 @@ reference signing secrets or the release environment.
   underneath. Switching to another app and back keeps the same running
   printer UI and its downloaded configuration. The selected printer in the
   list and all other saved printers are checked using Moonraker's `/server/info`;
-  Connect is enabled only once the selected printer shows online. All offline
-  printers are checked again while the list is open, even when they are not
-  selected. Checks stop for each printer once it is online; **Search again**
-  refreshes their status. Typed addresses are checked the same way. Klipper
+  Connect is enabled only once the selected printer shows online. All listed
+  printers are checked every five seconds while the list is open, even when
+  they are online or not selected. Checks run silently and keep the last status
+  until a result changes it. Connect stays enabled for an online printer until
+  a check fails. **Search again** also discovers new printers on the network.
+  Typed addresses are checked the same way. Klipper
   can be down or restarting as long as Moonraker responds.
   Long-press a saved printer to forget it. The same dialog can make the app
   the home screen, for a tablet dedicated to a printer. It is drawn with

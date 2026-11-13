@@ -6,9 +6,9 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.BiPredicate;
 
-/** Checks listed printers independently and keeps successful replies until a refresh. */
+/** Checks listed printers independently without exposing pending network requests. */
 final class PrinterConnectionCheck {
-    enum State { UNCHECKED, CHECKING, ONLINE, OFFLINE }
+    enum State { UNCHECKED, ONLINE, OFFLINE }
 
     interface Listener {
         void onStateChanged(String host, int port, State state);
@@ -19,6 +19,7 @@ final class PrinterConnectionCheck {
         final int port;
         boolean listed;
         int attempt;
+        boolean checking;
         State state = State.UNCHECKED;
 
         Target(String host, int port) {
@@ -49,7 +50,7 @@ final class PrinterConnectionCheck {
         listener.onStateChanged(null, 0, State.UNCHECKED);
     }
 
-    /** Include a saved printer in subsequent refreshes and offline retries. */
+    /** Include a saved printer in subsequent background checks. */
     void watch(String host, int port) {
         target(host, port).listed = true;
     }
@@ -76,11 +77,10 @@ final class PrinterConnectionCheck {
         if (!isSelected(host, port)) {
             clearSelection();
             selected = target(host, port);
+            listener.onStateChanged(host, port, selected.state);
         }
         if (selected.state == State.UNCHECKED) {
             check(selected);
-        } else {
-            listener.onStateChanged(host, port, selected.state);
         }
     }
 
@@ -93,6 +93,7 @@ final class PrinterConnectionCheck {
         Target target = target(host, port);
         target.listed = true;
         target.attempt++;
+        target.checking = false;
         setState(target, State.ONLINE);
     }
 
@@ -102,30 +103,17 @@ final class PrinterConnectionCheck {
         }
     }
 
-    void retryOffline() {
-        for (Target target : new ArrayList<>(targets.values())) {
-            if (target.state == State.OFFLINE) {
-                check(target);
-            }
-        }
-    }
-
-    boolean hasOffline() {
-        for (Target target : targets.values()) {
-            if (target.state == State.OFFLINE) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void check(Target target) {
+        if (target.checking) {
+            return;
+        }
+        target.checking = true;
         final int request = ++target.attempt;
-        setState(target, State.CHECKING);
         background.execute(() -> {
             boolean online = probe.test(target.host, target.port);
             main.execute(() -> {
                 if (targets.get(key(target.host, target.port)) == target && request == target.attempt) {
+                    target.checking = false;
                     setState(target, online ? State.ONLINE : State.OFFLINE);
                 }
             });
@@ -145,7 +133,9 @@ final class PrinterConnectionCheck {
     }
 
     private void setState(Target target, State state) {
-        target.state = state;
-        listener.onStateChanged(target.host, target.port, state);
+        if (target.state != state) {
+            target.state = state;
+            listener.onStateChanged(target.host, target.port, state);
+        }
     }
 }
