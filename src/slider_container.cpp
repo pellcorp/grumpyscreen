@@ -151,12 +151,16 @@ void SliderContainer::show_value() {
   std::string text = lv_obj_has_flag(slider, LV_OBJ_FLAG_HIDDEN)
     ? std::string(value > 0 ? "On" : "Off")
     : fmt::format("{}{}", value, unit);
-  if (!suffix.empty()) text += "  " + suffix;
+  if (!suffix.empty()) {
+    text += "  " + suffix;
+  }
   lv_label_set_text(slider_value, text.c_str());
 }
 
 void SliderContainer::set_suffix(const std::string &text) {
-  if (text == suffix) return;
+  if (text == suffix) {
+    return;
+  }
   suffix = text;
   show_value();
 }

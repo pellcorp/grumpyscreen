@@ -17,7 +17,9 @@ bool FanPanel::controllable(const std::string &key) {
 
 // speed (value for output_pin fans) and, if the fan has a tachometer, its RPM
 static void show_fan(SliderContainer &row, const json &status) {
-  if (!status.is_object()) return;
+  if (!status.is_object()) {
+    return;
+  }
   for (const char *field : {"value", "speed"}) {
     auto it = status.find(field);
     if (it != status.end() && it->is_number()) {
@@ -73,7 +75,9 @@ void FanPanel::consume(json &j) {
   std::lock_guard<std::mutex> lock(lv_lock);
   for (auto &f : fans) {
     const json::json_pointer ptr(fmt::format("/params/0/{}", f.first));
-    if (j.contains(ptr)) show_fan(*f.second, j[ptr]);
+    if (j.contains(ptr)) {
+      show_fan(*f.second, j[ptr]);
+    }
   }
 }
 
@@ -98,7 +102,9 @@ void FanPanel::create_fans(json &f) {
     // a row is as tall as its controls: rows start at the top, one gap apart
     auto row = std::make_shared<SliderContainer>(fans_cont, display_name.c_str(), Icons::CANCEL, "Off",
                                                  Icons::FAN_ON, "Max", fan_cb, this, "%");
-    if (!controllable(key)) row->set_enabled(false);
+    if (!controllable(key)) {
+      row->set_enabled(false);
+    }
     fans.insert({key, row});
   }
 
@@ -129,7 +135,9 @@ void FanPanel::handle_callback(lv_event_t *event) {
   } else if (btn == all_off_btn.get_container() || btn == all_on_btn.get_container()) {
     const bool on = btn == all_on_btn.get_container();
     for (auto &f : fans) {
-      if (!controllable(f.first)) continue;
+      if (!controllable(f.first)) {
+        continue;
+      }
       ws.gcode_script(fan_gcode(f.first, on ? 1.0 : 0.0));
       f.second->update_value(on ? 100 : 0);
     }
