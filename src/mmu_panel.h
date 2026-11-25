@@ -58,6 +58,7 @@ class MmuPanel : public NotifyConsumer {
   // Caller holds lv_lock.
   bool open_tool_map(const json &metadata, const std::string &filename,
                      std::function<void()> print);
+  std::string print_option_gcodes() const { return tool_map.print_option_gcodes(); }
   // Detach the backend and empty the panel. Caller must hold lv_lock.
   void clear();
   void consume(json &j);

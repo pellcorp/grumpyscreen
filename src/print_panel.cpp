@@ -523,6 +523,11 @@ void PrintPanel::show_browser() {
     simple_dialog_close(delete_dialog);
     delete_dialog = NULL;
   }
+  if (print_options_dialog != NULL) {
+    simple_dialog_close(print_options_dialog);
+    print_options_dialog = NULL;
+    print_option_controls.clear();
+  }
   pending_delete_path.clear();
   lv_obj_add_flag(file_view, LV_OBJ_FLAG_HIDDEN);
   file_panel.clear_view("", "");
@@ -697,17 +702,99 @@ void PrintPanel::handle_print_callback(lv_event_t *event) {
   const std::string path = cur_file->full_path;
   const std::string name = cur_file->name;
   const json metadata = cur_file->metadata;
+  const auto options = KUtils::get_print_options();
+  if (mmu != NULL && mmu->open_tool_map(metadata, name, [this, path]() {
+        start_print(path, mmu->print_option_gcodes());
+      })) {
+    show_browser();
+    return;
+  }
+  if (!options.empty()) {
+    confirm_print(path, name, options);
+    return;
+  }
   show_browser();
-  if (mmu == NULL || !mmu->open_tool_map(metadata, name, [this, path]() { start_print(path); })) {
-    start_print(path);
+  start_print(path);
+}
+
+void PrintPanel::confirm_print(const std::string &path, const std::string &name,
+                               const std::vector<KUtils::PrintOption> &options) {
+  if (print_options_dialog != NULL) {
+    simple_dialog_close(print_options_dialog);
+    print_options_dialog = NULL;
+    print_option_controls.clear();
+  }
+  pending_print_path = path;
+
+  static const char *buttons[] = {"Cancel", "Print", ""};
+  SimpleDialogOptions dialog_opts;
+  dialog_opts.buttons = buttons;
+  dialog_opts.result_cb = _confirm_print;
+  dialog_opts.user_data = this;
+  print_options_dialog = create_configurable_dialog(
+      lv_layer_top(), "Start Print", name.c_str(), dialog_opts);
+
+  lv_obj_t *content = lv_msgbox_get_content(print_options_dialog);
+  lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(content, Theme::gap(), 0);
+
+  for (const auto &opt : options) {
+    lv_obj_t *row = create_row(content);
+    lv_obj_set_width(row, LV_PCT(100));
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    lv_obj_t *label = lv_label_create(row);
+    lv_label_set_text(label, opt.display_name.c_str());
+    lv_obj_add_style(label, &Theme::styles().dim_label, 0);
+
+    lv_obj_t *sw = lv_switch_create(row);
+    if (KUtils::eval_print_option_default(opt)) {
+      lv_obj_add_state(sw, LV_STATE_CHECKED);
+    }
+    print_option_controls.push_back({opt, sw});
   }
 }
 
-void PrintPanel::start_print(const std::string &path) {
+void PrintPanel::handle_print_confirm(uint32_t btn_idx) {
+  std::string gcode;
+  for (const auto &ctrl : print_option_controls) {
+    if (ctrl.toggle == NULL) {
+      continue;
+    }
+    const bool enabled = lv_obj_has_state(ctrl.toggle, LV_STATE_CHECKED);
+    const std::string cmd = KUtils::format_print_option_gcode(ctrl.option, enabled);
+    if (!cmd.empty()) {
+      if (!gcode.empty()) {
+        gcode += '\n';
+      }
+      gcode += cmd;
+    }
+  }
+  print_options_dialog = NULL;
+  print_option_controls.clear();
+
+  const std::string path = pending_print_path;
+  pending_print_path.clear();
+
+  if (btn_idx != 1 || path.empty()) {
+    return;
+  }
+
+  show_browser();
+  start_print(path, gcode);
+}
+
+void PrintPanel::start_print(const std::string &path, const std::string &gcode) {
   const auto &state = State::get_instance()->get_data("/printer_state/print_stats/state"_json_pointer);
   if (!state.is_null() && state != "printing" && state != "paused") {
     background();
-    ws.send_jsonrpc("printer.print.start", {{"filename", path}});
+    if (!gcode.empty()) {
+      ws.send_jsonrpc("printer.gcode.script", {{"script", gcode}}, [this, path](json &) {
+        ws.send_jsonrpc("printer.print.start", {{"filename", path}});
+      });
+    } else {
+      ws.send_jsonrpc("printer.print.start", {{"filename", path}});
+    }
     if (print_started) {
       print_started();
     }

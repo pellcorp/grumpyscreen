@@ -69,6 +69,15 @@ void ToolMapPanel::create() {
   lv_obj_set_flex_grow(title, 1);
   lv_obj_set_style_pad_left(title, gap(), 0);
 
+  option_controls.clear();
+  for (const auto &opt : KUtils::get_print_options()) {
+    lv_obj_t *lbl = lv_label_create(controls);
+    lv_label_set_text(lbl, opt.display_name.c_str());
+    lv_obj_add_style(lbl, &styles().dim_label, 0);
+    lv_obj_t *sw = lv_switch_create(controls);
+    option_controls.push_back({opt, sw});
+  }
+
   print_btn = std::make_unique<ButtonContainer>(controls, Icons::PRINT, "Print",
                                                 &ToolMapPanel::_handle_action, this);
   back_btn = std::make_unique<ButtonContainer>(controls, Icons::BACK, "Back",
@@ -121,6 +130,15 @@ void ToolMapPanel::open(MmuBackend *b, const std::vector<MmuFileTool> &t,
     want.push_back(mmu_slot_for_tool(backend->slots, tool.tool));
   }
   lv_label_set_text(title, fmt::format("Preparing {}", filename).c_str());
+  for (auto &ctrl : option_controls) {
+    if (ctrl.toggle != NULL) {
+      if (KUtils::eval_print_option_default(ctrl.option)) {
+        lv_obj_add_state(ctrl.toggle, LV_STATE_CHECKED);
+      } else {
+        lv_obj_clear_state(ctrl.toggle, LV_STATE_CHECKED);
+      }
+    }
+  }
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(cont);
   lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
@@ -139,6 +157,24 @@ void ToolMapPanel::close() {
 
 bool ToolMapPanel::is_open() const {
   return cont != NULL && !lv_obj_has_flag(cont, LV_OBJ_FLAG_HIDDEN);
+}
+
+std::string ToolMapPanel::print_option_gcodes() const {
+  std::string out;
+  for (const auto &ctrl : option_controls) {
+    if (ctrl.toggle == NULL) {
+      continue;
+    }
+    const bool enabled = lv_obj_has_state(ctrl.toggle, LV_STATE_CHECKED);
+    const std::string cmd = KUtils::format_print_option_gcode(ctrl.option, enabled);
+    if (!cmd.empty()) {
+      if (!out.empty()) {
+        out += '\n';
+      }
+      out += cmd;
+    }
+  }
+  return out;
 }
 
 // a slot already picked for another row: shared where the vendor allows it,

@@ -705,6 +705,39 @@ int main(int argc, char **argv) {
   assert(!lv_obj_has_state(lv_obj_get_parent(label("Print")), LV_STATE_DISABLED));
   click("Print");
   assert(take("printer.print.start").params["filename"] == "USB/models/a \"b\".gcode");
+
+  // Verify configured [print_option "..."] triggers the Start Print dialog.
+  char opt_cfg[] = "/tmp/grumpy-print-option-XXXXXX.cfg";
+  int opt_fd = mkstemps(opt_cfg, 4);
+  assert(opt_fd >= 0);
+  close(opt_fd);
+  {
+    std::ofstream cfg_out(opt_cfg);
+    cfg_out << "[print_option \"adaptive_mesh\"]\n"
+               "display_name: Adaptive Leveling\n"
+               "gcode: SET_ADAPTIVE_MESH ENABLE={}\n"
+               "state_path: /printer_state/gcode_macro _global_var/adaptive_mesh_override\n"
+               "default_path: /printer_state/configfile/settings/gcode_macro _cosmos_settings/adaptive_mesh\n";
+  }
+  assert(Config::get_instance()->load(opt_cfg));
+  status.background();
+  panel.foreground();
+  reply("server.files.list", with_usb);
+  while (!requests.empty()) {
+    reply("server.files.metadata", metadata());
+  }
+  click("a \"b\"", LV_EVENT_SHORT_CLICKED);
+  click("Print");
+  assert(find_label(lv_layer_top(), "Start Print"));
+  assert(find_label(lv_layer_top(), "Adaptive Leveling"));
+  choose(lv_obj_get_parent(find_label(lv_layer_top(), "Start Print")), 1);
+  auto gcode_req = take("printer.gcode.script");
+  assert(gcode_req.params["script"] == "SET_ADAPTIVE_MESH ENABLE=0");
+  json ok = json::object();
+  gcode_req.callback(ok);
+  assert(take("printer.print.start").params["filename"] == "USB/models/a \"b\".gcode");
+  std::remove(opt_cfg);
+  assert(Config::get_instance()->load("grumpyscreen.cfg"));
   status.background();
   panel.foreground();
   reply("server.files.list", with_usb);
