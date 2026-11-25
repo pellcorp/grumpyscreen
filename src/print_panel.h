@@ -52,6 +52,10 @@ class PrintPanel : public NotifyConsumer {
     panel->delete_file(btn_idx);
   };
 
+  static void _confirm_print(lv_obj_t *, uint32_t btn_idx, void *user_data) {
+    static_cast<PrintPanel *>(user_data)->handle_print_confirm(btn_idx);
+  };
+
  private:
   struct PrintFile {
     std::string name;
@@ -90,8 +94,11 @@ class PrintPanel : public NotifyConsumer {
   void handle_metadata(const std::string &path, uint64_t generation, int width, json &data);
   void update_actions();
   void confirm_delete();
+  void confirm_print(const std::string &path, const std::string &name,
+                     const std::vector<KUtils::PrintOption> &options);
+  void handle_print_confirm(uint32_t btn_idx);
   PrintFile *find_file(const std::string &path);
-  void start_print(const std::string &path);
+  void start_print(const std::string &path, const std::string &gcode = "");
   
   KWebSocketClient &ws;
   lv_obj_t *files_cont;
@@ -101,6 +108,12 @@ class PrintPanel : public NotifyConsumer {
   lv_obj_t *file_view;
   lv_obj_t *file_dialog;
   lv_obj_t *delete_dialog = NULL;
+  lv_obj_t *print_options_dialog = NULL;
+  struct OptionControl {
+    KUtils::PrintOption option;
+    lv_obj_t *toggle = NULL;
+  };
+  std::vector<OptionControl> print_option_controls;
   ButtonContainer close_btn;
   ButtonContainer print_btn;
   ButtonContainer delete_btn;
@@ -116,6 +129,7 @@ class PrintPanel : public NotifyConsumer {
   bool refresh_pending;
   bool visible;
   std::string pending_delete_path;
+  std::string pending_print_path;
 };
 
 #endif // __PRINT_PANEL_H__

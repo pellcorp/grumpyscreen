@@ -142,6 +142,18 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
     const auto objects_ptr = "/result/objects"_json_pointer;
     if (d.contains(objects_ptr) && !d[objects_ptr].is_null()) {
       auto objs = d[objects_ptr];
+      // Subscribe to any gcode_macro referenced by a configured [print_option]
+      std::vector<std::string> option_macros;
+      for (const auto &opt : KUtils::get_print_options()) {
+        static const char *kMacroPrefix = "/printer_state/gcode_macro ";
+        if (opt.state_path.rfind(kMacroPrefix, 0) == 0) {
+          size_t end = opt.state_path.find('/', std::strlen(kMacroPrefix));
+          std::string macro = opt.state_path.substr(std::strlen("/printer_state/"),
+              end == std::string::npos ? std::string::npos : end - std::strlen("/printer_state/"));
+          option_macros.push_back(std::move(macro));
+        }
+      }
+
       json sub_objs;
       const char *skip_prefixes[] = {"gcode_macro ", "mcu ", "tmc"};
       const char *skip_names[] = {"mcu", "system_stats", "gcode", "stepper_enable"};
@@ -154,7 +166,7 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
         for (const char *n : skip_names) {
           skip = skip || obj_name == n;
         }
-        if (skip) {
+        if (skip && std::find(option_macros.begin(), option_macros.end(), obj_name) == option_macros.end()) {
           continue;
         }
         if (obj_name == "configfile") {

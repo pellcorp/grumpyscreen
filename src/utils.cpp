@@ -1,3 +1,4 @@
+#include "utils.h"
 #include "hv/requests.h"
 #include "hv/hurl.h"
 #include "config.h"
@@ -154,4 +155,73 @@ namespace KUtils {
   size_t bytes_to_mb(size_t s) {
     return s / 1024 / 1024;
   }
+namespace {
+  bool eval_state_bool(const std::string &path, bool &out) {
+    if (path.empty()) {
+      return false;
+    }
+    const auto &v = State::get_instance()->get_data(json::json_pointer(path));
+    if (v.is_number_integer()) {
+      int n = v.get<int>();
+      if (n < 0) {
+        return false;
+      }
+      out = (n != 0);
+      return true;
+    }
+    if (v.is_boolean()) {
+      out = v.get<bool>();
+      return true;
+    }
+    if (v.is_string()) {
+      std::string s = v.get<std::string>();
+      std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+      out = (s == "true" || s == "1" || s == "yes" || s == "on");
+      return true;
+    }
+    return false;
+  }
+}  // namespace
+
+std::vector<PrintOption> get_print_options() {
+  std::vector<PrintOption> out;
+  for (const auto &el : Config::get_instance()->get_objects("/print_option")) {
+    PrintOption opt;
+    opt.id = el.value("id", std::string());
+    opt.display_name = el.value("display_name", opt.id);
+    opt.gcode = el.value("gcode", std::string());
+    opt.state_path = el.value("state_path", std::string());
+    opt.default_path = el.value("default_path", std::string());
+    if (el.contains("default") && el["default"].is_boolean()) {
+      opt.default_value = el["default"].get<bool>();
+    }
+    if (!opt.gcode.empty() && !opt.display_name.empty()) {
+      out.push_back(std::move(opt));
+    }
+  }
+  return out;
+}
+
+bool eval_print_option_default(const PrintOption &opt) {
+  bool val = opt.default_value;
+  if (eval_state_bool(opt.state_path, val)) {
+    return val;
+  }
+  if (eval_state_bool(opt.default_path, val)) {
+    return val;
+  }
+  return opt.default_value;
+}
+
+std::string format_print_option_gcode(const PrintOption &opt, bool enabled) {
+  std::string cmd = opt.gcode;
+  const std::string val = enabled ? "1" : "0";
+  size_t pos = 0;
+  while ((pos = cmd.find("{}", pos)) != std::string::npos) {
+    cmd.replace(pos, 2, val);
+    pos += val.size();
+  }
+  return cmd;
+}
+
 }  // namespace KUtils

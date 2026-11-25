@@ -46,6 +46,18 @@ namespace KUtils {
   std::string eta_string(int64_t s);
   size_t bytes_to_mb(size_t s);
 
+  struct PrintOption {
+    std::string id;
+    std::string display_name;
+    std::string gcode;
+    std::string state_path;
+    std::string default_path;
+    bool default_value = false;
+  };
+  std::vector<PrintOption> get_print_options();
+  bool eval_print_option_default(const PrintOption &opt);
+  std::string format_print_option_gcode(const PrintOption &opt, bool enabled);
+
   template<typename T, typename U> void sort_map_values(std::map<T, U> v,
 							std::vector<U> &out_vect,
 							std::function<bool(U&, U&)> sorter) {

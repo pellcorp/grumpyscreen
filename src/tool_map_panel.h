@@ -3,6 +3,7 @@
 
 #include "mmu_backend.h"
 #include "button_container.h"
+#include "utils.h"
 #include "lvgl/lvgl.h"
 
 #include <functional>
@@ -23,6 +24,7 @@ class ToolMapPanel {
   void close();
   bool is_open() const;
   void update();  // backend state changed; caller holds lv_lock
+  std::string print_option_gcodes() const;
 
   static void _handle_table(lv_event_t *e) { ((ToolMapPanel*)e->user_data)->handle_table(e); }
   static void _handle_pick(lv_event_t *e) { ((ToolMapPanel*)e->user_data)->pick(e); }
@@ -61,6 +63,11 @@ class ToolMapPanel {
   std::unique_ptr<ButtonContainer> print_btn;
   lv_obj_t *picker = NULL;
   lv_obj_t *picker_box = NULL;
+  struct OptionControl {
+    KUtils::PrintOption option;
+    lv_obj_t *toggle = NULL;
+  };
+  std::vector<OptionControl> option_controls;
 };
 
 #endif // __TOOL_MAP_PANEL_H__
