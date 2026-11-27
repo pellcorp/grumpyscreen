@@ -279,7 +279,8 @@ void WifiPanel::handle_callback(lv_event_t *e) {
     return;
   }
 
-  if (code == LV_EVENT_VALUE_CHANGED || code == LV_EVENT_LONG_PRESSED) {
+  // Keep the held SSID when the table emits a selection event on release.
+  if ((code == LV_EVENT_VALUE_CHANGED || code == LV_EVENT_LONG_PRESSED) && !suppress_next_table_selection) {
     uint16_t row;
     uint16_t col;
     lv_table_get_selected_cell(wifi_table, &row, &col);
@@ -301,6 +302,10 @@ void WifiPanel::handle_callback(lv_event_t *e) {
     // we need to reload the current network so we have the right state to compare
     if (find_current_network()) {
       LOG_TRACE("handle callback - current network {}", cur_network);
+    }
+
+    if (!list_networks.count(selected_network)) {
+      return; // New networks require a long press to open the password dialog.
     }
 
     const bool selecting_new_network = cur_network != selected_network;
@@ -332,13 +337,6 @@ void WifiPanel::handle_callback(lv_event_t *e) {
         return;
       }
       wpa_event.send_command("SAVE_CONFIG");
-    } else {
-      stop_ip_poll();
-      if (selecting_new_network) {
-        restart_wifi_after_connect = true;
-        restart_wifi_from_network = cur_network;
-      }
-      show_password_dialog();
     }
   } else if (code == LV_EVENT_LONG_PRESSED) {
     suppress_next_table_selection = true;
@@ -350,6 +348,11 @@ void WifiPanel::handle_callback(lv_event_t *e) {
       opts.result_cb = _remove_network;
       opts.user_data = this;
       create_configurable_dialog(lv_layer_top(), "Forget network", fmt::format("Delete {}?", selected_network).c_str(), opts);
+    } else {
+      stop_ip_poll();
+      restart_wifi_after_connect = cur_network != selected_network;
+      restart_wifi_from_network = restart_wifi_after_connect ? cur_network : "";
+      show_password_dialog();
     }
   }
 }

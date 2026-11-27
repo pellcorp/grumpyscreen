@@ -23,6 +23,12 @@ applies to both Printer and USB files; scrolling does not open the dialog.
 Large libraries create only a few rows of tiles initially, reusing them as you
 scroll. Previews load for visible files and stay cached while the panel is open.
 
+## Wi-Fi networks
+
+Tap a saved network to connect, or hold it for about 0.4 seconds to open the
+Forget confirmation. For a new network, hold its row to open the password
+dialog; a short tap does nothing. Scrolling does not activate either action.
+
 ## Credits
 
 - [Guppyscreen](https://github.com/ballaswag/guppyscreen)
