@@ -54,7 +54,8 @@ void State::set_data(const std::string &key, json &j, const std::string &json_pa
     LOG_DEBUG("state update for {} missing {}", key, json_path);
     return;
   }
-  auto patch = j[ptr];
+  // a reference: merge_patch only reads it, and copying the whole status update every 250 ms is pure waste
+  const json &patch = j[ptr];
   if (!patch.is_null()) {
     data[key].merge_patch(patch);
   }
