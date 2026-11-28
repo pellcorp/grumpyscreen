@@ -182,12 +182,20 @@ void PrintStatusPanel::reset() {
   active_extruder_.clear();
   heater_bed_target = -1;
 
-  // no preview until the next print's metadata arrives
+  // no preview until the next print's metadata arrives. Drop the finished print's decoded preview from LVGL's
+  // image cache as well: it is keyed by file name, so it would otherwise sit in RAM until evicted and a
+  // re-sliced file of the same name would keep showing the old picture.
   lv_obj_add_flag(thumbnail, LV_OBJ_FLAG_HIDDEN);
+  const void *old_src = lv_img_get_src(thumbnail);
+  const std::string old_thumbnail = lv_img_src_get_type(old_src) == LV_IMG_SRC_FILE
+      ? std::string(static_cast<const char *>(old_src)) : std::string();
   lv_img_set_src(thumbnail, NULL);
 
   mini_print_status.reset();
   mini_print_status.hide();
+  if (!old_thumbnail.empty()) {
+    lv_img_cache_invalidate_src(old_thumbnail.c_str());
+  }
 }
 
 void PrintStatusPanel::init(json &fan_cfgs) {
