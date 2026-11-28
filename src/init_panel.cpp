@@ -12,6 +12,65 @@ using namespace Theme;
 #include <algorithm>
 #include <cstdio>
 
+namespace {
+
+bool starts_with(const std::string &s, const char *prefix) {
+  return s.rfind(prefix, 0) == 0;
+}
+
+// Klipper objects no panel reads anything from: skipping them keeps their (sometimes large) status
+// out of every update. Re-check with `grep -rn '<name>' src` before adding a reader of one of these.
+bool subscription_skip(const std::string &name) {
+  static const char *const names[] = {
+    "bed_mesh", "idle_timeout", "webhooks", "query_endstops", "load_cell_probe", "probe", "telemetry",
+    "filament_switch_sensor", "virtual_pins"
+  };
+  for (const char *n : names) {
+    if (name == n) {
+      return true;
+    }
+  }
+  return starts_with(name, "filament_switch_sensor ");
+}
+
+// The only fields the UI reads from each kind of Klipper object (every field it reads is listed here, see the
+// readers in print_status_panel, extruder_panel, main_panel, finetune_panel, fan_panel, led_panel, prompt_panel,
+// homing_panel). Returns null for everything else (mmu, AFC, exclude_object, manual_probe, screws_tilt_adjust,
+// ...), which Moonraker takes as "all fields", exactly as before.
+json subscription_fields(const std::string &name) {
+  if (name == "toolhead") {
+    return json::array({"homed_axes", "extruder"});
+  } else if (name == "motion_report") {
+    return json::array({"live_velocity", "live_extruder_velocity"});
+  } else if (name == "gcode_move") {
+    return json::array({"speed_factor", "extrude_factor", "homing_origin", "gcode_position"});
+  } else if (name == "print_stats") {
+    return json::array({"state", "filename", "print_duration", "info"});
+  } else if (name == "virtual_sdcard") {
+    return json::array({"progress"});
+  } else if (name == "pause_resume") {
+    return json::array({"is_paused"});
+  } else if (name == "display_status") {
+    return json::array({"message"});
+  } else if (starts_with(name, "extruder") && !starts_with(name, "extruder_stepper")) {
+    return json::array({"temperature", "target", "pressure_advance"});
+  } else if (name == "heater_bed" || starts_with(name, "heater_generic ")) {
+    return json::array({"temperature", "target"});
+  } else if (starts_with(name, "temperature_sensor ") || starts_with(name, "temperature_fan ")) {
+    return json::array({"temperature", "target"});
+  } else if (name == "fan" || starts_with(name, "heater_fan ") || starts_with(name, "fan_generic ")
+             || starts_with(name, "controller_fan ")) {
+    return json::array({"speed"});
+  } else if (starts_with(name, "output_pin ")) {
+    return json::array({"value"});
+  } else if (starts_with(name, "led ")) {
+    return json::array({"color_data"});
+  }
+  return nullptr;
+}
+
+} // namespace
+
 InitPanel::InitPanel(MainPanel &mp, std::mutex& l)
   : cont(lv_obj_create(lv_scr_act()))
   , label(lv_label_create(cont))
@@ -134,13 +193,13 @@ void InitPanel::start_initialization(KWebSocketClient &ws) {
         for (const char *n : skip_names) {
           skip = skip || obj_name == n;
         }
-        if (skip) {
+        if (skip || subscription_skip(obj_name)) {
           continue;
         }
         if (obj_name == "configfile") {
           sub_objs[obj_name] = json::array({"settings"});
         } else {
-          sub_objs[obj_name] = nullptr;
+          sub_objs[obj_name] = subscription_fields(obj_name);
         }
       }
 
