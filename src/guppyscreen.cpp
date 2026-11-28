@@ -335,11 +335,17 @@ void GuppyScreen::loop() {
         struct pollfd pfd = {evdev_fd, POLLIN, 0};
         const int ready = poll(&pfd, 1, sleep_tick_ms);
         if (ready > 0 && (pfd.revents & POLLIN)) {
-          lv_indev_t *indev = lv_indev_get_next(NULL);
-          if (indev != NULL && indev->driver != NULL && indev->driver->read_timer != NULL) {
+          bool timer_made_ready = false;
+          {
+            // the indev list and the timer belong to LVGL: only touch them with the lock held
             std::lock_guard<std::mutex> guard(lv_lock);
-            lv_timer_ready(indev->driver->read_timer);
-          } else {
+            lv_indev_t *indev = lv_indev_get_next(NULL);
+            if (indev != NULL && indev->driver != NULL && indev->driver->read_timer != NULL) {
+              lv_timer_ready(indev->driver->read_timer);
+              timer_made_ready = true;
+            }
+          }
+          if (!timer_made_ready) {
             usleep(LV_INDEV_DEF_READ_PERIOD * 1000);
           }
         } else if (ready > 0) {
