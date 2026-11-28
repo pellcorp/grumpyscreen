@@ -15,6 +15,12 @@
 #ifdef GUPPY_SDL
 #include <cstdlib>
 #endif
+#if !defined(GUPPY_SDL) && !defined(OS_ANDROID)
+#include <poll.h>
+
+// lv_drivers' touch device; -1 when it could not be opened
+extern "C" int evdev_fd;
+#endif
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 
@@ -266,7 +272,11 @@ void GuppyScreen::loop() {
 #endif
 #endif
           lv_obj_move_foreground(screen_saver);
+          pause_touch_reads(true);
           is_sleeping = true;
+        } else {
+          // A touch read that did not wake the display (a release with no press)
+          pause_touch_reads(true);
         }
       } else {
         if (is_sleeping.load()) {
@@ -282,6 +292,7 @@ void GuppyScreen::loop() {
           }
 #endif
 #endif
+          pause_touch_reads(false);
           lv_obj_move_background(screen_saver);
           is_sleeping = false;
         }
@@ -294,6 +305,8 @@ void GuppyScreen::loop() {
     // Wait until LVGL's next timer is due, capped at one display frame so
     // updates from the network thread are rendered promptly. SDL also needs
     // its event poll serviced every 10 ms. The lock is released while waiting.
+    // Asleep nothing has to be shown promptly, and touch reads are paused, so
+    // the loop waits on the touch device itself, up to 100 ms at a time.
 #ifdef GUPPY_SDL
     const uint32_t max_wait = 10;
 #else
@@ -306,8 +319,51 @@ void GuppyScreen::loop() {
     else if (wait_ms > max_wait) {
       wait_ms = max_wait;
     }
+#if !defined(GUPPY_SDL) && !defined(OS_ANDROID)
+    if (is_sleeping.load() && evdev_fd >= 0) {
+      if (time_till_next > wait_ms) {
+        wait_ms = time_till_next < 100 ? time_till_next : 100;
+      }
+      struct pollfd touch = {evdev_fd, POLLIN, 0};
+      const int ready = poll(&touch, 1, wait_ms);
+      if (ready > 0 && (touch.revents & POLLIN)) {
+        std::lock_guard<std::mutex> lock(lv_lock);
+        pause_touch_reads(false);
+      } else if (ready != 0) {
+        usleep(wait_ms * 1000); // an error or a signal, not a touch: don't spin
+      }
+      continue;
+    }
+#endif
     usleep(wait_ms * 1000);
   }
+}
+
+// LVGL reads the touch panel every LV_INDEV_DEF_READ_PERIOD (30 ms), which
+// would wake the loop 33 times a second while the display sleeps. Asleep, the
+// loop waits on the touch device instead, and resuming reads it at once, so a
+// waking touch is seen pressed while the screen saver still catches it.
+void GuppyScreen::pause_touch_reads(bool pause) {
+#if !defined(GUPPY_SDL) && !defined(OS_ANDROID)
+  if (evdev_fd < 0) {
+    return; // nothing to wait on, so keep reading
+  }
+  for (lv_indev_t *indev = lv_indev_get_next(NULL); indev != NULL; indev = lv_indev_get_next(indev)) {
+    lv_timer_t *t = indev->driver->read_timer;
+    if (t == NULL) {
+      continue;
+    }
+    if (pause) {
+      lv_timer_pause(t);
+    }
+    else {
+      lv_timer_resume(t);
+      lv_timer_ready(t);
+    }
+  }
+#else
+  LV_UNUSED(pause);
+#endif
 }
 
 std::mutex &GuppyScreen::get_lock() {

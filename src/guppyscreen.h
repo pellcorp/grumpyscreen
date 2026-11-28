@@ -60,6 +60,7 @@ class GuppyScreen {
   static GuppyScreen *get();
   static GuppyScreen *init(std::function<void(lv_color_t, lv_color_t)> hal_init);
   static void loop();
+  static void pause_touch_reads(bool pause);
   static void new_theme_apply_cb(lv_theme_t *th, lv_obj_t *obj);
 #ifdef GUPPY_CALIBRATE
   static void handle_calibrated(lv_event_t *event);
