@@ -16,10 +16,23 @@
 #include <cstdlib>
 #endif
 #include <experimental/filesystem>
+#ifdef GUPPY_FBDEV
+#include <poll.h>
+
+// the touch device lv_drivers opened in evdev_init() / evdev_set_file(), used to wake from the slow sleep tick
+extern "C" int evdev_fd;
+#endif
 namespace fs = std::experimental::filesystem;
 
 namespace {
 constexpr double calibration_version = 2.0;
+
+#ifdef GUPPY_FBDEV
+// how often the ui loop ticks while the display sleeps: nothing is visible, only timers and network callbacks run
+constexpr int sleep_tick_ms = 250;
+// refresh period while asleep, instead of LV_DISP_DEF_REFR_PERIOD
+constexpr uint32_t sleep_refresh_ms = 1000;
+#endif
 
 #if defined(GUPPY_FBDEV) && !defined(COSMOS)
 std::string backlight_dir;
@@ -266,11 +279,24 @@ void GuppyScreen::loop() {
 #endif
 #endif
           lv_obj_move_foreground(screen_saver);
+#ifdef GUPPY_FBDEV
+          // draw the screen saver once, then refresh at most once a second: nothing visible changes until wake.
+          // (lv_inv_area() resumes a paused refresh timer on every invalidation, so slow it down instead)
+          lv_refr_now(NULL);
+          lv_timer_set_period(lv_disp_get_default()->refr_timer, sleep_refresh_ms);
+#endif
           is_sleeping = true;
         }
       } else {
         if (is_sleeping.load()) {
           LOG_DEBUG("waking up display");
+          lv_obj_move_background(screen_saver);
+#ifdef GUPPY_FBDEV
+          // bring the real screen back at full rate and repaint all of it before the panel is switched on
+          lv_timer_set_period(lv_disp_get_default()->refr_timer, LV_DISP_DEF_REFR_PERIOD);
+          lv_obj_invalidate(lv_scr_act());
+          lv_refr_now(NULL);
+#endif
 #ifdef GUPPY_FBDEV
 #ifdef COSMOS
           fbdev_unblank();
@@ -282,7 +308,6 @@ void GuppyScreen::loop() {
           }
 #endif
 #endif
-          lv_obj_move_background(screen_saver);
           is_sleeping = false;
         }
       }
@@ -298,6 +323,39 @@ void GuppyScreen::loop() {
     const uint32_t max_wait = 10;
 #else
     const uint32_t max_wait = LV_DISP_DEF_REFR_PERIOD;
+#endif
+#ifdef GUPPY_FBDEV
+    if (is_sleeping.load()) {
+      // asleep: tick slowly, but a touch on the input device ends the wait at once, so waking is not delayed
+      // (and a short tap is read while it is still pressed, as it is at the normal rate)
+      // The lock is not held here (released above). The input read timer only runs 30 ms after its last run, so
+      // data waiting on the fd would make poll() return at once until then (a busy loop): make that timer due,
+      // so the very next lv_timer_handler() drains the fd.
+      if (evdev_fd >= 0) {
+        struct pollfd pfd = {evdev_fd, POLLIN, 0};
+        const int ready = poll(&pfd, 1, sleep_tick_ms);
+        if (ready > 0 && (pfd.revents & POLLIN)) {
+          bool timer_made_ready = false;
+          {
+            // the indev list and the timer belong to LVGL: only touch them with the lock held
+            std::lock_guard<std::mutex> guard(lv_lock);
+            lv_indev_t *indev = lv_indev_get_next(NULL);
+            if (indev != NULL && indev->driver != NULL && indev->driver->read_timer != NULL) {
+              lv_timer_ready(indev->driver->read_timer);
+              timer_made_ready = true;
+            }
+          }
+          if (!timer_made_ready) {
+            usleep(LV_INDEV_DEF_READ_PERIOD * 1000);
+          }
+        } else if (ready > 0) {
+          usleep(sleep_tick_ms * 1000); // POLLERR / POLLHUP / POLLNVAL: the device went away, never spin on it
+        }
+      } else {
+        usleep(sleep_tick_ms * 1000);
+      }
+      continue;
+    }
 #endif
     uint32_t wait_ms = time_till_next;
     if (wait_ms < 1) {

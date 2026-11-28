@@ -182,12 +182,20 @@ void PrintStatusPanel::reset() {
   active_extruder_.clear();
   heater_bed_target = -1;
 
-  // no preview until the next print's metadata arrives
+  // no preview until the next print's metadata arrives. Drop the finished print's decoded preview from LVGL's
+  // image cache as well: it is keyed by file name, so it would otherwise sit in RAM until evicted and a
+  // re-sliced file of the same name would keep showing the old picture.
   lv_obj_add_flag(thumbnail, LV_OBJ_FLAG_HIDDEN);
+  const void *old_src = lv_img_get_src(thumbnail);
+  const std::string old_thumbnail = lv_img_src_get_type(old_src) == LV_IMG_SRC_FILE
+      ? std::string(static_cast<const char *>(old_src)) : std::string();
   lv_img_set_src(thumbnail, NULL);
 
   mini_print_status.reset();
   mini_print_status.hide();
+  if (!old_thumbnail.empty()) {
+    lv_img_cache_invalidate_src(old_thumbnail.c_str());
+  }
 }
 
 void PrintStatusPanel::init(json &fan_cfgs) {
@@ -259,7 +267,7 @@ void PrintStatusPanel::populate() {
   if (!v.is_null()) {
     int new_value = static_cast<int>(v.template get<double>() * 100);
     lv_bar_set_value(progress_bar, new_value, LV_ANIM_ON);
-    lv_label_set_text(progress_label, fmt::format("{}%", new_value).c_str());
+    set_label_if_changed(progress_label, fmt::format("{}%", new_value).c_str());
     mini_print_status.update_progress(new_value);
   }
 
@@ -300,6 +308,9 @@ void PrintStatusPanel::handle_metadata(const std::string &gcode_file, json &j) {
     std::lock_guard<std::mutex> lock(lv_lock);
     const std::string img_path = "A:" + fullpath;
 
+    // reset() only drops the previous print's preview. This file may have been re-sliced under the same name
+    // while the print list (which caches the same source) was never refreshed, so always decode it afresh.
+    lv_img_cache_invalidate_src(img_path.c_str());
     lv_img_set_src(thumbnail, img_path.c_str());
     // as large as the cell leaves beside the progress bar, whole and in
     // proportion; a small bitmap is enlarged at most 2x so it stays crisp
@@ -432,7 +443,7 @@ void PrintStatusPanel::consume(json &j) {
   if (!v.is_null()) {
     int new_value = static_cast<int>(v.template get<double>() * 100);
     lv_bar_set_value(progress_bar, new_value, LV_ANIM_ON);
-    lv_label_set_text(progress_label, fmt::format("{}%", new_value).c_str());
+    set_label_if_changed(progress_label, fmt::format("{}%", new_value).c_str());
     mini_print_status.update_progress(new_value);
   }
 

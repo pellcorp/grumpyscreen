@@ -142,9 +142,9 @@ void SliderContainer::set_range(int min_range, int max_range) {
 void SliderContainer::update_value(int value) {
   // no slider means a plain switch: a percentage would be a lie
   if (lv_obj_has_flag(slider, LV_OBJ_FLAG_HIDDEN)) {
-    lv_label_set_text(slider_value, value > 0 ? "On" : "Off");
+    set_label_if_changed(slider_value, value > 0 ? "On" : "Off");
   } else {
-    lv_label_set_text(slider_value, fmt::format("{}{}", value, unit).c_str());
+    set_label_if_changed(slider_value, fmt::format("{}{}", value, unit).c_str());
   }
   lv_slider_set_value(slider, value, LV_ANIM_ON);
 }
