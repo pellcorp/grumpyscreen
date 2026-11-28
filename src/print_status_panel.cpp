@@ -267,7 +267,7 @@ void PrintStatusPanel::populate() {
   if (!v.is_null()) {
     int new_value = static_cast<int>(v.template get<double>() * 100);
     lv_bar_set_value(progress_bar, new_value, LV_ANIM_ON);
-    lv_label_set_text(progress_label, fmt::format("{}%", new_value).c_str());
+    set_label_if_changed(progress_label, fmt::format("{}%", new_value).c_str());
     mini_print_status.update_progress(new_value);
   }
 
@@ -443,7 +443,7 @@ void PrintStatusPanel::consume(json &j) {
   if (!v.is_null()) {
     int new_value = static_cast<int>(v.template get<double>() * 100);
     lv_bar_set_value(progress_bar, new_value, LV_ANIM_ON);
-    lv_label_set_text(progress_label, fmt::format("{}%", new_value).c_str());
+    set_label_if_changed(progress_label, fmt::format("{}%", new_value).c_str());
     mini_print_status.update_progress(new_value);
   }
 

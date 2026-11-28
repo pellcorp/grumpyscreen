@@ -67,12 +67,12 @@ lv_obj_t *MiniPrintStatus::get_container() {
 
 void MiniPrintStatus::update_eta(std::string &eta_str) {
   eta = eta_str;
-  lv_label_set_text(status_label, fmt::format("ETA: {}\nStatus: {}", eta, status).c_str());
+  set_label_if_changed(status_label, fmt::format("ETA: {}\nStatus: {}", eta, status).c_str());
 }
 
 void MiniPrintStatus::update_status(std::string &status_str) {
   status = status_str;
-  lv_label_set_text(status_label, fmt::format("ETA: {}\nStatus: {}", eta, status).c_str());
+  set_label_if_changed(status_label, fmt::format("ETA: {}\nStatus: {}", eta, status).c_str());
 }
 
 void MiniPrintStatus::update_progress(int p) {

@@ -3,6 +3,7 @@
 
 #include "lvgl/lvgl.h"
 
+#include <cstring>
 #include <string>
 
 // The one place the UI's look is defined.
@@ -203,6 +204,16 @@ void set_btn_label(lv_obj_t *btn, const char *text);
 // something the label cannot: red for a verb that moves filament out, the
 // accent for a setting that is currently on. Disabled ones all look the same.
 void set_action_btn(lv_obj_t *btn, bool enabled, lv_color_t enabled_colour);
+
+// lv_label_set_text() always reallocates the text and invalidates the label, even for identical text, which
+// costs a framebuffer redraw. For values pushed on every status update (most of them unchanged) only call it
+// when the text really differs. (lv_bar_set_value and lv_arc_set_value already return early on an equal value.)
+inline void set_label_if_changed(lv_obj_t *label, const char *text) {
+  const char *current = lv_label_get_text(label);
+  if (current == NULL || std::strcmp(current, text) != 0) {
+    lv_label_set_text(label, text);
+  }
+}
 
 }  // namespace Theme
 
