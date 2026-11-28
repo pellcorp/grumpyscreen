@@ -308,6 +308,9 @@ void PrintStatusPanel::handle_metadata(const std::string &gcode_file, json &j) {
     std::lock_guard<std::mutex> lock(lv_lock);
     const std::string img_path = "A:" + fullpath;
 
+    // reset() only drops the previous print's preview. This file may have been re-sliced under the same name
+    // while the print list (which caches the same source) was never refreshed, so always decode it afresh.
+    lv_img_cache_invalidate_src(img_path.c_str());
     lv_img_set_src(thumbnail, img_path.c_str());
     // as large as the cell leaves beside the progress bar, whole and in
     // proportion; a small bitmap is enlarged at most 2x so it stays crisp
