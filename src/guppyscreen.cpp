@@ -328,9 +328,23 @@ void GuppyScreen::loop() {
     if (is_sleeping.load()) {
       // asleep: tick slowly, but a touch on the input device ends the wait at once, so waking is not delayed
       // (and a short tap is read while it is still pressed, as it is at the normal rate)
+      // The lock is not held here (released above). The input read timer only runs 30 ms after its last run, so
+      // data waiting on the fd would make poll() return at once until then (a busy loop): make that timer due,
+      // so the very next lv_timer_handler() drains the fd.
       if (evdev_fd >= 0) {
         struct pollfd pfd = {evdev_fd, POLLIN, 0};
-        poll(&pfd, 1, sleep_tick_ms);
+        const int ready = poll(&pfd, 1, sleep_tick_ms);
+        if (ready > 0 && (pfd.revents & POLLIN)) {
+          lv_indev_t *indev = lv_indev_get_next(NULL);
+          if (indev != NULL && indev->driver != NULL && indev->driver->read_timer != NULL) {
+            std::lock_guard<std::mutex> guard(lv_lock);
+            lv_timer_ready(indev->driver->read_timer);
+          } else {
+            usleep(LV_INDEV_DEF_READ_PERIOD * 1000);
+          }
+        } else if (ready > 0) {
+          usleep(sleep_tick_ms * 1000); // POLLERR / POLLHUP / POLLNVAL: the device went away, never spin on it
+        }
       } else {
         usleep(sleep_tick_ms * 1000);
       }
