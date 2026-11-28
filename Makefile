@@ -25,7 +25,7 @@ WARNINGS		:= -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wp
 					-Wno-unused-value -Wno-unused-parameter -Wno-missing-field-initializers -Wuninitialized -Wmaybe-uninitialized -Wall -Wextra -Wno-unused-parameter \
 					-Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess -Wno-format-nonliteral -Wpointer-arith -Wno-cast-qual \
 					-Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-sign-compare
-CFLAGS 			?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
+CFLAGS 			?= -O3 -g0 -ffunction-sections -fdata-sections -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
 DEPS_KEY		?= $(if $(CROSS_COMPILE),$(patsubst %-,%,$(CROSS_COMPILE)),native)
 DEPS_DIR		?= build/deps/$(DEPS_KEY)
 DEPS_LIB_DIR	= $(DEPS_DIR)/lib
@@ -33,7 +33,7 @@ LIBHV_A			= $(DEPS_LIB_DIR)/libhv.a
 WPA_CLIENT_A	= $(DEPS_LIB_DIR)/libwpa_client.a
 LIBHV_INPUTS	:= $(shell find libhv \( -path libhv/include -o -path libhv/lib \) -prune -o -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name 'Makefile*' -o -name 'config.mk' \) -print)
 WPA_CLIENT_INPUTS := $(shell find wpa_supplicant -type f \( -name '*.c' -o -name '*.h' -o -name 'Makefile*' -o -name '.config' \))
-LDFLAGS 		?= -static -lm -L$(DEPS_LIB_DIR) -l:libhv.a -latomic -lpthread -L$(DEPS_LIB_DIR) -l:libwpa_client.a -lstdc++fs
+LDFLAGS 		?= -static -Wl,--gc-sections -lm -L$(DEPS_LIB_DIR) -l:libhv.a -latomic -lpthread -L$(DEPS_LIB_DIR) -l:libwpa_client.a -lstdc++fs
 BIN 			= grumpyscreen
 BUILD_DIR 		?= ./build
 BUILD_OBJ_DIR 	= $(BUILD_DIR)/obj
