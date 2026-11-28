@@ -155,7 +155,7 @@ void KWebSocketClient::unregister_notify_update(NotifyConsumer *consumer) {
     notify_consumers.begin(), notify_consumers.end(),
     [consumer](NotifyConsumer *c) {
       return c == consumer;
-    }));
+    }), notify_consumers.end());
 }
 
 int KWebSocketClient::send_jsonrpc(const std::string &method, const json &params) {
